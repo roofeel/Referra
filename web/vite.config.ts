@@ -9,7 +9,7 @@ export default defineConfig({
     setupFiles: './src/test/setup.ts',
   },
   server: {
-    allowedHosts: ['echo-mind.coolify-tinca.tonob.net'],
+    allowedHosts: ['referra.coolify-tinca.tonob.net'],
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -18,7 +18,7 @@ export default defineConfig({
     },
   },
   preview: {
-    allowedHosts: ['echo-mind.coolify-tinca.tonob.net'],
+    allowedHosts: ['referra.coolify-tinca.tonob.net'],
   },
 
 })
