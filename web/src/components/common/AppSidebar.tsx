@@ -22,7 +22,7 @@ type AppSidebarProps = {
 export function AppSidebar({ activeItem, ariaLabel }: AppSidebarProps) {
   return (
     <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-slate-800 py-6">
-      <div className="mb-10 px-6">
+      <div className="mb-6 px-6">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-600">
             <span className="material-symbols-outlined text-xl text-white">account_tree</span>

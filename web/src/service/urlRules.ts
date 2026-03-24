@@ -2,6 +2,8 @@ import { buildApiUrl, throwApiError } from './http';
 
 export interface UrlRule {
   id: string;
+  clientId: string | null;
+  client?: { id: string; name: string } | null;
   name: string;
   shortName: string;
   status: string;
@@ -14,6 +16,14 @@ export interface UrlRule {
 }
 
 export const urlRulesApi = {
+  listClients: async (): Promise<Array<{ id: string; name: string }>> => {
+    const response = await fetch(buildApiUrl('/api/url-rules/clients'));
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to fetch URL rule clients');
+    }
+    return response.json();
+  },
+
   list: async (options?: { status?: string; search?: string }): Promise<UrlRule[]> => {
     const params = new URLSearchParams();
     if (options?.status) params.set('status', options.status);
@@ -36,8 +46,11 @@ export const urlRulesApi = {
   },
 
   create: async (data: {
-    name: string;
-    shortName: string;
+    clientId?: string;
+    clientName?: string;
+    ruleName?: string;
+    name?: string;
+    shortName?: string;
     status?: string;
     logicSource?: string;
     activeVersion?: string;
@@ -60,6 +73,9 @@ export const urlRulesApi = {
   update: async (
     id: string,
     data: {
+      clientId?: string;
+      clientName?: string;
+      ruleName?: string;
       name?: string;
       shortName?: string;
       status?: string;

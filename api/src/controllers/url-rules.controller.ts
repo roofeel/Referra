@@ -1,4 +1,4 @@
-import { urlRules } from "../../../packages/db/index.js";
+import { clients, urlRules } from "../../../packages/db/index.js";
 
 type RequestWithParams<T extends Record<string, string>> = Request & { params: T };
 
@@ -8,6 +8,26 @@ function normalizeStatus(status?: string) {
   if (!value) return undefined;
   if (!["active", "draft", "archived"].includes(value)) return undefined;
   return value;
+}
+
+function buildShortName(source: string) {
+  const alphanumeric = source
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (alphanumeric.length === 0) {
+    return "RULE";
+  }
+
+  const initials = alphanumeric.map((part) => part[0]).join("");
+  if (initials.length >= 2) {
+    return initials.slice(0, 8);
+  }
+
+  return alphanumeric.join("").slice(0, 8);
 }
 
 export const urlRulesController = {
@@ -31,8 +51,16 @@ export const urlRulesController = {
     return Response.json(item);
   },
 
+  async listClients() {
+    const items = await clients.list();
+    return Response.json(items);
+  },
+
   async create(req: Request) {
     const body = (await req.json()) as {
+      clientId?: string;
+      clientName?: string;
+      ruleName?: string;
       name?: string;
       shortName?: string;
       status?: string;
@@ -42,17 +70,31 @@ export const urlRulesController = {
       environmentVariables?: unknown;
     };
 
-    if (!body.name?.trim()) {
+    let resolvedClientId: string | undefined;
+    if (body.clientId?.trim()) {
+      const existingClient = await clients.findById(body.clientId.trim());
+      if (!existingClient) {
+        return Response.json({ error: "client not found" }, { status: 400 });
+      }
+      resolvedClientId = existingClient.id;
+    } else if (body.clientName?.trim()) {
+      const client = await clients.getOrCreateByName(body.clientName.trim());
+      resolvedClientId = client?.id;
+    }
+
+    const normalizedName = body.name?.trim() || body.ruleName?.trim();
+    const normalizedShortName =
+      body.shortName?.trim() ||
+      buildShortName(`${body.clientName?.trim() ? `${body.clientName.trim()} ` : ""}${normalizedName || ""}`);
+
+    if (!normalizedName) {
       return Response.json({ error: "name is required" }, { status: 400 });
     }
 
-    if (!body.shortName?.trim()) {
-      return Response.json({ error: "shortName is required" }, { status: 400 });
-    }
-
     const created = await urlRules.create({
-      name: body.name.trim(),
-      shortName: body.shortName.trim(),
+      clientId: resolvedClientId,
+      name: normalizedName,
+      shortName: normalizedShortName,
       status: normalizeStatus(body.status) || "draft",
       logicSource: body.logicSource || "",
       activeVersion: body.activeVersion,
@@ -66,6 +108,9 @@ export const urlRulesController = {
   async update(req: Request) {
     const request = req as RequestWithParams<{ id: string }>;
     const body = (await req.json()) as {
+      clientId?: string;
+      clientName?: string;
+      ruleName?: string;
       name?: string;
       shortName?: string;
       status?: string;
@@ -80,8 +125,26 @@ export const urlRulesController = {
       return Response.json({ error: "URL rule not found" }, { status: 404 });
     }
 
+    const normalizedName = body.name?.trim() || body.ruleName?.trim();
+    let resolvedClientId: string | undefined;
+    if (body.clientId !== undefined) {
+      if (!body.clientId) {
+        resolvedClientId = undefined;
+      } else {
+        const existingClient = await clients.findById(body.clientId.trim());
+        if (!existingClient) {
+          return Response.json({ error: "client not found" }, { status: 400 });
+        }
+        resolvedClientId = existingClient.id;
+      }
+    } else if (body.clientName?.trim()) {
+      const client = await clients.getOrCreateByName(body.clientName.trim());
+      resolvedClientId = client?.id;
+    }
+
     const updated = await urlRules.update(request.params.id, {
-      name: body.name?.trim(),
+      clientId: body.clientId === undefined && !body.clientName ? undefined : (resolvedClientId ?? null),
+      name: normalizedName,
       shortName: body.shortName?.trim(),
       status: normalizeStatus(body.status) || undefined,
       logicSource: body.logicSource,

@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export function UrlRulesHeader() {
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-100 bg-white px-8">
@@ -13,13 +15,15 @@ export function UrlRulesHeader() {
       </div>
 
       <div className="flex items-center gap-4">
-        <button
-          type="button"
+        <Link
+          to="/url-rules/create"
           className="flex items-center gap-2 rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-800"
         >
-          <span className="material-symbols-outlined text-sm">add_box</span>
+          <span className="material-symbols-outlined text-sm" aria-hidden="true">
+            add_box
+          </span>
           Create Rule
-        </button>
+        </Link>
       </div>
     </header>
   );

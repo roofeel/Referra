@@ -46,7 +46,7 @@ describe('UrlRules', () => {
     expect(screen.getByText('Feedmob')).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
-    expect(screen.getByText('Create Rule')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Create Rule' })).toHaveAttribute('href', '/url-rules/create');
     expect(await screen.findByText('AstraZeneca Global')).toBeInTheDocument();
     expect(screen.queryByText('Active Version')).not.toBeInTheDocument();
     expect(screen.queryByText('Node.js Sandbox')).not.toBeInTheDocument();

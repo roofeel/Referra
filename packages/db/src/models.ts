@@ -107,8 +107,17 @@ export interface AiEvaluationResult {
   createdAt: Date;
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface UrlRule {
   id: string;
+  clientId?: string | null;
+  client?: Pick<Client, "id" | "name"> | null;
   name: string;
   shortName: string;
   status: string;
@@ -181,8 +190,59 @@ export const users = {
   },
 };
 
+export const clients = {
+  async create(data: { name: string }) {
+    return await (db as any).client.create({
+      data: {
+        name: data.name.trim(),
+      },
+    });
+  },
+
+  async findById(id: string) {
+    return await (db as any).client.findUnique({
+      where: { id },
+    });
+  },
+
+  async findByName(name: string) {
+    return await (db as any).client.findUnique({
+      where: { name: name.trim() },
+    });
+  },
+
+  async getOrCreateByName(name: string) {
+    const normalized = name.trim();
+    if (!normalized) return null;
+
+    const existing = await (db as any).client.findFirst({
+      where: {
+        name: {
+          equals: normalized,
+          mode: "insensitive",
+        },
+      },
+    });
+
+    if (existing) return existing;
+
+    return await (db as any).client.create({
+      data: {
+        name: normalized,
+      },
+    });
+  },
+
+  async list() {
+    return await (db as any).client.findMany({
+      orderBy: { name: "asc" },
+    });
+  },
+};
+
 export const urlRules = {
   async create(data: {
+    clientId?: string;
     name: string;
     shortName: string;
     status?: string;
@@ -193,6 +253,7 @@ export const urlRules = {
   }) {
     return await (db as any).urlRule.create({
       data: {
+        clientId: data.clientId || null,
         name: data.name,
         shortName: data.shortName,
         status: data.status || "active",
@@ -201,12 +262,22 @@ export const urlRules = {
         updatedBy: data.updatedBy || "System",
         environmentVariables: data.environmentVariables,
       },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+      },
     });
   },
 
   async findById(id: string) {
     return await (db as any).urlRule.findUnique({
       where: { id },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+      },
     });
   },
 
@@ -219,13 +290,29 @@ export const urlRules = {
       where.OR = [
         { name: { contains: options.search, mode: "insensitive" } },
         { shortName: { contains: options.search, mode: "insensitive" } },
+        {
+          client: {
+            is: {
+              name: { contains: options.search, mode: "insensitive" },
+            },
+          },
+        },
       ];
     }
 
     return await (db as any).urlRule.findMany({
       where,
       orderBy: { updatedAt: "desc" },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+      },
     });
+  },
+
+  async listClients() {
+    return await clients.list();
   },
 
   async update(id: string, data: Partial<UrlRule>) {
@@ -237,6 +324,11 @@ export const urlRules = {
     return await (db as any).urlRule.update({
       where: { id },
       data: updateData,
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+      },
     });
   },
 

@@ -5,6 +5,9 @@ export const urlRulesRoutes = {
     GET: urlRulesController.list,
     POST: urlRulesController.create,
   },
+  "/api/url-rules/clients": {
+    GET: urlRulesController.listClients,
+  },
   "/api/url-rules/:id": {
     GET: urlRulesController.getById,
     PUT: urlRulesController.update,
