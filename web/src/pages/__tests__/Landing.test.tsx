@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,11 +9,15 @@ const mockUseAuth = vi.fn();
 const mockToastError = vi.fn();
 
 const initializeMock = vi.fn();
-const promptMock = vi.fn();
+const renderButtonMock = vi.fn();
 
 vi.mock('react-router-dom', () => ({
   MemoryRouter: ({ children }: { children: ReactNode }) => <>{children}</>,
   useNavigate: () => mockNavigate,
+  Navigate: ({ to }: { to: string }) => {
+    mockNavigate(to, { replace: true });
+    return null;
+  },
 }));
 
 vi.mock('../../auth/AuthContext', () => ({
@@ -36,13 +39,13 @@ describe('Landing', () => {
     mockUseAuth.mockReset();
     mockToastError.mockReset();
     initializeMock.mockReset();
-    promptMock.mockReset();
+    renderButtonMock.mockReset();
 
     window.google = {
       accounts: {
         id: {
           initialize: initializeMock,
-          prompt: promptMock,
+          renderButton: renderButtonMock,
         },
       },
     };
@@ -63,12 +66,15 @@ describe('Landing', () => {
     expect(screen.getAllByText('Referrer AI')).toHaveLength(2);
     expect(screen.getByRole('heading', { name: /master the architecture of data attribution/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /the precision engine/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Get Started' })).toHaveLength(2);
+    expect(screen.queryByRole('heading', { name: /sign in with google/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Get Started' })).not.toBeInTheDocument();
     expect(initializeMock).toHaveBeenCalledOnce();
+    expect(renderButtonMock).toHaveBeenCalledOnce();
+    expect(screen.getByTestId('google-signin-button')).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
-  it('redirects authenticated user to groups page', () => {
+  it('redirects authenticated user to dashboard', () => {
     mockUseAuth.mockReturnValue({
       isAuthenticated: true,
       loginWithGoogleCredential: vi.fn(),
@@ -80,21 +86,7 @@ describe('Landing', () => {
       </MemoryRouter>,
     );
 
-    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
-  });
-
-  it('prompts google login when get started is clicked', async () => {
-    const user = userEvent.setup();
-
-    render(
-      <MemoryRouter>
-        <Landing />
-      </MemoryRouter>,
-    );
-
-    await user.click(screen.getAllByRole('button', { name: 'Get Started' })[0]);
-
-    expect(promptMock).toHaveBeenCalledOnce();
+    expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
   });
 
   it('passes google credential to auth context', async () => {
@@ -116,7 +108,9 @@ describe('Landing', () => {
       </MemoryRouter>,
     );
 
-    googleCallback?.({ credential: 'google-jwt' });
+    await act(async () => {
+      googleCallback?.({ credential: 'google-jwt' });
+    });
 
     await waitFor(() => expect(loginWithGoogleCredential).toHaveBeenCalledWith('google-jwt'));
   });

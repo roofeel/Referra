@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useToast } from '../components/ToastProvider';
 
@@ -14,7 +14,16 @@ declare global {
             auto_select?: boolean;
             cancel_on_tap_outside?: boolean;
           }) => void;
-          prompt: () => void;
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              theme?: 'outline' | 'filled_blue' | 'filled_black';
+              size?: 'large' | 'medium' | 'small';
+              text?: 'signin_with' | 'signup_with' | 'continue_with' | 'signin';
+              shape?: 'rectangular' | 'pill' | 'circle' | 'square';
+              width?: number | string;
+            },
+          ) => void;
         };
       };
     };
@@ -93,6 +102,8 @@ const implementationSteps = [
 function useGoogleIdentity(onCredential: (credential: string) => Promise<void>) {
   const toast = useToast();
   const initializedRef = useRef(false);
+  const buttonRenderedRef = useRef(false);
+  const buttonContainerRef = useRef<HTMLDivElement | null>(null);
   const [isReady, setIsReady] = useState(false);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? '';
 
@@ -124,6 +135,17 @@ function useGoogleIdentity(onCredential: (credential: string) => Promise<void>) 
         },
       });
 
+      if (buttonContainerRef.current && !buttonRenderedRef.current) {
+        buttonContainerRef.current.innerHTML = '';
+        window.google.accounts.id.renderButton(buttonContainerRef.current, {
+          theme: 'outline',
+          size: 'medium',
+          text: 'continue_with',
+          shape: 'pill'
+        });
+        buttonRenderedRef.current = true;
+      }
+
       initializedRef.current = true;
       setIsReady(true);
     };
@@ -151,21 +173,7 @@ function useGoogleIdentity(onCredential: (credential: string) => Promise<void>) 
     };
   }, [googleClientId, onCredential, toast]);
 
-  const promptGoogleLogin = () => {
-    if (!googleClientId) {
-      toast.error('Missing VITE_GOOGLE_CLIENT_ID in web/.env.local');
-      return;
-    }
-
-    if (!window.google?.accounts.id) {
-      toast.error('Google login is still loading. Try again in a moment.');
-      return;
-    }
-
-    window.google.accounts.id.prompt();
-  };
-
-  return { googleClientId, isReady, promptGoogleLogin };
+  return { buttonContainerRef, googleClientId, isReady };
 }
 
 function LedgerVisual() {
@@ -208,22 +216,19 @@ function LedgerVisual() {
 }
 
 export default function Landing() {
-  const navigate = useNavigate();
   const { isAuthenticated, loginWithGoogleCredential } = useAuth();
-  const { googleClientId, isReady, promptGoogleLogin } = useGoogleIdentity(loginWithGoogleCredential);
+  const { buttonContainerRef, googleClientId, isReady } = useGoogleIdentity(loginWithGoogleCredential);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/', { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] text-slate-900">
       <div className="fixed inset-x-0 top-0 z-50 border-b border-white/40 bg-white/85 backdrop-blur-md">
-        <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+        <nav className="relative mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <div className="text-xl font-black tracking-[-0.04em] text-slate-900">Referrer AI</div>
-          <div className="hidden items-center gap-8 md:flex">
+          <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
             {navigationItems.map((item, index) => (
               <a
                 key={item}
@@ -238,13 +243,13 @@ export default function Landing() {
               </a>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={promptGoogleLogin}
-            className="rounded bg-blue-700 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-600"
-          >
-            Get Started
-          </button>
+          <div className="flex items-center gap-4">
+            {googleClientId ? (
+              <div className="flex min-h-10 items-center justify-end">
+                <div ref={buttonContainerRef} data-testid="google-signin-button" />
+              </div>
+            ) : null}
+          </div>
         </nav>
       </div>
 
@@ -263,17 +268,6 @@ export default function Landing() {
                 Referrer AI provides a unified ledger for URL rules, AI-driven parameter extraction, and
                 high-fidelity event mapping.
               </p>
-
-              <div className="mt-10 flex flex-wrap items-center gap-4">
-                <button
-                  type="button"
-                  onClick={promptGoogleLogin}
-                  className="rounded-lg bg-gradient-to-r from-blue-700 to-blue-500 px-8 py-4 text-base font-bold text-white shadow-[0_16px_40px_-20px_rgba(37,99,235,0.8)] transition hover:-translate-y-0.5"
-                >
-                  Get Started
-                </button>
-              </div>
-
               {!googleClientId ? (
                 <p className="mt-6 text-sm text-rose-600">Set `VITE_GOOGLE_CLIENT_ID` to enable Google login.</p>
               ) : !isReady ? (
@@ -414,6 +408,7 @@ export default function Landing() {
             </div>
           </div>
         </section>
+
       </main>
 
       <footer className="border-t border-slate-200 bg-white/80">
