@@ -17,39 +17,43 @@ function formatTimestamp(iso: string) {
   return value.toLocaleString();
 }
 
-export function LogicDrawer({ isOpen, rule, showSandbox = false, onSave, isSaving = false, onClose }: LogicDrawerProps) {
-  if (!isOpen || !rule) {
-    return null;
-  }
+function normalizeStatus(status: string | null | undefined): 'active' | 'draft' | 'archived' {
+  return (status?.toLowerCase() as 'active' | 'draft' | 'archived') || 'draft';
+}
 
-  const sourceCode = rule.logicSource || 'async function categorizeFunnel(ourl, rl, dl) { return { channel: "Direct" }; }';
-  const [draftName, setDraftName] = useState(rule.name);
-  const [draftStatus, setDraftStatus] = useState<'active' | 'draft' | 'archived'>(
-    (rule.status?.toLowerCase() as 'active' | 'draft' | 'archived') || 'draft',
-  );
+export function LogicDrawer({ isOpen, rule, showSandbox = false, onSave, isSaving = false, onClose }: LogicDrawerProps) {
+  const sourceCode = rule?.logicSource || 'async function categorizeFunnel(ourl, rl, dl) { return { channel: "Direct" }; }';
+  const [draftName, setDraftName] = useState(rule?.name ?? '');
+  const [draftStatus, setDraftStatus] = useState<'active' | 'draft' | 'archived'>(normalizeStatus(rule?.status));
   const [draftCode, setDraftCode] = useState(sourceCode);
   const totalCodeLines = Math.max(draftCode.split('\n').length, 1);
 
   useEffect(() => {
+    if (!rule) return;
     setDraftName(rule.name);
-    setDraftStatus((rule.status?.toLowerCase() as 'active' | 'draft' | 'archived') || 'draft');
+    setDraftStatus(normalizeStatus(rule.status));
     setDraftCode(sourceCode);
-  }, [rule.id, rule.name, rule.status, sourceCode]);
+  }, [rule?.id, rule?.name, rule?.status, sourceCode]);
 
   const hasChanges = useMemo(() => {
-    const originalStatus = (rule.status?.toLowerCase() as 'active' | 'draft' | 'archived') || 'draft';
+    if (!rule) return false;
+    const originalStatus = normalizeStatus(rule.status);
     return draftName.trim() !== rule.name || draftCode !== sourceCode || draftStatus !== originalStatus;
-  }, [draftCode, draftName, draftStatus, rule.name, rule.status, sourceCode]);
+  }, [draftCode, draftName, draftStatus, rule?.name, rule?.status, sourceCode]);
 
   async function handleSave() {
     const normalizedName = draftName.trim();
-    if (!normalizedName || isSaving || !hasChanges) return;
+    if (!rule || !normalizedName || isSaving || !hasChanges) return;
     await onSave({
       id: rule.id,
       name: normalizedName,
       status: draftStatus,
       logicSource: draftCode,
     });
+  }
+
+  if (!isOpen || !rule) {
+    return null;
   }
 
   return (
