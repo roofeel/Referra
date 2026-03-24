@@ -590,6 +590,7 @@ export const reportsController = {
 
         let ruleResult: unknown;
         try {
+          log('info', `Processing ourl: ${ourl.href}`);
           ruleResult = await executeRule(ourl.href, rl, dl);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);

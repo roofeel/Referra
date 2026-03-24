@@ -93,7 +93,7 @@ export function LogicDrawer({ isOpen, rule, showSandbox = false, onClose }: Logi
         {showSandbox ? (
           <div className="space-y-3">
             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Test In Sandbox</label>
-            <NodeSandbox inDrawer />
+            <NodeSandbox inDrawer logicSource={sourceCode} />
           </div>
         ) : null}
       </div>
