@@ -73,7 +73,8 @@ export default function UrlRules() {
     () =>
       rules.map((item, index) => ({
         id: item.id,
-        name: item.name,
+        clientName: item.client?.name || 'Unknown Client',
+        ruleName: item.name,
         shortName: item.shortName,
         shortNameClasses: index === 0 ? 'bg-blue-700/10 text-blue-700' : 'bg-slate-100 text-slate-500',
         status: normalizeStatus(item.status),

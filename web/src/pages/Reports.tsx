@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { UploadDataDrawer } from '../components/reports/UploadDataDrawer';
+import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
 import type { ReportTask, ReportTaskStatus, ReportsResponse } from '../service/reports';
 
@@ -60,22 +61,25 @@ export default function Reports() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUploadDrawerOpen, setIsUploadDrawerOpen] = useState(false);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const toast = useToast();
+
+  const loadReports = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    const data = await api.reports.list({
+      search: filters.search || undefined,
+      status: filters.status || undefined,
+      client: filters.client || undefined,
+    });
+    setPayload(data);
+  }, [filters]);
 
   useEffect(() => {
     let alive = true;
-
-    async function loadReports() {
+    void (async () => {
       try {
-        setIsLoading(true);
-        setError(null);
-        const data = await api.reports.list({
-          search: filters.search || undefined,
-          status: filters.status || undefined,
-          client: filters.client || undefined,
-        });
-
-        if (!alive) return;
-        setPayload(data);
+        await loadReports();
       } catch (loadError) {
         if (!alive) return;
         setError(loadError instanceof Error ? loadError.message : 'Failed to load reports');
@@ -84,14 +88,11 @@ export default function Reports() {
           setIsLoading(false);
         }
       }
-    }
-
-    void loadReports();
-
+    })();
     return () => {
       alive = false;
     };
-  }, [filters]);
+  }, [loadReports]);
 
   const stats = useMemo(
     () => [
@@ -106,12 +107,6 @@ export default function Reports() {
         value: String(payload?.metrics.activeAnalyses ?? 0),
         extra: 'Live',
         extraClass: 'bg-blue-50 text-blue-700',
-      },
-      {
-        label: 'Success Rate (Avg)',
-        value: formatPercent(payload?.metrics.successRateAvg ?? 0),
-        extra: 'Attribution Avg',
-        extraClass: 'bg-slate-100 text-slate-700',
       },
       {
         label: 'Data Points (24h)',
@@ -133,6 +128,56 @@ export default function Reports() {
     const empty = { search: '', status: '', client: '' };
     setDraftFilters(empty);
     setFilters(empty);
+  }
+
+  async function refreshReportsWithHandling() {
+    try {
+      await loadReports();
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load reports');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleCreateTask(payload: Parameters<typeof api.reports.create>[0]) {
+    await api.reports.create(payload);
+    setIsUploadDrawerOpen(false);
+    await refreshReportsWithHandling();
+    toast.success('Analysis started');
+  }
+
+  async function handleDeleteTask(task: ReportTask) {
+    const confirmed = window.confirm(`Delete "${task.taskName}"?`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingTaskId(task.id);
+      await api.reports.delete(task.id);
+      await refreshReportsWithHandling();
+      toast.success('Task deleted');
+    } catch (deleteError) {
+      const message = deleteError instanceof Error ? deleteError.message : 'Failed to delete report task';
+      toast.error(message);
+    } finally {
+      setDeletingTaskId(null);
+    }
+  }
+
+  async function handleToggleStatus(task: ReportTask) {
+    if (task.status !== 'Running' && task.status !== 'Paused') {
+      return;
+    }
+
+    const nextStatus = task.status === 'Running' ? 'Paused' : 'Running';
+    try {
+      await api.reports.updateStatus(task.id, nextStatus, task.progress);
+      await refreshReportsWithHandling();
+      toast.success(nextStatus === 'Running' ? 'Task resumed' : 'Task paused');
+    } catch (statusError) {
+      const message = statusError instanceof Error ? statusError.message : 'Failed to update task status';
+      toast.error(message);
+    }
   }
 
   return (
@@ -312,10 +357,24 @@ export default function Reports() {
                                 <button type="button" className="rounded p-1.5 text-blue-700 hover:bg-white" aria-label="View task">
                                   <span className="material-symbols-outlined text-lg">visibility</span>
                                 </button>
-                                <button type="button" className="rounded p-1.5 text-slate-600 hover:bg-white" aria-label="Edit task">
-                                  <span className="material-symbols-outlined text-lg">edit</span>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleToggleStatus(task)}
+                                  className="rounded p-1.5 text-slate-600 hover:bg-white"
+                                  aria-label={task.status === 'Running' ? 'Pause task' : 'Resume task'}
+                                  disabled={task.status !== 'Running' && task.status !== 'Paused'}
+                                >
+                                  <span className="material-symbols-outlined text-lg">
+                                    {task.status === 'Running' ? 'pause' : 'play_arrow'}
+                                  </span>
                                 </button>
-                                <button type="button" className="rounded p-1.5 text-red-600 hover:bg-white" aria-label="Delete task">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteTask(task)}
+                                  disabled={deletingTaskId === task.id}
+                                  className="rounded p-1.5 text-red-600 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                                  aria-label="Delete task"
+                                >
                                   <span className="material-symbols-outlined text-lg">delete</span>
                                 </button>
                               </div>
@@ -356,7 +415,9 @@ export default function Reports() {
         <UploadDataDrawer
           isOpen={isUploadDrawerOpen}
           clients={payload?.clients || []}
+          ruleNames={payload?.ruleNames || []}
           onClose={() => setIsUploadDrawerOpen(false)}
+          onSubmit={handleCreateTask}
         />
       </main>
     </div>

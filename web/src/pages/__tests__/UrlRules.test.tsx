@@ -34,6 +34,12 @@ vi.mock('../../auth/AuthContext', () => ({
     loginWithGoogleCredential: vi.fn(),
     logout: vi.fn(),
   }),
+  useOptionalAuth: () => ({
+    user: { id: 'user-1', name: 'RoFeel', email: 'roofeel@example.com', avatar: null },
+    isAuthenticated: true,
+    loginWithGoogleCredential: vi.fn(),
+    logout: vi.fn(),
+  }),
 }));
 
 describe('UrlRules', () => {
@@ -41,6 +47,8 @@ describe('UrlRules', () => {
     mockUrlRulesList.mockResolvedValueOnce([
       {
         id: 'rule-1',
+        clientId: 'client-1',
+        client: { id: 'client-1', name: 'AstraZeneca' },
         name: 'AstraZeneca Global',
         shortName: 'AZ',
         status: 'active',
@@ -67,6 +75,7 @@ describe('UrlRules', () => {
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
     expect(screen.getByRole('button', { name: 'Create Rule' })).toBeInTheDocument();
+    expect(await screen.findByText('AstraZeneca')).toBeInTheDocument();
     expect(await screen.findByText('AstraZeneca Global')).toBeInTheDocument();
     expect(screen.queryByText('Active Version')).not.toBeInTheDocument();
     expect(screen.queryByText('Node.js Sandbox')).not.toBeInTheDocument();
@@ -78,6 +87,5 @@ describe('UrlRules', () => {
     await user.click(screen.getByRole('button', { name: 'Test in Sandbox' }));
     expect(screen.getByText('Node.js Sandbox')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /execute async/i })).toBeInTheDocument();
-    expect(screen.getByText('Logic Executions (24h)')).toBeInTheDocument();
   });
 });

@@ -3,16 +3,29 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import Reports from '../Reports';
 
-const { mockReportsList } = vi.hoisted(() => ({
+const { mockReportsList, mockReportsCreate, mockReportsUpdateStatus, mockReportsDelete } = vi.hoisted(() => ({
   mockReportsList: vi.fn(),
+  mockReportsCreate: vi.fn(),
+  mockReportsUpdateStatus: vi.fn(),
+  mockReportsDelete: vi.fn(),
 }));
 
 vi.mock('../../service', () => ({
   api: {
     reports: {
       list: mockReportsList,
+      create: mockReportsCreate,
+      updateStatus: mockReportsUpdateStatus,
+      delete: mockReportsDelete,
     },
   },
+}));
+
+vi.mock('../../components/ToastProvider', () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+  }),
 }));
 
 describe('Reports', () => {
@@ -25,6 +38,8 @@ describe('Reports', () => {
         dataPoints24h: '8.2M',
       },
       clients: ['Global Retail Corp', 'Vertex Finance'],
+      ruleNames: ['AstraZeneca Global'],
+      urlParsingVersions: ['v2.4.1', 'v1.9.8'],
       tasks: [
         {
           id: 'KTX-8821',
@@ -79,6 +94,8 @@ describe('Reports', () => {
         dataPoints24h: '0',
       },
       clients: ['Global Retail Corp'],
+      ruleNames: ['AstraZeneca Global'],
+      urlParsingVersions: ['v2.4.1'],
       tasks: [],
     });
 
@@ -105,6 +122,8 @@ describe('Reports', () => {
         dataPoints24h: '0',
       },
       clients: ['Global Retail Corp'],
+      ruleNames: ['AstraZeneca Global'],
+      urlParsingVersions: ['v2.4.1'],
       tasks: [],
     });
 
@@ -119,11 +138,11 @@ describe('Reports', () => {
     expect(screen.getByText('registration_url')).toBeInTheDocument();
     expect(screen.queryByText('page_load_url')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText('Impression → Earliest Pageload'));
+    fireEvent.click(screen.getByText('Impression → Earliest Pageload'));
     expect(screen.getByText('page_load_url')).toBeInTheDocument();
     expect(screen.queryByText('registration_url')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText('Impression → Registration'));
+    fireEvent.click(screen.getByText('Impression → Registration'));
     const csvFile = new File(
       ['impression_url,registration_url,impression_time,other_column\n/a,/b,2026-03-24,1'],
       'report.csv',
@@ -148,6 +167,8 @@ describe('Reports', () => {
         dataPoints24h: '0',
       },
       clients: ['Global Retail Corp'],
+      ruleNames: ['AstraZeneca Global'],
+      urlParsingVersions: ['v2.4.1'],
       tasks: [],
     });
 

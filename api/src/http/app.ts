@@ -11,7 +11,7 @@ type RouteDefinition = {
 };
 
 const defaultAllowedHeaders = "Content-Type, Authorization";
-const allowedMethods = "GET, POST, PUT, DELETE, OPTIONS";
+const allowedMethods = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
 
 function normalizePath(pathname: string) {
   if (pathname.length > 1 && pathname.endsWith("/")) {

@@ -2,7 +2,8 @@ export type ClientStatus = 'Active' | 'Draft';
 
 export type ClientRow = {
   id: string;
-  name: string;
+  clientName: string;
+  ruleName: string;
   shortName: string;
   shortNameClasses: string;
   status: ClientStatus;

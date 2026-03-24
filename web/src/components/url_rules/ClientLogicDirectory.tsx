@@ -57,6 +57,7 @@ export function ClientLogicDirectory({
           <thead>
             <tr className="border-b border-slate-200 bg-slate-100/70 text-slate-500">
               <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest">Client Name</th>
+              <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest">Rule Name</th>
               <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest">Status</th>
               <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest">Last Updated</th>
               <th className="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest">Actions</th>
@@ -66,19 +67,19 @@ export function ClientLogicDirectory({
           <tbody className="divide-y divide-slate-200">
             {isLoading ? (
               <tr>
-                <td className="px-6 py-8 text-sm text-slate-500" colSpan={4}>
+                <td className="px-6 py-8 text-sm text-slate-500" colSpan={5}>
                   Loading URL rules...
                 </td>
               </tr>
             ) : error ? (
               <tr>
-                <td className="px-6 py-8 text-sm text-rose-600" colSpan={4}>
+                <td className="px-6 py-8 text-sm text-rose-600" colSpan={5}>
                   {error}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td className="px-6 py-8 text-sm text-slate-500" colSpan={4}>
+                <td className="px-6 py-8 text-sm text-slate-500" colSpan={5}>
                   No URL rules yet.
                 </td>
               </tr>
@@ -97,12 +98,12 @@ export function ClientLogicDirectory({
                     }`}
                   >
                     <td className="px-6 py-4">
+                      <div className="text-sm font-semibold text-slate-800">{row.clientName}</div>
+                    </td>
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className={`flex h-8 w-8 items-center justify-center rounded text-xs font-bold ${row.shortNameClasses}`}>
-                          {row.shortName}
-                        </div>
                         <div className={`text-sm ${isSelected ? 'font-bold text-blue-700' : 'font-semibold text-blue-700'}`}>
-                          {row.name}
+                          {row.ruleName}
                         </div>
                       </div>
                     </td>

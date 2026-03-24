@@ -23,8 +23,21 @@ export interface ReportsResponse {
     dataPoints24h: string;
   };
   clients: string[];
+  ruleNames: string[];
+  urlParsingVersions: string[];
   tasks: ReportTask[];
 }
+
+export type CreateReportTaskPayload = {
+  taskName: string;
+  client: string;
+  source?: string;
+  sourceIcon?: string;
+  attributionLogic: 'registration' | 'pageload';
+  fieldMappings: Record<string, string>;
+  fileName: string;
+  ruleName: string;
+};
 
 export const reportsApi = {
   list: async (options?: {
@@ -45,5 +58,43 @@ export const reportsApi = {
     }
 
     return response.json();
+  },
+
+  create: async (payload: CreateReportTaskPayload): Promise<ReportTask> => {
+    const response = await fetch(buildApiUrl('/api/reports'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to create report task');
+    }
+
+    return response.json();
+  },
+
+  updateStatus: async (id: string, status: ReportTaskStatus, progress?: number): Promise<ReportTask> => {
+    const response = await fetch(buildApiUrl(`/api/reports/${id}/status`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, progress }),
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to update report task status');
+    }
+
+    return response.json();
+  },
+
+  delete: async (id: string): Promise<void> => {
+    const response = await fetch(buildApiUrl(`/api/reports/${id}`), {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to delete report task');
+    }
   },
 };

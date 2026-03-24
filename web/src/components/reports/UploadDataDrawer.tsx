@@ -1,9 +1,12 @@
 import { useEffect, useId, useMemo, useState, type ChangeEvent } from 'react';
+import type { CreateReportTaskPayload } from '../../service/reports';
 
 type UploadDataDrawerProps = {
   isOpen: boolean;
   clients: string[];
+  ruleNames: string[];
   onClose: () => void;
+  onSubmit: (payload: CreateReportTaskPayload) => Promise<void>;
 };
 
 type AttributionLogic = 'registration' | 'pageload';
@@ -15,7 +18,6 @@ type RequiredField =
   | 'page_load_url'
   | 'page_load_time';
 
-const URL_PARSING_VERSIONS = ['Current (v2.4.1)', 'Legacy (v1.9.8)', 'Experimental (v3.0.0-beta)'];
 const REQUIRED_FIELDS_BY_LOGIC: Record<AttributionLogic, RequiredField[]> = {
   registration: ['impression_url', 'registration_url', 'impression_time', 'registration_time'],
   pageload: ['impression_url', 'page_load_url', 'impression_time', 'page_load_time'],
@@ -131,38 +133,52 @@ function autoMatchRequiredFields(
   return next;
 }
 
-export function UploadDataDrawer({ isOpen, clients, onClose }: UploadDataDrawerProps) {
+export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit }: UploadDataDrawerProps) {
   const taskNameId = useId();
   const clientId = useId();
   const versionId = useId();
   const fileInputId = useId();
   const [taskName, setTaskName] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
-  const [urlParsingVersion, setUrlParsingVersion] = useState(URL_PARSING_VERSIONS[0]);
+  const [selectedRuleName, setSelectedRuleName] = useState('');
   const [attributionLogic, setAttributionLogic] = useState<AttributionLogic>('registration');
   const [selectedFileName, setSelectedFileName] = useState('');
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [fileParseError, setFileParseError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<FieldMappingState>({
     registration: {},
     pageload: {},
   });
 
-  const clientOptions = useMemo(() => {
-    if (clients.length > 0) {
-      return clients;
-    }
-
-    return ['Global Logistics Corp', 'Aetheria Financial', 'Veridian Energy'];
-  }, [clients]);
+  const clientOptions = useMemo(() => clients, [clients]);
 
   useEffect(() => {
     if (!isOpen) {
       return;
     }
 
-    setSelectedClient((prev) => prev || clientOptions[0] || '');
+    setSelectedClient((prev) => {
+      if (prev && clientOptions.includes(prev)) {
+        return prev;
+      }
+      return clientOptions[0] || '';
+    });
   }, [clientOptions, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setSelectedRuleName((prev) => {
+      if (prev && ruleNames.includes(prev)) {
+        return prev;
+      }
+      return ruleNames[0] || '';
+    });
+  }, [isOpen, ruleNames]);
 
   useEffect(() => {
     setFieldMappings((prev) => ({
@@ -217,6 +233,36 @@ export function UploadDataDrawer({ isOpen, clients, onClose }: UploadDataDrawerP
     }));
   }
 
+  async function handleStartAnalysis() {
+    if (!isFormComplete || isSubmitting) return;
+
+    try {
+      setSubmitError(null);
+      setIsSubmitting(true);
+
+      const payload: CreateReportTaskPayload = {
+        taskName: taskName.trim(),
+        client: selectedClient,
+        attributionLogic,
+        fieldMappings: requiredFields.reduce<Record<string, string>>((acc, field) => {
+          const mappedHeader = currentMappings[field];
+          if (mappedHeader) {
+            acc[field] = mappedHeader;
+          }
+          return acc;
+        }, {}),
+        fileName: selectedFileName,
+        ruleName: selectedRuleName,
+      };
+
+      await onSubmit(payload);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '创建分析任务失败，请稍后重试。');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   const requiredFields = REQUIRED_FIELDS_BY_LOGIC[attributionLogic];
   const currentMappings = fieldMappings[attributionLogic];
   const mappingValues = Object.values(currentMappings).filter((value): value is string => Boolean(value));
@@ -224,6 +270,7 @@ export function UploadDataDrawer({ isOpen, clients, onClose }: UploadDataDrawerP
   const isFormComplete =
     Boolean(selectedClient) &&
     Boolean(taskName.trim()) &&
+    Boolean(selectedRuleName) &&
     Boolean(selectedFileName) &&
     requiredFields.every((field) => Boolean(currentMappings[field]));
 
@@ -277,18 +324,23 @@ export function UploadDataDrawer({ isOpen, clients, onClose }: UploadDataDrawerP
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <label htmlFor={clientId} className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      Client Selection
+                      Client
                       <select
                         id={clientId}
                         value={selectedClient}
                         onChange={(event) => setSelectedClient(event.target.value)}
+                        disabled={clientOptions.length === 0}
                         className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                       >
-                        {clientOptions.map((client) => (
-                          <option key={client} value={client}>
-                            {client}
-                          </option>
-                        ))}
+                        {clientOptions.length === 0 ? (
+                          <option value="">No clients available</option>
+                        ) : (
+                          clientOptions.map((client) => (
+                            <option key={client} value={client}>
+                              {client}
+                            </option>
+                          ))
+                        )}
                       </select>
                     </label>
 
@@ -308,18 +360,23 @@ export function UploadDataDrawer({ isOpen, clients, onClose }: UploadDataDrawerP
                       htmlFor={versionId}
                       className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:col-span-2"
                     >
-                      URL Parsing Version
+                      Rule Name
                       <select
                         id={versionId}
-                        value={urlParsingVersion}
-                        onChange={(event) => setUrlParsingVersion(event.target.value)}
+                        value={selectedRuleName}
+                        onChange={(event) => setSelectedRuleName(event.target.value)}
+                        disabled={ruleNames.length === 0}
                         className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                       >
-                        {URL_PARSING_VERSIONS.map((version) => (
-                          <option key={version} value={version}>
-                            {version}
-                          </option>
-                        ))}
+                        {ruleNames.length === 0 ? (
+                          <option value="">No rules available</option>
+                        ) : (
+                          ruleNames.map((ruleName) => (
+                            <option key={ruleName} value={ruleName}>
+                              {ruleName}
+                            </option>
+                          ))
+                        )}
                       </select>
                     </label>
 
@@ -455,12 +512,14 @@ export function UploadDataDrawer({ isOpen, clients, onClose }: UploadDataDrawerP
                 <section className="rounded-xl border border-slate-200/70 bg-white p-5">
                   <button
                     type="button"
-                    disabled={!isFormComplete}
+                    disabled={!isFormComplete || isSubmitting}
+                    onClick={handleStartAnalysis}
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-blue-700 to-blue-600 py-3 text-sm font-bold text-white shadow-lg transition-all hover:scale-[1.01] active:scale-100 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-500 disabled:shadow-none disabled:hover:scale-100"
                   >
                     <span className="material-symbols-outlined text-base">rocket_launch</span>
-                    Start Analysis
+                    {isSubmitting ? 'Starting...' : 'Start Analysis'}
                   </button>
+                  {submitError ? <p className="mt-3 text-xs font-semibold text-red-600">{submitError}</p> : null}
                 </section>
               </div>
             </div>
