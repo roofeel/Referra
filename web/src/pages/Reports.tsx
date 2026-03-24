@@ -1,77 +1,7 @@
+import { useEffect, useMemo, useState } from 'react';
 import { AppSidebar } from '../components/common/AppSidebar';
-
-type ReportTaskStatus = 'Running' | 'Completed' | 'Failed' | 'Paused';
-
-type ReportTask = {
-  id: string;
-  taskName: string;
-  client: string;
-  source: string;
-  sourceIcon: string;
-  status: ReportTaskStatus;
-  progress: number;
-  progressLabel: string;
-  attribution: string;
-  createdAt: string;
-};
-
-const stats = [
-  { label: 'Total Tasks', value: '1,284', extra: '+12%', extraClass: 'bg-emerald-50 text-emerald-700' },
-  { label: 'Active Analyses', value: '42', extra: 'Live', extraClass: 'bg-blue-50 text-blue-700' },
-  { label: 'Success Rate (Avg)', value: '99.4%', extra: 'Global Benchmark', extraClass: 'bg-slate-100 text-slate-700' },
-  { label: 'Data Points (24h)', value: '8.2M', extra: 'Trending', extraClass: 'bg-slate-100 text-slate-700' },
-] as const;
-
-const reportTasks: ReportTask[] = [
-  {
-    id: 'KTX-8821',
-    taskName: 'Q4 E-commerce Attribution',
-    client: 'Global Retail Corp',
-    source: 'Pixel API',
-    sourceIcon: 'api',
-    status: 'Running',
-    progress: 65,
-    progressLabel: '65% Processed',
-    attribution: '84.2%',
-    createdAt: 'Oct 24, 09:12 AM',
-  },
-  {
-    id: 'KTX-8815',
-    taskName: 'AdWords Spend Audit',
-    client: 'Vertex Finance',
-    source: 'CSV Import',
-    sourceIcon: 'description',
-    status: 'Completed',
-    progress: 100,
-    progressLabel: '100% Success',
-    attribution: '99.1%',
-    createdAt: 'Oct 23, 02:45 PM',
-  },
-  {
-    id: 'KTX-8802',
-    taskName: 'Weekly Logistics Sync',
-    client: 'Nexus Logistics',
-    source: 'PostgreSQL',
-    sourceIcon: 'database',
-    status: 'Failed',
-    progress: 12,
-    progressLabel: 'Error: Connection Timeout',
-    attribution: '--',
-    createdAt: 'Oct 22, 11:30 PM',
-  },
-  {
-    id: 'KTX-8798',
-    taskName: 'Holiday Campaign Initial Scan',
-    client: 'Global Retail Corp',
-    source: 'Facebook Ads',
-    sourceIcon: 'ads_click',
-    status: 'Paused',
-    progress: 45,
-    progressLabel: '45% Complete',
-    attribution: '--',
-    createdAt: 'Oct 21, 04:00 PM',
-  },
-];
+import { api } from '../service';
+import type { ReportTask, ReportTaskStatus, ReportsResponse } from '../service/reports';
 
 function statusStyles(status: ReportTaskStatus) {
   switch (status) {
@@ -114,7 +44,95 @@ function statusStyles(status: ReportTaskStatus) {
   }
 }
 
+function formatPercent(value: number) {
+  return `${value.toFixed(1)}%`;
+}
+
 export default function Reports() {
+  const [filters, setFilters] = useState({
+    search: '',
+    status: '',
+    client: '',
+  });
+  const [draftFilters, setDraftFilters] = useState(filters);
+  const [payload, setPayload] = useState<ReportsResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadReports() {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await api.reports.list({
+          search: filters.search || undefined,
+          status: filters.status || undefined,
+          client: filters.client || undefined,
+        });
+
+        if (!alive) return;
+        setPayload(data);
+      } catch (loadError) {
+        if (!alive) return;
+        setError(loadError instanceof Error ? loadError.message : 'Failed to load reports');
+      } finally {
+        if (alive) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadReports();
+
+    return () => {
+      alive = false;
+    };
+  }, [filters]);
+
+  const stats = useMemo(
+    () => [
+      {
+        label: 'Total Tasks',
+        value: String(payload?.metrics.totalTasks ?? 0),
+        extra: 'Filtered',
+        extraClass: 'bg-emerald-50 text-emerald-700',
+      },
+      {
+        label: 'Active Analyses',
+        value: String(payload?.metrics.activeAnalyses ?? 0),
+        extra: 'Live',
+        extraClass: 'bg-blue-50 text-blue-700',
+      },
+      {
+        label: 'Success Rate (Avg)',
+        value: formatPercent(payload?.metrics.successRateAvg ?? 0),
+        extra: 'Attribution Avg',
+        extraClass: 'bg-slate-100 text-slate-700',
+      },
+      {
+        label: 'Data Points (24h)',
+        value: payload?.metrics.dataPoints24h ?? '0',
+        extra: 'Streaming',
+        extraClass: 'bg-slate-100 text-slate-700',
+      },
+    ],
+    [payload],
+  );
+
+  const tasks: ReportTask[] = payload?.tasks || [];
+
+  function applyFilters() {
+    setFilters(draftFilters);
+  }
+
+  function resetFilters() {
+    const empty = { search: '', status: '', client: '' };
+    setDraftFilters(empty);
+    setFilters(empty);
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#f7f9fb] text-slate-900 antialiased">
       <AppSidebar activeItem="reports" ariaLabel="Reports Navigation" />
@@ -127,8 +145,8 @@ export default function Reports() {
             </span>
             <input
               type="text"
-              readOnly
-              value=""
+              value={draftFilters.search}
+              onChange={(event) => setDraftFilters((prev) => ({ ...prev, search: event.target.value }))}
               placeholder="Search tasks, clients, or IDs..."
               className="h-10 w-full rounded-lg border-none bg-slate-100 py-2 pl-10 pr-4 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
             />
@@ -159,21 +177,32 @@ export default function Reports() {
             <div className="flex flex-wrap items-end gap-4">
               <label className="min-w-[180px] text-[10px] font-bold uppercase tracking-widest text-slate-500">
                 Client Account
-                <select className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-100">
-                  <option>All Clients</option>
-                  <option>Global Retail Corp</option>
-                  <option>Vertex Finance</option>
-                  <option>Nexus Logistics</option>
+                <select
+                  value={draftFilters.client}
+                  onChange={(event) => setDraftFilters((prev) => ({ ...prev, client: event.target.value }))}
+                  className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="">All Clients</option>
+                  {(payload?.clients || []).map((client) => (
+                    <option key={client} value={client}>
+                      {client}
+                    </option>
+                  ))}
                 </select>
               </label>
 
               <label className="min-w-[160px] text-[10px] font-bold uppercase tracking-widest text-slate-500">
                 Task Status
-                <select className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-100">
-                  <option>All Statuses</option>
-                  <option>Running</option>
-                  <option>Completed</option>
-                  <option>Failed</option>
+                <select
+                  value={draftFilters.status}
+                  onChange={(event) => setDraftFilters((prev) => ({ ...prev, status: event.target.value }))}
+                  className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="Running">Running</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Failed">Failed</option>
+                  <option value="Paused">Paused</option>
                 </select>
               </label>
 
@@ -191,11 +220,16 @@ export default function Reports() {
               </label>
 
               <div className="ml-auto flex items-center gap-2">
-                <button type="button" className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800">
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800"
+                >
                   Reset
                 </button>
                 <button
                   type="button"
+                  onClick={applyFilters}
                   className="rounded-lg bg-slate-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
                 >
                   Apply Filters
@@ -205,117 +239,115 @@ export default function Reports() {
           </section>
 
           <section className="overflow-hidden rounded-xl border border-slate-200/70 bg-white">
-            <div className="overflow-x-auto">
-              <table className="min-w-[1080px] w-full border-collapse text-left">
-                <thead>
-                  <tr className="bg-slate-100">
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Task Name</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Client</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Source</th>
-                    <th className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Progress</th>
-                    <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Attribution</th>
-                    <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Created At</th>
-                    <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {reportTasks.map((task) => {
-                    const styles = statusStyles(task.status);
-
-                    return (
-                      <tr key={task.id} className="group transition-colors hover:bg-slate-50">
-                        <td className="px-6 py-4">
-                          <p className="text-sm font-bold text-slate-900">{task.taskName}</p>
-                          <p className="text-[10px] uppercase tracking-wider text-slate-500">ID: #{task.id}</p>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-medium text-slate-600">{task.client}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-sm text-slate-500">{task.sourceIcon}</span>
-                            <span className="text-xs font-semibold uppercase text-slate-700">{task.source}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span
-                            className={`inline-flex items-center rounded px-2 py-1 text-[10px] font-black uppercase tracking-widest ${styles.badgeClass}`}
-                          >
-                            {styles.dotClass ? (
-                              <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${styles.dotClass} animate-pulse`} />
-                            ) : (
-                              <span
-                                className="material-symbols-outlined mr-1 text-[10px]"
-                                style={{ fontVariationSettings: "'FILL' 1" }}
-                              >
-                                {styles.icon}
-                              </span>
-                            )}
-                            {task.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className={`h-1.5 w-full overflow-hidden rounded-full ${styles.progressTrackClass}`}>
-                            <div
-                              className={`h-full ${styles.progressBarClass} transition-all`}
-                              style={{ width: `${task.progress}%` }}
-                            />
-                          </div>
-                          <p className={`mt-1 text-[10px] font-bold ${styles.progressTextClass}`}>{task.progressLabel}</p>
-                        </td>
-                        <td className="px-6 py-4 text-right text-sm font-medium text-slate-700">{task.attribution}</td>
-                        <td className="px-6 py-4 text-right text-xs text-slate-500">{task.createdAt}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                            <button type="button" className="rounded p-1.5 text-blue-700 hover:bg-white" aria-label="View task">
-                              <span className="material-symbols-outlined text-lg">visibility</span>
-                            </button>
-                            <button type="button" className="rounded p-1.5 text-slate-600 hover:bg-white" aria-label="Edit task">
-                              <span className="material-symbols-outlined text-lg">edit</span>
-                            </button>
-                            <button type="button" className="rounded p-1.5 text-red-600 hover:bg-white" aria-label="Delete task">
-                              <span className="material-symbols-outlined text-lg">delete</span>
-                            </button>
-                          </div>
-                        </td>
+            {isLoading ? (
+              <div className="p-8 text-sm text-slate-500">Loading reports...</div>
+            ) : error ? (
+              <div className="p-8 text-sm text-red-600">{error}</div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[1080px] border-collapse text-left">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Task Name</th>
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Client</th>
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Source</th>
+                        <th className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Progress</th>
+                        <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Attribution</th>
+                        <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Created At</th>
+                        <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Actions</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {tasks.map((task) => {
+                        const styles = statusStyles(task.status);
 
-            <footer className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-3">
-              <p className="text-xs text-slate-500">
-                Showing <span className="font-bold text-slate-800">1-4</span> of{' '}
-                <span className="font-bold text-slate-800">1,284</span> tasks
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled
-                  className="rounded border border-slate-300 px-2 py-1 text-slate-400 disabled:opacity-50"
-                  aria-label="Previous page"
-                >
-                  <span className="material-symbols-outlined text-base">chevron_left</span>
-                </button>
-                <button type="button" className="rounded border border-blue-700 bg-blue-700 px-3 py-1 text-xs font-bold text-white">
-                  1
-                </button>
-                <button type="button" className="rounded border border-slate-300 px-3 py-1 text-xs font-bold text-slate-700 hover:bg-white">
-                  2
-                </button>
-                <button type="button" className="rounded border border-slate-300 px-3 py-1 text-xs font-bold text-slate-700 hover:bg-white">
-                  3
-                </button>
-                <span className="px-1 text-slate-500">...</span>
-                <button type="button" className="rounded border border-slate-300 px-3 py-1 text-xs font-bold text-slate-700 hover:bg-white">
-                  129
-                </button>
-                <button type="button" className="rounded border border-slate-300 px-2 py-1 text-slate-500 hover:bg-white" aria-label="Next page">
-                  <span className="material-symbols-outlined text-base">chevron_right</span>
-                </button>
-              </div>
-            </footer>
+                        return (
+                          <tr key={task.id} className="group transition-colors hover:bg-slate-50">
+                            <td className="px-6 py-4">
+                              <p className="text-sm font-bold text-slate-900">{task.taskName}</p>
+                              <p className="text-[10px] uppercase tracking-wider text-slate-500">ID: #{task.id}</p>
+                            </td>
+                            <td className="px-6 py-4 text-sm font-medium text-slate-600">{task.client}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-sm text-slate-500">{task.sourceIcon}</span>
+                                <span className="text-xs font-semibold uppercase text-slate-700">{task.source}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                              <span
+                                className={`inline-flex items-center rounded px-2 py-1 text-[10px] font-black uppercase tracking-widest ${styles.badgeClass}`}
+                              >
+                                {styles.dotClass ? (
+                                  <span className={`mr-1.5 h-1.5 w-1.5 rounded-full ${styles.dotClass} animate-pulse`} />
+                                ) : (
+                                  <span
+                                    className="material-symbols-outlined mr-1 text-[10px]"
+                                    style={{ fontVariationSettings: "'FILL' 1" }}
+                                  >
+                                    {styles.icon}
+                                  </span>
+                                )}
+                                {task.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className={`h-1.5 w-full overflow-hidden rounded-full ${styles.progressTrackClass}`}>
+                                <div
+                                  className={`h-full ${styles.progressBarClass} transition-all`}
+                                  style={{ width: `${task.progress}%` }}
+                                />
+                              </div>
+                              <p className={`mt-1 text-[10px] font-bold ${styles.progressTextClass}`}>{task.progressLabel}</p>
+                            </td>
+                            <td className="px-6 py-4 text-right text-sm font-medium text-slate-700">{task.attribution}</td>
+                            <td className="px-6 py-4 text-right text-xs text-slate-500">{task.createdAt}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                <button type="button" className="rounded p-1.5 text-blue-700 hover:bg-white" aria-label="View task">
+                                  <span className="material-symbols-outlined text-lg">visibility</span>
+                                </button>
+                                <button type="button" className="rounded p-1.5 text-slate-600 hover:bg-white" aria-label="Edit task">
+                                  <span className="material-symbols-outlined text-lg">edit</span>
+                                </button>
+                                <button type="button" className="rounded p-1.5 text-red-600 hover:bg-white" aria-label="Delete task">
+                                  <span className="material-symbols-outlined text-lg">delete</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <footer className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-3">
+                  <p className="text-xs text-slate-500">
+                    Showing <span className="font-bold text-slate-800">1-{tasks.length}</span> of{' '}
+                    <span className="font-bold text-slate-800">{tasks.length}</span> tasks
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled
+                      className="rounded border border-slate-300 px-2 py-1 text-slate-400 disabled:opacity-50"
+                      aria-label="Previous page"
+                    >
+                      <span className="material-symbols-outlined text-base">chevron_left</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border border-blue-700 bg-blue-700 px-3 py-1 text-xs font-bold text-white"
+                    >
+                      1
+                    </button>
+                  </div>
+                </footer>
+              </>
+            )}
           </section>
         </div>
       </main>
