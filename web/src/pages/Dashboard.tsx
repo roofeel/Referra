@@ -18,7 +18,6 @@ const metrics = [
   { title: 'Successful Attributions', value: '9,412', note: 'Verified logical chains', tone: 'neutral', icon: 'check_circle' },
   { title: 'Attribution Rate (%)', value: '73.3%', note: 'Target: > 75.0%', tone: 'neutral', icon: 'percent' },
   { title: 'Avg Duration', value: '4.2h', note: 'Time-to-action median', tone: 'neutral', icon: 'timer' },
-  { title: 'P50 / P90 Duration', value: '1.8h / 14.2h', note: 'Standard deviation: 2.4h', tone: 'neutral', icon: 'analytics' },
 ] satisfies Array<{
   title: string;
   value: string;
@@ -322,32 +321,8 @@ export default function Dashboard() {
 
       {/* Main Canvas */}
       <main className="flex-1 ml-64 flex flex-col relative overflow-hidden">
-        {/* Header */}
-        <header className="fixed top-0 right-0 w-[calc(100%-16rem)] flex justify-between items-center px-8 h-16 bg-white/85 backdrop-blur-xl border-b border-slate-200/15 z-50">
-          <div className="flex items-center gap-8">
-            <h1 className="text-lg font-bold text-slate-900">Data Analysis</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            {/* <div className="flex items-center gap-2">
-              <button type="button" className="p-2 text-slate-500 hover:text-blue-600 transition-colors">
-                <span className="material-symbols-outlined">notifications</span>
-              </button>
-              <button type="button" className="p-2 text-slate-500 hover:text-blue-600 transition-colors">
-                <span className="material-symbols-outlined">settings</span>
-              </button>
-            </div> */}
-            <div className="h-8 w-px bg-slate-200 mx-2" />
-            <button
-              type="button"
-              className="bg-blue-700 text-white px-4 py-2 text-sm font-bold flex items-center gap-2 rounded transition-all hover:bg-blue-600"
-            >
-              Upload Data
-            </button>
-          </div>
-        </header>
-
         {/* Content Area */}
-        <div className="mt-16 p-8 overflow-y-auto flex-1 [&::-webkit-scrollbar]:hidden">
+        <div className="p-8 overflow-y-auto flex-1 [&::-webkit-scrollbar]:hidden">
           {/* Filter Area */}
           <section className="mb-8 p-6 bg-white rounded-xl shadow-sm border border-slate-200/15">
             <div className="flex flex-wrap items-end gap-6">
@@ -530,6 +505,15 @@ export default function Dashboard() {
           </section>
         </div>
       </main>
+
+      {/* FAB */}
+      <button
+        type="button"
+        className="fixed bottom-8 right-8 z-30 bg-slate-900 text-white shadow-xl px-6 py-4 rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-all"
+      >
+        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
+        <span className="text-sm font-bold">New Analysis Task</span>
+      </button>
 
       {/* Overlay */}
       <div
