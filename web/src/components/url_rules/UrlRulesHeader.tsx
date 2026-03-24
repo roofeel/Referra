@@ -2,7 +2,6 @@ export function UrlRulesHeader() {
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-100 bg-white px-8">
       <div className="flex items-center gap-8">
-        <h1 className="text-lg font-bold tracking-tight text-slate-900">Precision Intelligence</h1>
         <div className="relative">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">search</span>
           <input

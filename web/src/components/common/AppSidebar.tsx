@@ -11,7 +11,7 @@ type SidebarItem = {
 
 const sidebarItems: SidebarItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', to: '/dashboard' },
-  { key: 'url-rules', label: 'Client Logic', icon: 'terminal', to: '/url-rules' },
+  { key: 'url-rules', label: 'Url Rules', icon: 'terminal', to: '/url-rules' },
 ];
 
 type AppSidebarProps = {

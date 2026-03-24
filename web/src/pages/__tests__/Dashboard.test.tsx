@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
@@ -12,10 +12,12 @@ describe('Dashboard', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('navigation', { name: 'Dashboard Navigation' })).toBeInTheDocument();
-    expect(screen.getByText('Framework')).toBeInTheDocument();
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Client Logic')).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Dashboard Navigation' });
+    expect(nav).toBeInTheDocument();
+    expect(screen.getByText('Referrer AI')).toBeInTheDocument();
+    expect(screen.getByText('Feedmob')).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
+    expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
     expect(screen.getByText('URL Classification & Performance')).toBeInTheDocument();
     expect(screen.getByText('AI Extraction Insights')).toBeInTheDocument();
     expect(screen.getByText('New Analysis Task')).toBeInTheDocument();

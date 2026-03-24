@@ -102,7 +102,7 @@ export function ClientLogicDirectory({ rows }: ClientLogicDirectoryProps) {
         </table>
 
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/80 px-6 py-4">
-          <span className="text-xs font-medium text-slate-500">Viewing 1-3 of 154 client logic modules</span>
+          <span className="text-xs font-medium text-slate-500">Viewing 1-3 of 154 url rules modules</span>
           <div className="flex items-center gap-2">
             <button type="button" className="rounded border border-slate-300 p-2 transition-all hover:bg-slate-100 active:scale-90">
               <span className="material-symbols-outlined text-sm">chevron_left</span>

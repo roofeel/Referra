@@ -18,7 +18,7 @@ export function LogicDrawer() {
       <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 p-6">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-blue-700">Client Logic Center</span>
+            <span className="text-xs font-bold uppercase tracking-widest text-blue-700">Url Rules</span>
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           </div>
           <h2 className="text-xl font-extrabold tracking-tight text-slate-900">AstraZeneca Global</h2>
