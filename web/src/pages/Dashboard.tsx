@@ -4,21 +4,21 @@ import { useAuth } from '../auth/AuthContext';
 type MetricTone = 'positive' | 'negative' | 'neutral';
 
 const navItems = [
-  { label: 'Data Analysis', icon: 'DA', active: true },
-  { label: 'URL Rules', icon: 'UR' },
-  { label: 'Config', icon: 'CF' },
-  { label: 'System', icon: 'SY' },
+  { label: 'Data Analysis', icon: 'analytics', active: true },
+  { label: 'URL Rules', icon: 'rule' },
+  { label: 'Config', icon: 'settings_input_component' },
+  { label: 'System', icon: 'admin_panel_settings' },
 ];
 
 const metrics = [
-  { title: 'Total Events', value: '1,284,930', note: '12.4% vs prev', tone: 'positive', icon: 'EV' },
-  { title: 'Impression Count', value: '842,102', note: '65% of total volume', tone: 'neutral', icon: 'IM', progress: 65 },
-  { title: 'Pageload Count', value: '312,440', note: '37.1% conversion from imp', tone: 'neutral', icon: 'PL' },
-  { title: 'Registration Count', value: '12,840', note: '2.1% vs target', tone: 'negative', icon: 'RG' },
-  { title: 'Successful Attributions', value: '9,412', note: 'Verified logical chains', tone: 'neutral', icon: 'AT' },
-  { title: 'Attribution Rate (%)', value: '73.3%', note: 'Target: > 75.0%', tone: 'neutral', icon: 'AR' },
-  { title: 'Avg Duration', value: '4.2h', note: 'Time-to-action median', tone: 'neutral', icon: 'TM' },
-  { title: 'P50 / P90 Duration', value: '1.8h / 14.2h', note: 'Standard deviation: 2.4h', tone: 'neutral', icon: 'P9' },
+  { title: 'Total Events', value: '1,284,930', note: '12.4% vs prev', tone: 'positive', icon: 'data_object' },
+  { title: 'Impression Count', value: '842,102', note: '65% of total volume', tone: 'neutral', icon: 'visibility', progress: 65 },
+  { title: 'Pageload Count', value: '312,440', note: '37.1% conversion from imp', tone: 'neutral', icon: 'browser_updated' },
+  { title: 'Registration Count', value: '12,840', note: '2.1% vs target', tone: 'negative', icon: 'person_add' },
+  { title: 'Successful Attributions', value: '9,412', note: 'Verified logical chains', tone: 'neutral', icon: 'check_circle' },
+  { title: 'Attribution Rate (%)', value: '73.3%', note: 'Target: > 75.0%', tone: 'neutral', icon: 'percent' },
+  { title: 'Avg Duration', value: '4.2h', note: 'Time-to-action median', tone: 'neutral', icon: 'timer' },
+  { title: 'P50 / P90 Duration', value: '1.8h / 14.2h', note: 'Standard deviation: 2.4h', tone: 'neutral', icon: 'analytics' },
 ] satisfies Array<{
   title: string;
   value: string;
@@ -190,18 +190,27 @@ function MetricCard({
   const noteClass =
     tone === 'positive' ? 'text-emerald-600' : tone === 'negative' ? 'text-rose-600' : 'text-slate-500';
 
+  const iconClass =
+    tone === 'positive'
+      ? 'text-blue-600 bg-blue-50'
+      : tone === 'negative'
+        ? 'text-slate-400'
+        : 'text-slate-400';
+
   return (
-    <article className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_20px_60px_-40px_rgba(15,23,42,0.35)]">
+    <article className="rounded-xl border border-slate-200/60 bg-white p-5">
       <div className="mb-4 flex items-start justify-between gap-4">
-        <span className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-500">{title}</span>
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-[11px] font-bold text-slate-600">
-          {icon}
-        </span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</span>
+        <span className={`material-symbols-outlined p-1.5 rounded text-lg ${iconClass}`}>{icon}</span>
       </div>
-      <div className="text-3xl font-black tracking-[-0.04em] text-slate-950">{value}</div>
-      <div className={`mt-3 text-[11px] font-semibold ${noteClass}`}>{note}</div>
+      <div className="text-3xl font-black tracking-tight text-slate-900">{value}</div>
+      <div className={`mt-2 flex items-center gap-1 text-[10px] font-bold ${noteClass}`}>
+        {tone === 'positive' && <span className="material-symbols-outlined text-sm">trending_up</span>}
+        {tone === 'negative' && <span className="material-symbols-outlined text-sm">trending_down</span>}
+        {note}
+      </div>
       {typeof progress === 'number' ? (
-        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100">
+        <div className="mt-4 h-1 overflow-hidden rounded-full bg-slate-100">
           <div className="h-full rounded-full bg-blue-700" style={{ width: `${progress}%` }} />
         </div>
       ) : null}
@@ -238,326 +247,291 @@ export default function Dashboard() {
   }, [isDetailOpen]);
 
   return (
-    <div className="min-h-screen bg-[#eef2f6] text-slate-900">
-      <div className="flex min-h-screen flex-col lg:flex-row">
-        <aside className="border-b border-slate-700/40 bg-slate-900 lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 lg:border-b-0 lg:border-r lg:border-slate-700/30">
-          <div className="flex h-full flex-col">
-            <div className="px-6 py-6">
-              <div className="flex items-center gap-3 text-white">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-sm font-black">RA</div>
-                <div>
-                  <div className="text-lg font-black tracking-[-0.04em]">Referrer AI</div>
-                  <div className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Control Plane</div>
-                </div>
-              </div>
-            </div>
+    <div className="bg-[#f2f4f6] text-slate-900 antialiased flex overflow-hidden h-screen">
+      {/* Sidebar */}
+      <aside className="bg-slate-800 fixed left-0 top-0 h-full flex flex-col z-40 w-64">
+        <div className="p-6">
+          <div className="text-xl font-black text-white flex items-center gap-2">
+            <span className="material-symbols-outlined text-blue-500 text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>account_tree</span>
+            Referrer AI
+          </div>
+        </div>
 
-            <nav className="flex-1 px-3 pb-6">
-              <div className="space-y-1">
-                {navItems.map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    className={`flex w-full items-center gap-3 border-l-4 px-4 py-3 text-left text-sm font-medium transition ${
-                      item.active
-                        ? 'border-blue-500 bg-blue-500/15 text-white'
-                        : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-white'
-                    }`}
-                  >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white/5 text-[10px] font-bold">
-                      {item.icon}
-                    </span>
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </nav>
+        <nav className="flex-1 px-2 space-y-1">
+          {navItems.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              className={`flex w-full items-center gap-3 border-l-4 px-4 py-3 text-left text-xs font-medium transition ${
+                item.active
+                  ? 'text-white bg-blue-700/20 border-blue-600'
+                  : 'text-slate-400 hover:text-white border-transparent'
+              }`}
+            >
+              <span
+                className={`material-symbols-outlined text-lg ${item.active ? 'text-blue-400' : ''}`}
+                style={item.active ? { fontVariationSettings: "'FILL' 1" } : undefined}
+              >
+                {item.icon}
+              </span>
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-            <div className="border-t border-slate-700/40 p-4">
-              <div className="rounded-2xl bg-slate-800/80 p-4">
-                <div className="flex items-center gap-3">
-                  {user?.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={identityLabel}
-                      className="h-10 w-10 rounded-xl object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-xs font-black text-white">
-                      {initials || 'RA'}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-white">{user?.name ?? 'Admin Terminal'}</p>
-                    <p className="truncate text-xs text-slate-400">{user?.email ?? 'Precision Intelligence'}</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex gap-2">
-                  <button
-                    type="button"
-                    className="flex-1 rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10"
-                  >
-                    Docs
-                  </button>
-                  <button
-                    type="button"
-                    onClick={logout}
-                    className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500"
-                  >
-                    Logout
-                  </button>
-                </div>
+        <div className="p-4 border-t border-slate-700/50">
+          <div className="flex items-center gap-3 p-3 bg-slate-900/50 rounded-lg mb-4">
+            {user?.avatar ? (
+              <img src={user.avatar} alt={identityLabel} className="h-8 w-8 rounded flex items-center justify-center object-cover" />
+            ) : (
+              <div className="h-8 w-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs">
+                {initials || 'PI'}
               </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-white truncate">{user?.name ?? 'Admin Terminal'}</p>
+              <p className="text-[10px] text-slate-500 truncate">{user?.email ?? 'Precision Intelligence'}</p>
             </div>
           </div>
-        </aside>
+          <div className="space-y-1">
+            <button
+              type="button"
+              className="text-slate-400 hover:text-white px-4 py-2 transition-colors flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest w-full"
+            >
+              <span className="material-symbols-outlined text-sm">auto_stories</span>
+              Documentation
+            </button>
+            <button
+              type="button"
+              className="text-slate-400 hover:text-white px-4 py-2 transition-colors flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest w-full"
+            >
+              <span className="material-symbols-outlined text-sm">help</span>
+              Help Center
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              className="text-slate-400 hover:text-white px-4 py-2 transition-colors flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest w-full"
+            >
+              <span className="material-symbols-outlined text-sm">logout</span>
+              Logout
+            </button>
+          </div>
+        </div>
+      </aside>
 
-        <main className="flex-1 lg:ml-64">
-          <header className="sticky top-0 z-20 border-b border-white/70 bg-white/85 backdrop-blur">
-            <div className="flex flex-col gap-4 px-6 py-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-[11px] font-extrabold uppercase tracking-[0.28em] text-blue-700">Data Analysis</p>
-                <h1 className="mt-1 text-2xl font-black tracking-[-0.04em] text-slate-950">Attribution Dashboard</h1>
-              </div>
+      {/* Main Canvas */}
+      <main className="flex-1 ml-64 flex flex-col relative overflow-hidden">
+        {/* Header */}
+        <header className="fixed top-0 right-0 w-[calc(100%-16rem)] flex justify-between items-center px-8 h-16 bg-white/85 backdrop-blur-xl border-b border-slate-200/15 z-50">
+          <div className="flex items-center gap-8">
+            <h1 className="text-lg font-bold text-slate-900">Data Analysis</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            {/* <div className="flex items-center gap-2">
+              <button type="button" className="p-2 text-slate-500 hover:text-blue-600 transition-colors">
+                <span className="material-symbols-outlined">notifications</span>
+              </button>
+              <button type="button" className="p-2 text-slate-500 hover:text-blue-600 transition-colors">
+                <span className="material-symbols-outlined">settings</span>
+              </button>
+            </div> */}
+            <div className="h-8 w-px bg-slate-200 mx-2" />
+            <button
+              type="button"
+              className="bg-blue-700 text-white px-4 py-2 text-sm font-bold flex items-center gap-2 rounded transition-all hover:bg-blue-600"
+            >
+              Upload Data
+            </button>
+          </div>
+        </header>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                >
-                  Alerts
-                </button>
-                <button
-                  type="button"
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                >
-                  Settings
-                </button>
-                <button
-                  type="button"
-                  className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-600"
-                >
-                  Upload Data
-                </button>
-              </div>
-            </div>
-          </header>
-
-          <div className="px-6 py-6 sm:px-8">
-            <section className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.4)]">
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_180px_120px_180px_auto]">
-                <label className="block">
-                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-500">Client Selection</span>
-                  <select className="w-full rounded-xl border-0 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
+        {/* Content Area */}
+        <div className="mt-16 p-8 overflow-y-auto flex-1 [&::-webkit-scrollbar]:hidden">
+          {/* Filter Area */}
+          <section className="mb-8 p-6 bg-white rounded-xl shadow-sm border border-slate-200/15">
+            <div className="flex flex-wrap items-end gap-6">
+              <div className="flex-1 min-w-[200px]">
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-2">Client selection</label>
+                <div className="relative">
+                  <select className="w-full bg-slate-100 border-none text-sm font-medium py-2.5 px-4 rounded-lg focus:ring-2 focus:ring-blue-700/20 appearance-none text-slate-900">
                     <option>Global Enterprise Solutions (All)</option>
                     <option>Astra Financial</option>
                     <option>Vanguard Logistics</option>
                   </select>
-                </label>
-
-                <div>
-                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-500">Date Range</span>
-                  <div className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">Oct 01 - Oct 31, 2023</div>
-                </div>
-
-                <label className="block">
-                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-500">Logic</span>
-                  <select className="w-full rounded-xl border-0 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
-                    <option>impression → reg</option>
-                    <option>earliest pageload</option>
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-500">Window</span>
-                  <select className="w-full rounded-xl border-0 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
-                    <option>24h</option>
-                    <option>48h</option>
-                    <option>7d</option>
-                  </select>
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-500">URL Parsing</span>
-                  <select className="w-full rounded-xl border-0 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-900">
-                    <option>Current (v2.4.1)</option>
-                    <option>Specified (v2.3.0)</option>
-                  </select>
-                </label>
-
-                <div className="flex items-end">
-                  <button
-                    type="button"
-                    className="w-full rounded-xl bg-blue-700 px-6 py-3 text-sm font-bold text-white transition hover:bg-blue-600"
-                  >
-                    Refresh
-                  </button>
+                  <span className="material-symbols-outlined absolute right-3 top-2.5 text-slate-500 pointer-events-none text-sm">expand_more</span>
                 </div>
               </div>
-            </section>
-
-            <section className="mt-6 grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
-              {metrics.map((metric) => (
-                <MetricCard key={metric.title} {...metric} />
-              ))}
-            </section>
-
-            <section className="mt-6">
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-                <article className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.4)]">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-950">URL Classification & Performance</h2>
-                      <p className="mt-2 text-sm text-slate-500">Category distribution and rule coverage against current parsing logic.</p>
-                    </div>
-                    <div className="flex gap-3 text-[11px] font-semibold text-slate-500">
-                      <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-700" /> ourl</span>
-                      <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-300" /> rl</span>
-                      <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-slate-300" /> dl</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-8 grid h-52 grid-cols-4 gap-4">
-                    {distribution.map((item) => (
-                      <div key={item.label} className="flex flex-col justify-end gap-3">
-                        <div className={`w-full rounded-t-xl ${item.color}`} style={{ height: item.height }} />
-                        <div className="text-center text-[11px] font-bold uppercase tracking-[0.12em] text-slate-600">{item.label}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-8 grid gap-4 border-t border-slate-200 pt-6 sm:grid-cols-3">
-                    <div>
-                      <div className="text-2xl font-black tracking-[-0.04em] text-slate-950">99.2%</div>
-                      <div className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Parsing Success</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-black tracking-[-0.04em] text-slate-950">142</div>
-                      <div className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Missed Rules</div>
-                    </div>
-                    <div>
-                      <div className="text-2xl font-black tracking-[-0.04em] text-slate-950">84%</div>
-                      <div className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">AI Parameter Coverage</div>
-                    </div>
-                  </div>
-                </article>
-
-                <article className="relative overflow-hidden rounded-3xl border border-blue-100 bg-[linear-gradient(180deg,#ecf4ff_0%,#f8fbff_100%)] p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.4)]">
-                  <div className="relative z-10">
-                    <h2 className="flex items-center gap-3 text-sm font-black uppercase tracking-[0.18em] text-blue-800">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-700 text-[11px] font-bold text-white">AI</span>
-                      AI Extraction Insights
-                    </h2>
-                    <p className="mt-4 text-sm leading-7 text-slate-600">
-                      Deep analysis identified 428 new recurring URL patterns currently classified as unknown. Recommended rule upgrade to v2.5.0 captures an estimated 8.2% more attribution paths.
-                    </p>
-
-                    <div className="mt-8 space-y-5">
-                      <div>
-                        <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">
-                          <span>Unmatched Tokens</span>
-                          <span>3,219</span>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-white">
-                          <div className="h-full w-[22%] rounded-full bg-blue-700" />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">
-                          <span>AI Confidence Avg</span>
-                          <span>94.8%</span>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-white">
-                          <div className="h-full w-[94%] rounded-full bg-emerald-500" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="absolute -bottom-8 -right-8 h-40 w-40 rounded-full bg-blue-700/10 blur-2xl" />
-                </article>
+              <div className="flex-1 min-w-[180px]">
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-2">Date Range</label>
+                <div className="flex items-center bg-slate-100 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-900">
+                  <span className="material-symbols-outlined text-sm mr-2">calendar_today</span>
+                  Oct 01 - Oct 31, 2023
+                </div>
               </div>
-            </section>
-
-            <section className="mt-6 overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_24px_80px_-48px_rgba(15,23,42,0.4)]">
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      {['event_id', 'uid', 'event_name', 'ts', 'url_category', 'rl_type', 'attribution_status', 'duration'].map((header) => (
-                        <th key={header} className="px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
-                          {header}
-                        </th>
-                      ))}
-                      <th className="px-4 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {tableRows.map((row) => (
-                      <tr
-                        key={row.eventId}
-                        onClick={() => {
-                          setSelectedRow(row);
-                          setIsDetailOpen(true);
-                        }}
-                        className={`cursor-pointer transition hover:bg-slate-50 ${selectedRow.eventId === row.eventId ? 'bg-blue-50/60' : 'bg-white'}`}
-                      >
-                        <td className="px-4 py-4 font-mono text-xs text-slate-500">{row.eventId}</td>
-                        <td className="px-4 py-4 text-xs font-semibold text-slate-900">{row.uid}</td>
-                        <td className="px-4 py-4">
-                          <span className="rounded-md bg-blue-100 px-2 py-1 text-[10px] font-extrabold tracking-[0.14em] text-blue-700">{row.eventName}</span>
-                        </td>
-                        <td className="px-4 py-4 text-xs text-slate-500">{row.ts}</td>
-                        <td className="px-4 py-4 text-xs text-slate-700">{row.category}</td>
-                        <td className="px-4 py-4 text-xs text-slate-700">{row.type}</td>
-                        <td className="px-4 py-4">
-                          <span className="inline-flex items-center gap-2 text-[10px] font-extrabold tracking-[0.18em] text-slate-700">
-                            <span className={`h-2 w-2 rounded-full ${statusClasses(row.status).split(' ')[0]}`} />
-                            <span className={statusClasses(row.status).split(' ')[1]}>{row.status}</span>
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-right font-mono text-xs text-slate-500">{row.duration}</td>
-                        <td className="px-4 py-4 text-right text-slate-300">›</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="w-48">
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-2">Attribution Logic</label>
+                <select className="w-full bg-slate-100 border-none text-sm font-medium py-2.5 px-4 rounded-lg text-slate-900">
+                  <option>impression → reg</option>
+                  <option>earliest pageload</option>
+                </select>
               </div>
+              <div className="w-32">
+                <label className="block text-[10px] font-bold uppercase text-slate-500 mb-2">Window</label>
+                <select className="w-full bg-slate-100 border-none text-sm font-medium py-2.5 px-4 rounded-lg text-slate-900">
+                  <option>24h</option>
+                  <option>48h</option>
+                  <option>7d</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                className="bg-blue-700 text-white px-6 py-2.5 font-bold rounded-lg text-sm hover:bg-blue-600 transition-colors"
+              >
+                Refresh
+              </button>
+            </div>
+          </section>
 
-              <div className="flex flex-col gap-4 border-t border-slate-200 bg-slate-50 px-6 py-4 text-xs font-medium text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-                <span>Showing 1-10 of 12,840 results</span>
+          {/* Metrics Grid */}
+          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {metrics.map((metric) => (
+              <MetricCard key={metric.title} {...metric} />
+            ))}
+          </section>
+
+          {/* URL Classification Bento */}
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200/15">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-sm font-bold text-slate-900 uppercase tracking-tight">URL Classification &amp; Performance</h3>
                 <div className="flex items-center gap-2">
-                  <button type="button" disabled className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 disabled:opacity-50">
-                    Previous
-                  </button>
-                  <button type="button" className="rounded-lg bg-blue-700 px-3 py-1.5 font-bold text-white">
-                    1
-                  </button>
-                  <button type="button" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5">
-                    2
-                  </button>
-                  <button type="button" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5">
-                    3
-                  </button>
-                  <span>...</span>
-                  <button type="button" className="rounded-lg border border-slate-200 bg-white px-3 py-1.5">
-                    Next
-                  </button>
+                  <span className="flex items-center gap-1 text-[10px] font-medium"><span className="w-2 h-2 rounded-full bg-blue-700 inline-block" /> ourl</span>
+                  <span className="flex items-center gap-1 text-[10px] font-medium"><span className="w-2 h-2 rounded-full bg-blue-300 inline-block" /> rl</span>
+                  <span className="flex items-center gap-1 text-[10px] font-medium"><span className="w-2 h-2 rounded-full bg-slate-300 inline-block" /> dl</span>
                 </div>
               </div>
-            </section>
-          </div>
-        </main>
-      </div>
+              <div className="grid grid-cols-4 gap-4 h-48">
+                {distribution.map((item) => (
+                  <div key={item.label} className="flex flex-col justify-end gap-2">
+                    <div className={`w-full rounded-t-sm ${item.color}`} style={{ height: item.height }} />
+                    <div className="text-[10px] font-bold text-center text-slate-700">{item.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-between pt-6 border-t border-slate-200/10">
+                <div className="text-center">
+                  <div className="text-xl font-black text-slate-900">99.2%</div>
+                  <div className="text-[10px] uppercase font-bold text-slate-500">Parsing Success</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-black text-slate-900">142</div>
+                  <div className="text-[10px] uppercase font-bold text-slate-500">Missed Rules</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xl font-black text-slate-900">84%</div>
+                  <div className="text-[10px] uppercase font-bold text-slate-500">AI Parameter Coverage</div>
+                </div>
+              </div>
+            </div>
 
-      <button
-        type="button"
-        className="fixed bottom-6 right-6 rounded-full bg-slate-950 px-6 py-4 text-sm font-bold text-white shadow-[0_20px_50px_-24px_rgba(15,23,42,0.7)] transition hover:scale-[1.02]"
-      >
-        New Analysis Task
-      </button>
+            {/* AI Summary Card */}
+            <div className="bg-blue-50/50 p-6 rounded-xl border border-blue-100 relative overflow-hidden">
+              <div className="relative z-10">
+                <h3 className="text-sm font-bold text-blue-700 mb-2 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                  AI Extraction Insights
+                </h3>
+                <p className="text-xs text-blue-900 leading-relaxed mb-6">
+                  Deep analysis identified 428 new recurring URL patterns that are currently classified as 'Unknown'. Recommendation: Upgrade rule version to v2.5.0 to capture an additional 8.2% of attribution paths.
+                </p>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-700">
+                    <span>UNMATCHED TOKENS</span>
+                    <span>3,219</span>
+                  </div>
+                  <div className="w-full bg-white/70 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-blue-700 h-full" style={{ width: '22%' }} />
+                  </div>
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-700 pt-2">
+                    <span>AI CONFIDENCE AVG</span>
+                    <span>94.8%</span>
+                  </div>
+                  <div className="w-full bg-white/70 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-emerald-500 h-full" style={{ width: '94%' }} />
+                  </div>
+                </div>
+              </div>
+              <div className="absolute -bottom-8 -right-8 opacity-5">
+                <span className="material-symbols-outlined text-[160px]">neurology</span>
+              </div>
+            </div>
+          </section>
 
+          {/* Data Table */}
+          <section className="bg-white rounded-xl border border-slate-200/15 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-slate-50">
+                    {['event_id', 'uid', 'event_name', 'ts', 'url_category', 'rl_type', 'attribution_status', 'duration'].map((header) => (
+                      <th key={header} className="px-4 py-3 text-[10px] font-bold uppercase text-slate-500 tracking-wider">
+                        {header}
+                      </th>
+                    ))}
+                    <th className="px-4 py-3 w-10" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {tableRows.map((row) => (
+                    <tr
+                      key={row.eventId}
+                      onClick={() => {
+                        setSelectedRow(row);
+                        setIsDetailOpen(true);
+                      }}
+                      className={`cursor-pointer transition hover:bg-slate-50 group ${selectedRow.eventId === row.eventId ? 'bg-blue-50/60' : 'bg-white'}`}
+                    >
+                      <td className="px-4 py-3 text-xs font-mono text-slate-500">{row.eventId}</td>
+                      <td className="px-4 py-3 text-xs font-medium text-slate-900">{row.uid}</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold">{row.eventName}</span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{row.ts}</td>
+                      <td className="px-4 py-3 text-xs text-slate-700">{row.category}</td>
+                      <td className="px-4 py-3 text-xs text-slate-700">{row.type}</td>
+                      <td className="px-4 py-3">
+                        <div className={`flex items-center gap-1.5 font-bold text-[10px] ${statusClasses(row.status).split(' ')[1]}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${statusClasses(row.status).split(' ')[0]}`} />
+                          {row.status}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-mono text-right text-slate-500">{row.duration}</td>
+                      <td className="px-4 py-3">
+                        <span className="material-symbols-outlined text-slate-300 group-hover:text-blue-600 transition-colors">chevron_right</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50/30 border-t border-slate-100 flex items-center justify-between text-xs font-medium text-slate-500">
+              <span>Showing 1-10 of 12,840 results</span>
+              <div className="flex items-center gap-2">
+                <button type="button" disabled className="px-3 py-1 bg-white border border-slate-200 rounded hover:bg-slate-50 transition-colors disabled:opacity-50">Previous</button>
+                <button type="button" className="px-3 py-1 bg-blue-700 text-white border border-blue-700 rounded">1</button>
+                <button type="button" className="px-3 py-1 bg-white border border-slate-200 rounded hover:bg-slate-50 transition-colors">2</button>
+                <button type="button" className="px-3 py-1 bg-white border border-slate-200 rounded hover:bg-slate-50 transition-colors">3</button>
+                <span className="mx-1">...</span>
+                <button type="button" className="px-3 py-1 bg-white border border-slate-200 rounded hover:bg-slate-50 transition-colors">Next</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      {/* Overlay */}
       <div
         className={`fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-[2px] transition-opacity duration-300 ${
           isDetailOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
@@ -566,97 +540,101 @@ export default function Dashboard() {
         aria-hidden={!isDetailOpen}
       />
 
+      {/* Detail Drawer */}
       <aside
         role="dialog"
         aria-modal="true"
         aria-labelledby="event-detail-title"
         aria-hidden={!isDetailOpen}
-        className={`fixed bottom-0 right-0 top-0 z-50 w-full max-w-md overflow-y-auto border-l border-slate-200/80 bg-white shadow-2xl transition-transform duration-300 ${
+        className={`fixed right-0 top-16 bottom-0 w-96 bg-white shadow-2xl border-l border-slate-200/30 z-50 overflow-y-auto transition-transform duration-300 ${
           isDetailOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="flex min-h-full flex-col p-6">
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h2 id="event-detail-title" className="text-sm font-black uppercase tracking-[0.22em] text-slate-950">
-                Event Detail
-              </h2>
-            </div>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-8">
+            <h2 id="event-detail-title" className="text-sm font-bold uppercase tracking-widest text-slate-900">Event Detail</h2>
             <button
               type="button"
               onClick={() => setIsDetailOpen(false)}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
               aria-label="Close Event Detail"
             >
-              ✕
+              <span className="material-symbols-outlined text-slate-500">close</span>
             </button>
           </div>
 
           <div className="space-y-8">
             <div>
-              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">URL Context</h3>
-              <div className="mt-3 rounded-2xl bg-slate-100 p-4">
-                <p className="break-all font-mono text-[12px] leading-6 text-slate-700">{selectedDetail.url}</p>
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">link</span> URL Context
+              </h3>
+              <div className="p-3 bg-slate-100 rounded-lg break-all">
+                <p className="text-[11px] leading-relaxed font-mono text-slate-700">{selectedDetail.url}</p>
               </div>
             </div>
 
             <div>
-              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Rule Analysis</h3>
-              <div className="mt-3 space-y-3 text-sm">
-                <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">rule_folder</span> Rule Analysis
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">Rule Version</span>
                   <span className="font-bold">{selectedDetail.ruleVersion}</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">Matched Rule ID</span>
-                  <span className="rounded bg-slate-100 px-2 py-1 font-mono text-xs">{selectedDetail.matchedRuleId}</span>
+                  <span className="font-mono bg-slate-100 px-1.5 rounded">{selectedDetail.matchedRuleId}</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">Confidence Score</span>
-                  <span className="font-bold text-emerald-600">{selectedDetail.confidenceScore}</span>
+                  <span className="text-emerald-600 font-bold">{selectedDetail.confidenceScore}</span>
                 </div>
               </div>
             </div>
 
             <div>
-              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-blue-700">AI Results</h3>
-              <div className="mt-3 rounded-r-2xl border-l-2 border-blue-700 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
-                {selectedDetail.aiResult}
+              <h3 className="text-[10px] font-bold text-blue-700 uppercase mb-3 flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span> AI results
+              </h3>
+              <div className="p-3 border-l-2 border-blue-700 bg-blue-50">
+                <p className="text-[11px] text-blue-900 leading-relaxed">{selectedDetail.aiResult}</p>
               </div>
             </div>
 
             <div>
-              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Extracted Parameters</h3>
-              <div className="mt-3 space-y-3">
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase mb-3">Extracted Parameters</h3>
+              <div className="space-y-2">
                 {selectedDetail.extractedParameters.map(([key, value]) => (
-                  <div key={key} className="flex items-center gap-3 text-sm">
-                    <span className="w-24 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{key}</span>
-                    <span className="h-px flex-1 border-b border-dotted border-slate-300" />
-                    <span className="font-semibold text-slate-800">{value}</span>
+                  <div key={key} className="flex items-center gap-2">
+                    <span className="w-16 text-[10px] font-bold text-slate-400">{key}</span>
+                    <div className="flex-1 border-b border-dotted border-slate-300 h-0" />
+                    <span className="text-xs font-bold text-slate-900">{value}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             <div>
-              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Attribution Path</h3>
-              <div className="relative mt-4 space-y-6 pl-6 before:absolute before:left-[7px] before:top-2 before:h-[calc(100%-16px)] before:w-px before:bg-slate-200">
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase mb-4">Attribution Path</h3>
+              <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-slate-200">
                 {selectedDetail.attributionPath.map(([title, detail, color]) => (
                   <div key={title} className="relative">
-                    <span className={`absolute -left-6 top-1 block h-4 w-4 rounded-full border-4 border-white ${color}`} />
-                    <p className="text-sm font-bold text-slate-900">{title}</p>
-                    <p className="text-xs text-slate-500">{detail}</p>
+                    <div className={`absolute -left-[22px] top-1 w-3 h-3 rounded-full ring-4 ring-white ${color}`} />
+                    <p className="text-xs font-bold text-slate-900">{title}</p>
+                    <p className="text-[10px] text-slate-500">{detail}</p>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="mt-12 border-t border-slate-200 pt-6">
+          <div className="mt-12 pt-6 border-t border-slate-200">
             <button
               type="button"
-              className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-200"
+              className="w-full bg-slate-100 py-3 rounded-lg text-sm font-bold text-slate-900 hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
             >
+              <span className="material-symbols-outlined text-lg">flag</span>
               Flag for Manual Review
             </button>
           </div>
