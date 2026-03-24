@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 
 type MetricTone = 'positive' | 'negative' | 'neutral';
@@ -78,6 +78,88 @@ const tableRows = [
   },
 ];
 
+const eventDetails = {
+  ev_9x128a: {
+    url: 'https://enterprise.kinetic-intel.com/v1/auth/callback?session=xyz_7721&ref=ad_campaign_alpha_441&utm_source=google&utm_medium=cpc',
+    ruleVersion: 'v2.4.1 (Active)',
+    matchedRuleId: 'r_auth_772',
+    confidenceScore: '98.2%',
+    aiResult: 'Parameter ref mapped to internal_campaign_id based on historical path variance.',
+    extractedParameters: [
+      ['utm_source', 'google'],
+      ['session', 'xyz_7721'],
+      ['campaign', 'alpha_441'],
+    ],
+    attributionPath: [
+      ['Impression (Ad #441)', 'Oct 24, 09:12 AM • Google Search', 'bg-emerald-500'],
+      ['Landing Page', 'Oct 24, 11:45 AM • /solutions/enterprise', 'bg-blue-500'],
+      ['Registration', 'Oct 24, 14:22 PM • Success', 'bg-blue-700'],
+    ],
+  },
+  ev_9x129b: {
+    url: 'https://engage.kinetic-intel.com/social/launch?click_id=ps_5512&ref=meta_launch_q4&utm_source=meta&utm_medium=paid_social',
+    ruleVersion: 'v2.4.1 (Active)',
+    matchedRuleId: 'r_social_551',
+    confidenceScore: '91.4%',
+    aiResult: 'Meta paid-social click identifier aligned with paid_campaign_group after fallback token normalization.',
+    extractedParameters: [
+      ['utm_source', 'meta'],
+      ['click_id', 'ps_5512'],
+      ['campaign', 'launch_q4'],
+    ],
+    attributionPath: [
+      ['Paid Social Click', 'Oct 24, 14:17 PM • Meta Campaign', 'bg-blue-500'],
+      ['Redirect', 'Oct 24, 14:21 PM • Short URL Resolver', 'bg-slate-400'],
+      ['Pageload', 'Oct 24, 14:23 PM • Pending Match', 'bg-blue-700'],
+    ],
+  },
+  ev_9x130c: {
+    url: 'https://partners.kinetic-intel.com/invite?partner_id=ref_892&token=zz19-alpha&src=channel_referral',
+    ruleVersion: 'v2.3.0 (Specified)',
+    matchedRuleId: 'r_partner_089',
+    confidenceScore: '64.7%',
+    aiResult: 'Referral token likely maps to partner_program_id, but the final registration event is outside the current confidence threshold.',
+    extractedParameters: [
+      ['partner_id', 'ref_892'],
+      ['token', 'zz19-alpha'],
+      ['src', 'channel_referral'],
+    ],
+    attributionPath: [
+      ['Referral Click', 'Oct 24, 10:02 AM • Partner Portal', 'bg-emerald-500'],
+      ['Landing Page', 'Oct 24, 10:06 AM • /invite/accept', 'bg-blue-500'],
+      ['Registration', 'Oct 24, 14:25 PM • Unmatched', 'bg-rose-500'],
+    ],
+  },
+  ev_9x131d: {
+    url: 'https://internal.kinetic-intel.com/cross-product?placement=banner_11&origin=analytics_hub&uid=u_881-x92',
+    ruleVersion: 'v2.4.1 (Active)',
+    matchedRuleId: 'r_internal_118',
+    confidenceScore: '96.1%',
+    aiResult: 'Cross-product internal source matched through signed placement metadata and prior session stitching.',
+    extractedParameters: [
+      ['placement', 'banner_11'],
+      ['origin', 'analytics_hub'],
+      ['uid', 'u_881-x92'],
+    ],
+    attributionPath: [
+      ['Internal Impression', 'Oct 24, 14:26 PM • Analytics Hub', 'bg-emerald-500'],
+      ['Cross-Product Link', 'Oct 24, 14:26 PM • Internal Router', 'bg-blue-500'],
+      ['Verification', 'Oct 24, 14:27 PM • Success', 'bg-blue-700'],
+    ],
+  },
+} satisfies Record<
+  string,
+  {
+    url: string;
+    ruleVersion: string;
+    matchedRuleId: string;
+    confidenceScore: string;
+    aiResult: string;
+    extractedParameters: Array<[string, string]>;
+    attributionPath: Array<[string, string, string]>;
+  }
+>;
+
 function statusClasses(status: string) {
   if (status === 'SUCCESS') {
     return 'bg-emerald-500 text-emerald-600';
@@ -130,13 +212,30 @@ function MetricCard({
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const [selectedRow, setSelectedRow] = useState(tableRows[0]);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const identityLabel = user?.name ?? user?.email ?? 'Admin Terminal';
+  const selectedDetail = eventDetails[selectedRow.eventId];
   const initials = identityLabel
     .split(/[\s@._-]+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('');
+
+  useEffect(() => {
+    if (!isDetailOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsDetailOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDetailOpen]);
 
   return (
     <div className="min-h-screen bg-[#eef2f6] text-slate-900">
@@ -304,7 +403,7 @@ export default function Dashboard() {
               ))}
             </section>
 
-            <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(340px,1fr)]">
+            <section className="mt-6">
               <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
                 <article className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.4)]">
                   <div className="flex items-center justify-between gap-4">
@@ -379,86 +478,6 @@ export default function Dashboard() {
                   <div className="absolute -bottom-8 -right-8 h-40 w-40 rounded-full bg-blue-700/10 blur-2xl" />
                 </article>
               </div>
-
-              <aside className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.4)]">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-black uppercase tracking-[0.22em] text-slate-950">Event Detail</h2>
-                  <button
-                    type="button"
-                    className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                <div className="mt-8 space-y-8">
-                  <div>
-                    <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">URL Context</h3>
-                    <div className="mt-3 rounded-2xl bg-slate-100 p-4">
-                      <p className="break-all font-mono text-[12px] leading-6 text-slate-700">
-                        https://enterprise.kinetic-intel.com/v1/auth/callback?session=xyz_7721&ref=ad_campaign_alpha_441&utm_source=google&utm_medium=cpc
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Rule Analysis</h3>
-                    <div className="mt-3 space-y-3 text-sm">
-                      <div className="flex items-center justify-between"><span className="text-slate-500">Rule Version</span><span className="font-bold">v2.4.1 (Active)</span></div>
-                      <div className="flex items-center justify-between"><span className="text-slate-500">Matched Rule ID</span><span className="rounded bg-slate-100 px-2 py-1 font-mono text-xs">r_auth_772</span></div>
-                      <div className="flex items-center justify-between"><span className="text-slate-500">Confidence Score</span><span className="font-bold text-emerald-600">98.2%</span></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-blue-700">AI Results</h3>
-                    <div className="mt-3 rounded-r-2xl border-l-2 border-blue-700 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
-                      Parameter <strong>ref</strong> mapped to <strong>internal_campaign_id</strong> based on historical path variance.
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Extracted Parameters</h3>
-                    <div className="mt-3 space-y-3">
-                      {[
-                        ['utm_source', 'google'],
-                        ['session', 'xyz_7721'],
-                        ['campaign', 'alpha_441'],
-                      ].map(([key, value]) => (
-                        <div key={key} className="flex items-center gap-3 text-sm">
-                          <span className="w-24 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{key}</span>
-                          <span className="h-px flex-1 border-b border-dotted border-slate-300" />
-                          <span className="font-semibold text-slate-800">{value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Attribution Path</h3>
-                    <div className="relative mt-4 space-y-6 pl-6 before:absolute before:left-[7px] before:top-2 before:h-[calc(100%-16px)] before:w-px before:bg-slate-200">
-                      {[
-                        ['Impression (Ad #441)', 'Oct 24, 09:12 AM • Google Search', 'bg-emerald-500'],
-                        ['Landing Page', 'Oct 24, 11:45 AM • /solutions/enterprise', 'bg-blue-500'],
-                        ['Registration', 'Oct 24, 14:22 PM • Success', 'bg-blue-700'],
-                      ].map(([title, detail, color]) => (
-                        <div key={title} className="relative">
-                          <span className={`absolute -left-6 top-1 block h-4 w-4 rounded-full border-4 border-white ${color}`} />
-                          <p className="text-sm font-bold text-slate-900">{title}</p>
-                          <p className="text-xs text-slate-500">{detail}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-200"
-                  >
-                    Flag for Manual Review
-                  </button>
-                </div>
-              </aside>
             </section>
 
             <section className="mt-6 overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_24px_80px_-48px_rgba(15,23,42,0.4)]">
@@ -478,7 +497,10 @@ export default function Dashboard() {
                     {tableRows.map((row) => (
                       <tr
                         key={row.eventId}
-                        onClick={() => setSelectedRow(row)}
+                        onClick={() => {
+                          setSelectedRow(row);
+                          setIsDetailOpen(true);
+                        }}
                         className={`cursor-pointer transition hover:bg-slate-50 ${selectedRow.eventId === row.eventId ? 'bg-blue-50/60' : 'bg-white'}`}
                       >
                         <td className="px-4 py-4 font-mono text-xs text-slate-500">{row.eventId}</td>
@@ -535,6 +557,111 @@ export default function Dashboard() {
       >
         New Analysis Task
       </button>
+
+      <div
+        className={`fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-[2px] transition-opacity duration-300 ${
+          isDetailOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+        onClick={() => setIsDetailOpen(false)}
+        aria-hidden={!isDetailOpen}
+      />
+
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="event-detail-title"
+        aria-hidden={!isDetailOpen}
+        className={`fixed bottom-0 right-0 top-0 z-50 w-full max-w-md overflow-y-auto border-l border-slate-200/80 bg-white shadow-2xl transition-transform duration-300 ${
+          isDetailOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex min-h-full flex-col p-6">
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h2 id="event-detail-title" className="text-sm font-black uppercase tracking-[0.22em] text-slate-950">
+                Event Detail
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsDetailOpen(false)}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+              aria-label="Close Event Detail"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-8">
+            <div>
+              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">URL Context</h3>
+              <div className="mt-3 rounded-2xl bg-slate-100 p-4">
+                <p className="break-all font-mono text-[12px] leading-6 text-slate-700">{selectedDetail.url}</p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Rule Analysis</h3>
+              <div className="mt-3 space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Rule Version</span>
+                  <span className="font-bold">{selectedDetail.ruleVersion}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Matched Rule ID</span>
+                  <span className="rounded bg-slate-100 px-2 py-1 font-mono text-xs">{selectedDetail.matchedRuleId}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Confidence Score</span>
+                  <span className="font-bold text-emerald-600">{selectedDetail.confidenceScore}</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-blue-700">AI Results</h3>
+              <div className="mt-3 rounded-r-2xl border-l-2 border-blue-700 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
+                {selectedDetail.aiResult}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Extracted Parameters</h3>
+              <div className="mt-3 space-y-3">
+                {selectedDetail.extractedParameters.map(([key, value]) => (
+                  <div key={key} className="flex items-center gap-3 text-sm">
+                    <span className="w-24 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{key}</span>
+                    <span className="h-px flex-1 border-b border-dotted border-slate-300" />
+                    <span className="font-semibold text-slate-800">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-slate-500">Attribution Path</h3>
+              <div className="relative mt-4 space-y-6 pl-6 before:absolute before:left-[7px] before:top-2 before:h-[calc(100%-16px)] before:w-px before:bg-slate-200">
+                {selectedDetail.attributionPath.map(([title, detail, color]) => (
+                  <div key={title} className="relative">
+                    <span className={`absolute -left-6 top-1 block h-4 w-4 rounded-full border-4 border-white ${color}`} />
+                    <p className="text-sm font-bold text-slate-900">{title}</p>
+                    <p className="text-xs text-slate-500">{detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-12 border-t border-slate-200 pt-6">
+            <button
+              type="button"
+              className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-200"
+            >
+              Flag for Manual Review
+            </button>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }
