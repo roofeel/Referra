@@ -5,6 +5,9 @@ import {
   normalizeAttributionLogicMapping,
   type AttributionLogicMapping,
 } from '../config/attribution.config.js';
+import { findColumnName, parseCsvRows } from '../lib/reports-csv.lib.js';
+import { computeDurationSeconds, getSearchParamIgnoreCase, parseUrl, safeDecode } from '../lib/reports-url.lib.js';
+import { getReportDetailPayload } from '../services/reports-detail.service.js';
 
 type ReportTaskStatus = 'Running' | 'Completed' | 'Failed' | 'Paused';
 
@@ -41,73 +44,10 @@ type ReportsPayload = {
   tasks: ReportTask[];
 };
 
-type ReportDetailMetric = {
-  title: string;
-  value: string;
-  note: string;
-  tone: 'positive' | 'negative' | 'neutral';
-  icon: string;
-};
-
-type ReportDetailDistributionItem = {
-  label: string;
-  height: string;
-  color: string;
-};
-
-type ReportDetailTableRow = {
-  eventId: string;
-  uid: string;
-  eventName: string;
-  ts: string;
-  sourceTs: string;
-  category: string;
-  type: string;
-  status: string;
-  duration: string;
-};
-
-type ReportDetailEventDetail = {
-  url: string;
-  ruleVersion: string;
-  matchedRuleId: string;
-  confidenceScore: string;
-  aiResult: string;
-  extractedParameters: Array<[string, string]>;
-  attributionPath: Array<[string, string, string]>;
-};
-
-type ReportDetailPayload = {
-  clientName: string;
-  referrerTypeStats: Array<{
-    referrerType: string;
-    count: number;
-    percentage: number;
-  }>;
-  metrics: ReportDetailMetric[];
-  distribution: ReportDetailDistributionItem[];
-  insights: {
-    parsingSuccess: number;
-    missedRules: number;
-    aiParameterCoverage: number;
-    unmatchedTokens: number;
-    aiConfidenceAvg: number;
-  };
-  pagination: {
-    page: number;
-    pageSize: number;
-    totalRows: number;
-    totalPages: number;
-  };
-  rows: ReportDetailTableRow[];
-  eventDetails: Record<string, ReportDetailEventDetail>;
-};
-
 type RequestWithParams<T extends Record<string, string>> = Request & { params: T };
 
 type ReportRecord = Awaited<ReturnType<typeof reports.findById>>;
 type UrlRuleRecord = Awaited<ReturnType<typeof urlRules.findById>>;
-type ReferrerRawRecord = Awaited<ReturnType<typeof referrerRaws.listByReport>>[number];
 type UrlRuleExecutor = (ourl: unknown, rl: string, dl: string) => unknown | Promise<unknown>;
 
 function normalizeStatus(raw?: string | null): ReportTaskStatus | undefined {
@@ -197,115 +137,6 @@ function buildPayload(
   };
 }
 
-function normalizeHeaderKey(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_')
-    .replace(/[^a-z0-9_]/g, '')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
-
-function parseCsvRows(fileContent: string) {
-  const text = fileContent.replace(/^\uFEFF/, '');
-  const matrix: string[][] = [];
-  let row: string[] = [];
-  let cell = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    const nextChar = text[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        cell += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === ',' && !inQuotes) {
-      row.push(cell);
-      cell = '';
-      continue;
-    }
-
-    if ((char === '\n' || char === '\r') && !inQuotes) {
-      row.push(cell);
-      cell = '';
-
-      if (row.some((value) => value.trim().length > 0)) {
-        matrix.push(row);
-      }
-      row = [];
-
-      if (char === '\r' && nextChar === '\n') {
-        i += 1;
-      }
-      continue;
-    }
-
-    cell += char;
-  }
-
-  row.push(cell);
-  if (row.some((value) => value.trim().length > 0)) {
-    matrix.push(row);
-  }
-
-  if (matrix.length === 0) {
-    return { headers: [], rows: [] as Array<Record<string, string>> };
-  }
-
-  const [headerRow, ...dataRows] = matrix;
-  if (!headerRow) {
-    return { headers: [], rows: [] as Array<Record<string, string>> };
-  }
-
-  const headers = headerRow.map((header) => header.trim());
-  const rows = dataRows.map((values) => {
-    const output: Record<string, string> = {};
-    headers.forEach((header, index) => {
-      output[header] = values[index] ?? '';
-    });
-    return output;
-  });
-
-  return { headers, rows };
-}
-
-function findColumnName(
-  headers: string[],
-  fieldMappings: Record<string, string>,
-  candidates: string[],
-): string | undefined {
-  const headerByNormalized = new Map<string, string>();
-  headers.forEach((header) => {
-    const normalized = normalizeHeaderKey(header);
-    if (normalized && !headerByNormalized.has(normalized)) {
-      headerByNormalized.set(normalized, header);
-    }
-  });
-
-  for (const candidate of candidates) {
-    const mapped = fieldMappings[candidate];
-    if (mapped && headers.includes(mapped)) {
-      return mapped;
-    }
-
-    const byNormalized = headerByNormalized.get(normalizeHeaderKey(candidate));
-    if (byNormalized) {
-      return byNormalized;
-    }
-  }
-
-  return undefined;
-}
-
 function resolveAttributionLogicFromBody(body: {
   attributionLogic?: unknown;
   fieldMappings?: Record<string, string>;
@@ -331,58 +162,6 @@ function resolveAttributionLogicFromBody(body: {
   });
 
   return fallback;
-}
-
-function safeDecode(value: string) {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-function parseUrl(rawValue: string) {
-  const value = rawValue.trim();
-  if (!value) return null;
-
-  const decoded = safeDecode(value);
-
-  try {
-    return new URL(decoded);
-  } catch {
-    try {
-      return new URL(value);
-    } catch {
-      return null;
-    }
-  }
-}
-
-function parseTimestampToMs(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  const asNumber = Number(trimmed);
-  if (Number.isFinite(asNumber)) {
-    if (Math.abs(asNumber) >= 1e11) {
-      return asNumber;
-    }
-    return asNumber * 1000;
-  }
-
-  const parsed = Date.parse(trimmed);
-  if (Number.isNaN(parsed)) return null;
-  return parsed;
-}
-
-function computeDurationSeconds(eventTimeRaw: string, sourceTimeRaw: string) {
-  const eventMs = parseTimestampToMs(eventTimeRaw);
-  const sourceMs = parseTimestampToMs(sourceTimeRaw);
-  if (eventMs === null || sourceMs === null) {
-    return 0;
-  }
-
-  return Math.round((eventMs - sourceMs) / 1000);
 }
 
 function buildUrlRuleExecutor(logicSource: string | null | undefined): UrlRuleExecutor {
@@ -469,317 +248,6 @@ function deriveReferrer(result: unknown) {
   return {
     referrerType: String(result),
     referrerDesc: '',
-  };
-}
-
-function normalizeKey(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_')
-    .replace(/[^a-z0-9_]/g, '')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
-
-function asJsonRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function getJsonValue(record: Record<string, unknown>, candidates: string[]): string {
-  if (!record || candidates.length === 0) return '';
-
-  for (const key of candidates) {
-    const value = record[key];
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
-    if (typeof value === 'number' || typeof value === 'boolean') {
-      return String(value);
-    }
-  }
-
-  const normalizedMap = new Map<string, unknown>();
-  for (const [key, value] of Object.entries(record)) {
-    normalizedMap.set(normalizeKey(key), value);
-  }
-
-  for (const key of candidates) {
-    const value = normalizedMap.get(normalizeKey(key));
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
-    if (typeof value === 'number' || typeof value === 'boolean') {
-      return String(value);
-    }
-  }
-
-  return '';
-}
-
-function isMatchedRow(row: Pick<ReferrerRawRecord, 'referrerType' | 'referrerDesc'>) {
-  const type = row.referrerType.trim().toLowerCase();
-  const desc = row.referrerDesc.trim().toLowerCase();
-  if (!type || type === 'unknown' || type === 'unmatched') return false;
-  if (desc.includes('error')) return false;
-  return true;
-}
-
-function formatDurationLabel(durationSecondsRaw: number) {
-  if (!Number.isFinite(durationSecondsRaw)) return '--';
-  const durationSeconds = Math.max(0, Math.round(durationSecondsRaw));
-  if (durationSeconds < 60) return `${durationSeconds}s`;
-  if (durationSeconds < 3600) return `${(durationSeconds / 60).toFixed(1)}m`;
-  if (durationSeconds < 86400) return `${(durationSeconds / 3600).toFixed(1)}h`;
-  return `${(durationSeconds / 86400).toFixed(1)}d`;
-}
-
-function formatTableTimestamp(rawValue: string) {
-  const ms = parseTimestampToMs(rawValue);
-  if (ms === null) return rawValue || '--';
-
-  const date = new Date(ms);
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hour = pad(date.getHours());
-  const minute = pad(date.getMinutes());
-  const second = pad(date.getSeconds());
-  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-}
-
-function formatTimestampFromMs(ms: number | null) {
-  if (ms === null || !Number.isFinite(ms)) return '--';
-  const date = new Date(ms);
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hour = pad(date.getHours());
-  const minute = pad(date.getMinutes());
-  const second = pad(date.getSeconds());
-  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
-}
-
-function parseQueryParams(urlValue: string): Array<[string, string]> {
-  const parsed = parseUrl(urlValue);
-  if (!parsed) return [];
-
-  const values: Array<[string, string]> = [];
-  for (const [key, value] of parsed.searchParams.entries()) {
-    values.push([key, value]);
-    if (values.length >= 8) break;
-  }
-
-  return values;
-}
-
-function extractUidFromEventUrl(urlValue: string) {
-  const parsed = parseUrl(urlValue);
-  if (!parsed) return '--';
-
-  const preferredKeys = new Set(['uid', 'user_id', 'userid', 'distinct_id']);
-  for (const [key, value] of parsed.searchParams.entries()) {
-    if (!value || !value.trim()) continue;
-    if (preferredKeys.has(key.trim().toLowerCase())) {
-      return value.trim();
-    }
-  }
-
-  return '--';
-}
-
-function extractEventNameFromEventUrl(urlValue: string) {
-  const parsed = parseUrl(urlValue);
-  if (!parsed) return '';
-
-  for (const [key, value] of parsed.searchParams.entries()) {
-    if (!value || !value.trim()) continue;
-    if (key.trim().toLowerCase() === 'action') {
-      return value.trim();
-    }
-  }
-
-  return '';
-}
-
-function isMatchedReferrerType(type: string) {
-  const normalized = (type || '').trim().toLowerCase();
-  return Boolean(normalized) && normalized !== 'unknown' && normalized !== 'unmatched';
-}
-
-function toReferrerTypeStatsFromRows(rows: ReferrerRawRecord[]) {
-  const counter = new Map<string, number>();
-  rows.forEach((item) => {
-    const key = item.referrerType?.trim() || 'unknown';
-    counter.set(key, (counter.get(key) || 0) + 1);
-  });
-
-  return Array.from(counter.entries())
-    .map(([referrerType, count]) => ({ referrerType, count }))
-    .sort((a, b) => b.count - a.count);
-}
-
-function rawRowEventTimeMs(item: ReferrerRawRecord) {
-  const json = asJsonRecord(item.json);
-  const eventTimeRaw = getJsonValue(json, ['event_time', 'registration_time', 'page_load_time', 'timestamp', 'ts']);
-  return parseTimestampToMs(eventTimeRaw);
-}
-
-function startOfDayMs(dateInput: string) {
-  const value = dateInput.trim();
-  if (!value) return null;
-  const ms = Date.parse(`${value}T00:00:00`);
-  return Number.isNaN(ms) ? null : ms;
-}
-
-function endOfDayMs(dateInput: string) {
-  const value = dateInput.trim();
-  if (!value) return null;
-  const ms = Date.parse(`${value}T23:59:59.999`);
-  return Number.isNaN(ms) ? null : ms;
-}
-
-function inDurationWindow(durationSeconds: number, windowHours: number | null) {
-  if (windowHours === null) return true;
-  if (!Number.isFinite(durationSeconds)) return false;
-
-  const duration = Math.round(durationSeconds);
-  return duration >= 0 && duration <= windowHours * 60 * 60;
-}
-
-function buildDetailPayload(
-  report: NonNullable<ReportRecord>,
-  rule: UrlRuleRecord,
-  rawRows: ReferrerRawRecord[],
-  options: {
-    page: number;
-    pageSize: number;
-    totalRows: number;
-    referrerTypeCounts: Array<{ referrerType: string; count: number }>;
-  },
-): ReportDetailPayload {
-  const totalRows = options.totalRows;
-  const referrerTypeStats = options.referrerTypeCounts
-    .map((item) => ({
-      referrerType: item.referrerType || 'unknown',
-      count: item.count,
-      percentage: totalRows > 0 ? Number(((item.count / totalRows) * 100).toFixed(1)) : 0,
-    }))
-    .sort((a, b) => b.count - a.count);
-  const matchedRows = referrerTypeStats
-    .filter((item) => isMatchedReferrerType(item.referrerType))
-    .reduce((sum, item) => sum + item.count, 0);
-  const unmatchedRows = totalRows - matchedRows;
-  const parsingSuccess = totalRows === 0 ? 0 : (matchedRows / totalRows) * 100;
-  const aiCoverage = totalRows === 0 ? 0 : ((totalRows - unmatchedRows) / totalRows) * 100;
-  const aiConfidenceAvg = totalRows === 0 ? 0 : ((matchedRows * 95 + unmatchedRows * 60) / totalRows);
-  const avgDuration =
-    totalRows === 0 ? 0 : rawRows.reduce((sum, row) => sum + (Number.isFinite(row.duration) ? row.duration : 0), 0) / totalRows;
-
-  const rows: ReportDetailTableRow[] = rawRows.map((item) => {
-    const json = asJsonRecord(item.json);
-    const eventUrl =
-      getJsonValue(json, ['event_url', 'registration_url', 'page_load_url', 'url', 'ourl']) || '';
-    const eventTime = getJsonValue(json, ['event_time', 'registration_time', 'page_load_time', 'timestamp', 'ts']);
-    const sourceTime = getJsonValue(json, ['source_time', 'impression_time']);
-    const eventMs = parseTimestampToMs(eventTime);
-    const sourceMsFromRaw = parseTimestampToMs(sourceTime);
-    const sourceMsDerived =
-      sourceMsFromRaw !== null
-        ? sourceMsFromRaw
-        : eventMs !== null && Number.isFinite(item.duration)
-          ? eventMs - Math.max(0, Math.round(item.duration)) * 1000
-          : null;
-    const uid = extractUidFromEventUrl(eventUrl);
-    const eventName =
-      (extractEventNameFromEventUrl(eventUrl) ||
-        getJsonValue(json, ['action', 'event_name', 'event', 'event_type']))
-        .toUpperCase() || 'EVENT';
-    const status = isMatchedRow(item) ? 'SUCCESS' : 'UNMATCHED';
-
-    return {
-      eventId: item.id,
-      uid,
-      eventName,
-      ts: formatTableTimestamp(eventTime),
-      sourceTs: sourceMsFromRaw !== null ? formatTableTimestamp(sourceTime) : formatTimestampFromMs(sourceMsDerived),
-      category: item.referrerType || 'unknown',
-      type: item.referrerDesc || '--',
-      status,
-      duration: formatDurationLabel(item.duration),
-    };
-  });
-
-  const eventDetails: Record<string, ReportDetailEventDetail> = {};
-  rawRows.forEach((item) => {
-    const json = asJsonRecord(item.json);
-    const urlValue =
-      getJsonValue(json, ['event_url', 'registration_url', 'page_load_url', 'url', 'ourl']) || 'N/A';
-    const sourceUrl = getJsonValue(json, ['source_url', 'impression_url', 'source']);
-    const sourceTime = getJsonValue(json, ['source_time', 'impression_time']);
-    const eventTime = getJsonValue(json, ['event_time', 'registration_time', 'page_load_time', 'timestamp', 'ts']);
-    const params = parseQueryParams(urlValue);
-
-    eventDetails[item.id] = {
-      url: urlValue,
-      ruleVersion: rule?.activeVersion || 'N/A',
-      matchedRuleId: report.ruleId || 'N/A',
-      confidenceScore: `${(isMatchedRow(item) ? 95 : 60).toFixed(1)}%`,
-      aiResult: item.referrerDesc || 'No description',
-      extractedParameters: params.length > 0 ? params : [['referrer_type', item.referrerType || 'unknown']],
-      attributionPath: [
-        ['Source', `${sourceTime || '--'} • ${sourceUrl || '--'}`, 'bg-emerald-500'],
-        ['Event URL', `${eventTime || '--'} • ${urlValue}`, 'bg-blue-500'],
-        ['Classification', `${item.referrerType || 'unknown'} • ${isMatchedRow(item) ? 'Matched' : 'Unmatched'}`, 'bg-blue-700'],
-      ],
-    };
-  });
-
-  const topTypes = referrerTypeStats
-    .slice(0, 4);
-  const maxTypeCount = topTypes[0]?.count || 1;
-  const distributionColors = ['bg-blue-700', 'bg-blue-500/70', 'bg-blue-300', 'bg-slate-300'];
-  const distribution: ReportDetailDistributionItem[] = topTypes.map((item, index) => ({
-    label: item.referrerType,
-    height: `${Math.max(10, Math.round((item.count / maxTypeCount) * 100))}%`,
-    color: distributionColors[index] || 'bg-slate-300',
-  }));
-
-  return {
-    clientName: report.client?.name || 'Unknown Client',
-    referrerTypeStats,
-    metrics: [
-      {
-        title: 'Total Events',
-        value: new Intl.NumberFormat('en-US').format(totalRows),
-        note: `${parsingSuccess.toFixed(1)}% parsing success`,
-        tone: parsingSuccess >= 90 ? 'positive' : 'neutral',
-        icon: 'data_object',
-      },
-      {
-        title: 'Avg Duration',
-        value: formatDurationLabel(avgDuration),
-        note: 'event_time - source_time',
-        tone: 'neutral',
-        icon: 'timer',
-      },
-    ],
-    distribution,
-    insights: {
-      parsingSuccess: Number(parsingSuccess.toFixed(1)),
-      missedRules: unmatchedRows,
-      aiParameterCoverage: Number(aiCoverage.toFixed(1)),
-      unmatchedTokens: unmatchedRows,
-      aiConfidenceAvg: Number(aiConfidenceAvg.toFixed(1)),
-    },
-    pagination: {
-      page: options.page,
-      pageSize: options.pageSize,
-      totalRows,
-      totalPages: Math.max(1, Math.ceil(totalRows / options.pageSize)),
-    },
-    rows,
-    eventDetails,
   };
 }
 
@@ -975,12 +443,12 @@ export const reportsController = {
       for (const [index, row] of parsedCsv.rows.entries()) {
         const rawEventUrl = String(row[eventUrlColumn] ?? '');
         const ourl = parseUrl(rawEventUrl) ?? new URL('https://invalid.local/');
-        const rl = safeDecode(ourl.searchParams.get('rl') || '');
-        const dl = safeDecode(ourl.searchParams.get('dl') || '');
+        const rl = safeDecode(getSearchParamIgnoreCase(ourl, 'rl'));
+        const dl = safeDecode(getSearchParamIgnoreCase(ourl, 'dl'));
 
         let ruleResult: unknown;
         try {
-          log('info', `Processing ourl: ${ourl.href}`);
+          log('info', `Processing ourl: ${ourl.href} \n rl: ${rl} \n dl: ${dl}`);
           ruleResult = await executeRule(ourl.href, rl, dl);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -1077,9 +545,6 @@ export const reportsController = {
     const windowHoursRaw = Number(url.searchParams.get('windowHours') || '');
     const startDate = url.searchParams.get('startDate')?.trim() || '';
     const endDate = url.searchParams.get('endDate')?.trim() || '';
-    const startMs = startDate ? startOfDayMs(startDate) : null;
-    const endMs = endDate ? endOfDayMs(endDate) : null;
-    const windowHours = [12, 24, 48, 72].includes(windowHoursRaw) ? windowHoursRaw : null;
     const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
     const pageSize =
       Number.isFinite(pageSizeRaw) && pageSizeRaw > 0 ? Math.min(200, Math.floor(pageSizeRaw)) : 50;
@@ -1089,56 +554,14 @@ export const reportsController = {
       return Response.json({ error: 'Report task not found' }, { status: 404 });
     }
 
-    const rule = await urlRules.findById(current.ruleId);
-    const shouldFilter = startMs !== null || endMs !== null || windowHours !== null;
-
-    if (shouldFilter) {
-      const allRows = (await referrerRaws.listByReport(request.params.id)) as ReferrerRawRecord[];
-      const filteredRows = allRows.filter((item) => {
-        const eventMs = rawRowEventTimeMs(item);
-        if (eventMs === null && (startMs !== null || endMs !== null)) return false;
-        if (startMs !== null && eventMs < startMs) return false;
-        if (endMs !== null && eventMs > endMs) return false;
-        if (!inDurationWindow(item.duration, windowHours)) return false;
-        return true;
-      });
-
-      const totalRows = filteredRows.length;
-      const skip = (page - 1) * pageSize;
-      const pagedRows = filteredRows.slice(skip, skip + pageSize);
-      const referrerTypeCounts = toReferrerTypeStatsFromRows(filteredRows);
-
-      return Response.json(
-        buildDetailPayload(current, rule, pagedRows, {
-          page,
-          pageSize,
-          totalRows,
-          referrerTypeCounts,
-        }),
-      );
-    }
-
-    const skip = (page - 1) * pageSize;
-    const [totalRows, rawRows, groupedByTypeRaw] = await Promise.all([
-      referrerRaws.countByReport(request.params.id),
-      referrerRaws.listByReport(request.params.id, { skip, take: pageSize }),
-      referrerRaws.countByReportGroupedType(request.params.id),
-    ]);
-    const groupedByType = (groupedByTypeRaw as Array<{ referrerType: string; _count?: { _all?: number } }>).map(
-      (item) => ({
-        referrerType: item.referrerType || 'unknown',
-        count: Number(item._count?._all) || 0,
-      }),
-    );
-
-    return Response.json(
-      buildDetailPayload(current, rule, rawRows as ReferrerRawRecord[], {
-        page,
-        pageSize,
-        totalRows: Number(totalRows) || 0,
-        referrerTypeCounts: groupedByType,
-      }),
-    );
+    const payload = await getReportDetailPayload(current, {
+      page,
+      pageSize,
+      windowHours: windowHoursRaw,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+    });
+    return Response.json(payload);
   },
 
   async updateStatus(req: Request) {

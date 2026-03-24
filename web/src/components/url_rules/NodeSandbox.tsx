@@ -13,37 +13,35 @@ function safeDecode(value: string) {
   }
 }
 
-function extractParamsFromInput(raw: string) {
-  const value = raw.trim();
-  if (!value) {
-    return { ourl: '', rl: '', dl: '' };
+function resolveParams(ourlRaw: string, rlRaw: string, dlRaw: string) {
+  const ourl = ourlRaw.trim();
+  let rl = rlRaw.trim();
+  let dl = dlRaw.trim();
+
+  if (ourl && (!rl || !dl)) {
+    try {
+      const parsed = new URL(ourl);
+      if (!rl) rl = safeDecode(parsed.searchParams.get('rl') || '');
+      if (!dl) dl = safeDecode(parsed.searchParams.get('dl') || '');
+    } catch {
+      // Keep user-entered fallback values.
+    }
   }
 
-  try {
-    const url = new URL(value);
-    return {
-      ourl: url.href,
-      rl: safeDecode(url.searchParams.get('rl') || ''),
-      dl: safeDecode(url.searchParams.get('dl') || ''),
-    };
-  } catch {
-    return {
-      ourl: value,
-      rl: '',
-      dl: '',
-    };
-  }
+  return { ourl, rl, dl };
 }
 
 export function NodeSandbox({ inDrawer = false, logicSource }: NodeSandboxProps) {
-  const [inputValue, setInputValue] = useState('');
+  const [ourlValue, setOurlValue] = useState('https://example.com/landing?rl=sample_rl&dl=sample_dl');
+  const [rlValue, setRlValue] = useState('sample_rl');
+  const [dlValue, setDlValue] = useState('sample_dl');
   const [isExecuting, setIsExecuting] = useState(false);
   const [resultText, setResultText] = useState('');
   const [errorText, setErrorText] = useState('');
 
   const canExecute = useMemo(() => {
-    return Boolean(inputValue.trim()) && Boolean(logicSource.trim());
-  }, [inputValue, logicSource]);
+    return Boolean(ourlValue.trim()) && Boolean(logicSource.trim());
+  }, [ourlValue, logicSource]);
 
   async function handleExecute() {
     if (!canExecute || isExecuting) return;
@@ -67,7 +65,7 @@ return categorizeFunnel;
         throw new Error('categorizeFunnel is not a function');
       }
 
-      const { ourl, rl, dl } = extractParamsFromInput(inputValue);
+      const { ourl, rl, dl } = resolveParams(ourlValue, rlValue, dlValue);
       const resolved = await runner(ourl, rl, dl);
       setResultText(JSON.stringify(resolved, null, 2));
     } catch (error) {
@@ -89,15 +87,41 @@ return categorizeFunnel;
       <div className="space-y-5 p-5">
         <div className="space-y-2">
           <label htmlFor="ourl-input" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Input String (ourl)
+            ourl
           </label>
           <textarea
             id="ourl-input"
-            value={inputValue}
-            onChange={(event) => setInputValue(event.target.value)}
-            className="h-32 w-full resize-none rounded-lg border-none bg-slate-100 p-3 font-mono text-xs placeholder:text-slate-400 focus:ring-1 focus:ring-blue-700"
+            value={ourlValue}
+            onChange={(event) => setOurlValue(event.target.value)}
+            className="h-24 w-full resize-none rounded-lg border-none bg-slate-100 p-3 font-mono text-xs placeholder:text-slate-400 focus:ring-1 focus:ring-blue-700"
             placeholder="https://astrazeneca.com/global?gclid=az_8892..."
           />
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label htmlFor="rl-input" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              rl
+            </label>
+            <input
+              id="rl-input"
+              value={rlValue}
+              onChange={(event) => setRlValue(event.target.value)}
+              className="h-10 w-full rounded-lg border-none bg-slate-100 px-3 font-mono text-xs text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-700"
+              placeholder="sample_rl"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="dl-input" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              dl
+            </label>
+            <input
+              id="dl-input"
+              value={dlValue}
+              onChange={(event) => setDlValue(event.target.value)}
+              className="h-10 w-full rounded-lg border-none bg-slate-100 px-3 font-mono text-xs text-slate-900 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-700"
+              placeholder="sample_dl"
+            />
+          </div>
         </div>
 
         <button
