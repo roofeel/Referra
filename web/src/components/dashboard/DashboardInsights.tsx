@@ -1,7 +1,7 @@
-import type { DistributionItem, ReferrerTypeStat } from './dashboardData';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import type { ReferrerTypeStat } from './dashboardData';
 
 type DashboardInsightsProps = {
-  distribution: DistributionItem[];
   referrerTypeStats: ReferrerTypeStat[];
 };
 
@@ -60,8 +60,14 @@ function DonutChart({ stats }: { stats: ReferrerTypeStat[] }) {
   );
 }
 
-export function DashboardInsights({ distribution, referrerTypeStats }: DashboardInsightsProps) {
+export function DashboardInsights({ referrerTypeStats }: DashboardInsightsProps) {
   const topStats = referrerTypeStats.slice(0, 6);
+  const topBarStats = referrerTypeStats.slice(0, 4);
+  const barData = topBarStats.map((item, index) => ({
+    referrerType: item.referrerType || 'unknown',
+    count: item.count,
+    color: chartColors[index % chartColors.length],
+  }));
 
   return (
     <section className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -73,15 +79,39 @@ export function DashboardInsights({ distribution, referrerTypeStats }: Dashboard
           </span>
         </div>
 
-        <div className="mb-6 grid h-44 grid-cols-4 gap-4">
-          {distribution.map((item) => (
-            <div key={item.label} className="flex flex-col justify-end gap-2">
-              <div className={`w-full rounded-t-sm ${item.color}`} style={{ height: item.height }} />
-              <div className="truncate text-center text-[10px] font-bold text-slate-700" title={item.label}>
-                {item.label}
-              </div>
-            </div>
-          ))}
+        <div className="mb-6 h-44">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={barData} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis
+                dataKey="referrerType"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: '#334155', fontWeight: 600 }}
+                interval={0}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: '#64748b' }}
+                allowDecimals={false}
+                width={30}
+              />
+              <Tooltip
+                cursor={{ fill: 'rgba(148, 163, 184, 0.14)' }}
+                formatter={(value) => [
+                  new Intl.NumberFormat('en-US').format(Number(value ?? 0)),
+                  'Count',
+                ]}
+                labelFormatter={(label) => `Referrer Type: ${String(label ?? '')}`}
+              />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                {barData.map((entry) => (
+                  <Cell key={entry.referrerType} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
