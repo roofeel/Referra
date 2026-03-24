@@ -1,20 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import Dashboard from '../Dashboard';
-
-vi.mock('../../auth/AuthContext', () => ({
-  useAuth: () => ({
-    user: {
-      id: 'user_1',
-      email: 'roofeel@example.com',
-      name: 'roofeel',
-      avatar: null,
-    },
-    logout: vi.fn(),
-  }),
-}));
 
 describe('Dashboard', () => {
   it('renders dashboard shell and key analytics modules', () => {
@@ -25,7 +13,9 @@ describe('Dashboard', () => {
     );
 
     expect(screen.getByRole('navigation', { name: 'Dashboard Navigation' })).toBeInTheDocument();
-    expect(screen.getByText('Data Analysis')).toBeInTheDocument();
+    expect(screen.getByText('Framework')).toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Client Logic')).toBeInTheDocument();
     expect(screen.getByText('URL Classification & Performance')).toBeInTheDocument();
     expect(screen.getByText('AI Extraction Insights')).toBeInTheDocument();
     expect(screen.getByText('New Analysis Task')).toBeInTheDocument();

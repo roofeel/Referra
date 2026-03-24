@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Analysis Tasks | Kinetix Enterprise</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        /* Custom scrollbar for high density */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f2f4f6; }
+        ::-webkit-scrollbar-thumb { background: #c3c6d8; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #737687; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "surface-tint": "#0053d9",
+                "primary-fixed": "#dbe1ff",
+                "tertiary-fixed": "#d3e4fe",
+                "surface-container-low": "#f2f4f6",
+                "surface": "#f7f9fb",
+                "inverse-surface": "#2d3133",
+                "primary-fixed-dim": "#b3c5ff",
+                "surface-container-lowest": "#ffffff",
+                "outline": "#737687",
+                "outline-variant": "#c3c6d8",
+                "on-tertiary-fixed-variant": "#38485d",
+                "surface-bright": "#f7f9fb",
+                "on-tertiary": "#ffffff",
+                "on-tertiary-container": "#dbe9ff",
+                "on-secondary-fixed-variant": "#3c475a",
+                "on-background": "#191c1e",
+                "on-secondary": "#ffffff",
+                "tertiary-container": "#596980",
+                "on-surface": "#191c1e",
+                "on-secondary-fixed": "#111c2d",
+                "on-tertiary-fixed": "#0b1c30",
+                "surface-variant": "#e0e3e5",
+                "secondary-fixed": "#d8e3fb",
+                "surface-container-highest": "#e0e3e5",
+                "surface-container-high": "#e6e8ea",
+                "primary-container": "#005cee",
+                "secondary-fixed-dim": "#bcc7de",
+                "inverse-primary": "#b3c5ff",
+                "tertiary": "#415167",
+                "on-surface-variant": "#424655",
+                "on-error": "#ffffff",
+                "secondary": "#545f73",
+                "primary": "#0046ba",
+                "tertiary-fixed-dim": "#b7c8e1",
+                "error-container": "#ffdad6",
+                "on-primary-fixed-variant": "#003ea7",
+                "on-secondary-container": "#586377",
+                "on-primary": "#ffffff",
+                "background": "#f7f9fb",
+                "on-primary-container": "#e2e7ff",
+                "error": "#ba1a1a",
+                "inverse-on-surface": "#eff1f3",
+                "on-primary-fixed": "#00174a",
+                "secondary-container": "#d5e0f8",
+                "surface-dim": "#d8dadc",
+                "surface-container": "#eceef0",
+                "on-error-container": "#93000a"
+              },
+              fontFamily: {
+                "headline": ["Inter"],
+                "body": ["Inter"],
+                "label": ["Inter"]
+              },
+              borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+            },
+          },
+        }
+      </script>
+</head>
+<body class="bg-surface text-on-surface flex min-h-screen overflow-hidden">
+<!-- SideNavBar (Shared Component) -->
+<aside class="h-screen w-64 left-0 top-0 fixed bg-[#415167] dark:bg-[#1a222c] flex flex-col py-4 gap-y-2 z-50 shadow-xl dark:shadow-none font-sans text-[13px] font-medium antialiased text-white">
+<div class="px-6 mb-8">
+<h1 class="text-white font-black tracking-tighter text-2xl">Kinetix</h1>
+<p class="text-slate-300 text-[10px] uppercase tracking-widest opacity-70">Enterprise Intelligence</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center px-4 py-2.5 mx-2 text-slate-300 hover:text-white hover:bg-white/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="dashboard">dashboard</span>
+                Workbench
+            </a>
+<a class="flex items-center px-4 py-2.5 mx-2 bg-[#0046ba] text-white rounded-md translate-x-1 duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="analytics">analytics</span>
+                Data Analysis
+            </a>
+<a class="flex items-center px-4 py-2.5 mx-2 text-slate-300 hover:text-white hover:bg-white/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="link">link</span>
+                URL Rules
+            </a>
+<a class="flex items-center px-4 py-2.5 mx-2 text-slate-300 hover:text-white hover:bg-white/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="settings">settings</span>
+                Config
+            </a>
+<a class="flex items-center px-4 py-2.5 mx-2 text-slate-300 hover:text-white hover:bg-white/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="dns">dns</span>
+                System
+            </a>
+</nav>
+<div class="mt-auto border-t border-white/10 pt-4 space-y-1">
+<a class="flex items-center px-4 py-2.5 mx-2 text-slate-300 hover:text-white hover:bg-white/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="help">help</span>
+                Help
+            </a>
+<a class="flex items-center px-4 py-2.5 mx-2 text-slate-300 hover:text-white hover:bg-white/10 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="logout">logout</span>
+                Logout
+            </a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+<!-- TopAppBar (Shared Component) -->
+<header class="flex justify-between items-center px-6 h-16 w-full bg-white dark:bg-slate-900 border-b border-slate-200/50 dark:border-slate-800/50 sticky top-0 z-40">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm group-focus-within:text-primary transition-colors" data-icon="search">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all" placeholder="Search tasks, clients, or IDs..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors rounded-full relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-white"></span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors rounded-full">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+<div class="h-8 w-px bg-slate-200"></div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-bold text-slate-900">Alex Sterling</p>
+<p class="text-[10px] text-slate-500 uppercase tracking-tighter">Admin Access</p>
+</div>
+<img alt="User Profile Avatar" class="w-8 h-8 rounded-full border border-slate-200 object-cover" data-alt="professional male portrait with neutral background for corporate avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHRIPdfTC4yYEAF-GOMuHvZY_hK09dDJ4MqBPl5yzU93werQhYu0VpJVg1GDsVEkDFoxfMG2L1sxU1ivdKCnBxq19USl0jAyvwj5uTWg2vpEfok9Q2N11GPFn2EmgCmsah9JrHY_whu1-asWRNBpgE7GT5CjzDUC1WWsEQracBu7orgx_Qfw5g0urVABvUZh09eGesbD41Yda5mDQvS_B4TW0bruoyWxdO6Wuu7puRtaMdjmBiBd_DC8Rv6pr0dnsghfj6HXcC48in"/>
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto p-8 space-y-8 bg-surface">
+<!-- Page Header Section -->
+<div class="flex justify-between items-end">
+<div>
+<nav class="flex mb-2 text-[10px] font-bold text-on-surface-variant uppercase tracking-widest gap-2">
+<span>Intelligence</span>
+<span class="opacity-30">/</span>
+<span class="text-primary">Analysis Tasks</span>
+</nav>
+<h2 class="text-3xl font-black text-on-surface tracking-tighter">Analysis Tasks</h2>
+</div>
+<button class="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-lg font-semibold text-sm hover:bg-primary-container transition-all active:scale-95 shadow-lg shadow-primary/10">
+<span class="material-symbols-outlined text-base" data-icon="upload">upload</span>
+                    Upload Data
+                </button>
+</div>
+<!-- Task Statistics Bar (Bento-style summary) -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="bg-surface-container-lowest p-5 rounded-xl border-b-2 border-primary-container/20">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Total Tasks</p>
+<div class="flex items-end justify-between">
+<span class="text-2xl font-black text-on-surface">1,284</span>
+<span class="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded font-bold">+12%</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl border-b-2 border-primary/40">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Active Analyses</p>
+<div class="flex items-end justify-between">
+<span class="text-2xl font-black text-primary">42</span>
+<span class="flex gap-1">
+<span class="w-1 h-3 bg-primary/20 rounded-full"></span>
+<span class="w-1 h-4 bg-primary/40 rounded-full animate-pulse"></span>
+<span class="w-1 h-2 bg-primary/60 rounded-full"></span>
+</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl border-b-2 border-secondary/20">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Success Rate (Avg)</p>
+<div class="flex items-end justify-between">
+<span class="text-2xl font-black text-on-surface">99.4%</span>
+<span class="text-[10px] font-medium text-on-surface-variant">Global Benchmark</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-xl border-b-2 border-tertiary/20">
+<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Data Points (24h)</p>
+<div class="flex items-end justify-between">
+<span class="text-2xl font-black text-on-surface">8.2M</span>
+<span class="text-xs text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="trending_up">trending_up</span>
+</span>
+</div>
+</div>
+</div>
+<!-- Filter Area -->
+<div class="bg-surface-container-low p-4 rounded-xl flex flex-wrap items-center gap-4">
+<div class="flex flex-col gap-1 min-w-[180px]">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase px-1">Client Account</label>
+<select class="bg-surface-container-highest border-none rounded-lg text-sm font-medium focus:ring-primary focus:bg-white h-10">
+<option>All Clients</option>
+<option>Global Retail Corp</option>
+<option>Vertex Finance</option>
+<option>Nexus Logistics</option>
+</select>
+</div>
+<div class="flex flex-col gap-1 min-w-[160px]">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase px-1">Task Status</label>
+<select class="bg-surface-container-highest border-none rounded-lg text-sm font-medium focus:ring-primary focus:bg-white h-10">
+<option>All Statuses</option>
+<option>Running</option>
+<option>Completed</option>
+<option>Failed</option>
+</select>
+</div>
+<div class="flex flex-col gap-1 min-w-[200px]">
+<label class="text-[10px] font-bold text-on-surface-variant uppercase px-1">Date Range</label>
+<div class="flex items-center bg-surface-container-highest rounded-lg px-3 h-10">
+<span class="material-symbols-outlined text-sm text-outline mr-2" data-icon="calendar_today">calendar_today</span>
+<input class="bg-transparent border-none text-sm font-medium p-0 focus:ring-0 w-full" readonly="" type="text" value="Oct 1, 2023 - Oct 31, 2023"/>
+</div>
+</div>
+<div class="ml-auto flex items-center gap-2 self-end pb-0.5">
+<button class="px-4 py-2 text-sm font-bold text-on-surface-variant hover:text-on-surface transition-colors">Reset</button>
+<button class="bg-secondary text-white px-5 py-2 rounded-lg text-sm font-bold hover:brightness-110 transition-all">Apply Filters</button>
+</div>
+</div>
+<!-- Task List Table -->
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-high border-b border-outline-variant/30">
+<th class="px-6 py-4 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Task Name</th>
+<th class="px-6 py-4 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Client</th>
+<th class="px-6 py-4 text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Source</th>
+<th class="px-6 py-4 text-[10px] font-black text-on-surface-variant uppercase tracking-widest text-center">Status</th>
+<th class="px-6 py-4 text-[10px] font-black text-on-surface-variant uppercase tracking-widest w-48">Progress</th>
+<th class="px-6 py-4 text-[10px] font-black text-on-surface-variant uppercase tracking-widest text-right">Attribution</th>
+<th class="px-6 py-4 text-[10px] font-black text-on-surface-variant uppercase tracking-widest text-right">Created At</th>
+<th class="px-6 py-4 text-[10px] font-black text-on-surface-variant uppercase tracking-widest text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<!-- Row 1: Running -->
+<tr class="group hover:bg-surface-container-low transition-colors cursor-pointer">
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">Q4 E-commerce Attribution</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-tighter">ID: #KTX-8821</p>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-secondary">Global Retail Corp</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-xs text-outline" data-icon="api">api</span>
+<span class="text-xs font-medium uppercase">Pixel API</span>
+</div>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-blue-50 text-blue-700">
+<span class="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>
+                                    Running
+                                </span>
+</td>
+<td class="px-6 py-4">
+<div class="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[65%]" style="transition: width 1s ease-in-out"></div>
+</div>
+<p class="text-[9px] font-bold text-primary mt-1">65% Processed</p>
+</td>
+<td class="px-6 py-4 text-right text-sm font-mono font-medium">84.2%</td>
+<td class="px-6 py-4 text-right text-xs text-on-surface-variant">Oct 24, 09:12 AM</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-white rounded text-primary"><span class="material-symbols-outlined text-lg" data-icon="visibility">visibility</span></button>
+<button class="p-1.5 hover:bg-white rounded text-outline"><span class="material-symbols-outlined text-lg" data-icon="edit">edit</span></button>
+<button class="p-1.5 hover:bg-white rounded text-error"><span class="material-symbols-outlined text-lg" data-icon="delete">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 2: Completed -->
+<tr class="group hover:bg-surface-container-low transition-colors cursor-pointer">
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">AdWords Spend Audit</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-tighter">ID: #KTX-8815</p>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-secondary">Vertex Finance</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-xs text-outline" data-icon="csv">description</span>
+<span class="text-xs font-medium uppercase">CSV Import</span>
+</div>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-green-50 text-green-700">
+<span class="material-symbols-outlined text-[10px] mr-1" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                                    Completed
+                                </span>
+</td>
+<td class="px-6 py-4">
+<div class="w-full bg-green-100 h-1.5 rounded-full overflow-hidden">
+<div class="bg-green-500 h-full w-full"></div>
+</div>
+<p class="text-[9px] font-bold text-green-600 mt-1">100% Success</p>
+</td>
+<td class="px-6 py-4 text-right text-sm font-mono font-medium">99.1%</td>
+<td class="px-6 py-4 text-right text-xs text-on-surface-variant">Oct 23, 02:45 PM</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-white rounded text-primary"><span class="material-symbols-outlined text-lg" data-icon="visibility">visibility</span></button>
+<button class="p-1.5 hover:bg-white rounded text-outline"><span class="material-symbols-outlined text-lg" data-icon="edit">edit</span></button>
+<button class="p-1.5 hover:bg-white rounded text-error"><span class="material-symbols-outlined text-lg" data-icon="delete">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Failed -->
+<tr class="group hover:bg-surface-container-low transition-colors cursor-pointer">
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">Weekly Logistics Sync</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-tighter">ID: #KTX-8802</p>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-secondary">Nexus Logistics</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-xs text-outline" data-icon="database">database</span>
+<span class="text-xs font-medium uppercase">PostgreSQL</span>
+</div>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-700">
+<span class="material-symbols-outlined text-[10px] mr-1" data-icon="error" data-weight="fill" style="font-variation-settings: 'FILL' 1;">error</span>
+                                    Failed
+                                </span>
+</td>
+<td class="px-6 py-4">
+<div class="w-full bg-red-100 h-1.5 rounded-full overflow-hidden">
+<div class="bg-red-500 h-full w-[12%]"></div>
+</div>
+<p class="text-[9px] font-bold text-red-600 mt-1">Error: Connection Timeout</p>
+</td>
+<td class="px-6 py-4 text-right text-sm font-mono font-medium text-outline-variant">--</td>
+<td class="px-6 py-4 text-right text-xs text-on-surface-variant">Oct 22, 11:30 PM</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-white rounded text-primary"><span class="material-symbols-outlined text-lg" data-icon="refresh">refresh</span></button>
+<button class="p-1.5 hover:bg-white rounded text-outline"><span class="material-symbols-outlined text-lg" data-icon="edit">edit</span></button>
+<button class="p-1.5 hover:bg-white rounded text-error"><span class="material-symbols-outlined text-lg" data-icon="delete">delete</span></button>
+</div>
+</td>
+</tr>
+<!-- Row 4: Draft/Draft-equivalent (Slate) -->
+<tr class="group hover:bg-surface-container-low transition-colors cursor-pointer">
+<td class="px-6 py-4">
+<p class="text-sm font-bold text-on-surface">Holiday Campaign Initial Scan</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-tighter">ID: #KTX-8798</p>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-secondary">Global Retail Corp</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-xs text-outline" data-icon="ads_click">ads_click</span>
+<span class="text-xs font-medium uppercase">Facebook Ads</span>
+</div>
+</td>
+<td class="px-6 py-4 text-center">
+<span class="inline-flex items-center px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-700">
+<span class="material-symbols-outlined text-[10px] mr-1" data-icon="pause_circle">pause_circle</span>
+                                    Paused
+                                </span>
+</td>
+<td class="px-6 py-4">
+<div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+<div class="bg-slate-400 h-full w-[45%]"></div>
+</div>
+<p class="text-[9px] font-bold text-slate-500 mt-1">45% Complete</p>
+</td>
+<td class="px-6 py-4 text-right text-sm font-mono font-medium">--</td>
+<td class="px-6 py-4 text-right text-xs text-on-surface-variant">Oct 21, 04:00 PM</td>
+<td class="px-6 py-4 text-right">
+<div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 hover:bg-white rounded text-primary"><span class="material-symbols-outlined text-lg" data-icon="play_arrow">play_arrow</span></button>
+<button class="p-1.5 hover:bg-white rounded text-outline"><span class="material-symbols-outlined text-lg" data-icon="edit">edit</span></button>
+<button class="p-1.5 hover:bg-white rounded text-error"><span class="material-symbols-outlined text-lg" data-icon="delete">delete</span></button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+<!-- Pagination -->
+<div class="bg-surface-container-low px-6 py-3 flex items-center justify-between border-t border-outline-variant/30">
+<p class="text-xs text-on-surface-variant">Showing <span class="font-bold text-on-surface">1-4</span> of <span class="font-bold text-on-surface">1,284</span> tasks</p>
+<div class="flex gap-1">
+<button class="px-2 py-1 rounded border border-outline-variant/30 text-outline hover:bg-white disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined text-base" data-icon="chevron_left">chevron_left</span>
+</button>
+<button class="px-3 py-1 rounded border border-primary bg-primary text-white text-xs font-bold">1</button>
+<button class="px-3 py-1 rounded border border-outline-variant/30 text-xs font-bold text-on-surface hover:bg-white transition-colors">2</button>
+<button class="px-3 py-1 rounded border border-outline-variant/30 text-xs font-bold text-on-surface hover:bg-white transition-colors">3</button>
+<span class="px-2 text-outline">...</span>
+<button class="px-3 py-1 rounded border border-outline-variant/30 text-xs font-bold text-on-surface hover:bg-white transition-colors">129</button>
+<button class="px-2 py-1 rounded border border-outline-variant/30 text-outline hover:bg-white">
+<span class="material-symbols-outlined text-base" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Contextual Footer/Status -->
+<div class="flex items-center gap-4 bg-tertiary/5 p-4 rounded-lg border border-tertiary/10">
+<span class="material-symbols-outlined text-tertiary" data-icon="info">info</span>
+<p class="text-xs text-on-tertiary-fixed-variant leading-relaxed">
+<strong>Auto-Archiving:</strong> Analysis tasks older than 90 days are automatically moved to cold storage. You can restore them from the <a class="text-primary font-bold hover:underline" href="#">System History</a> at any time.
+                </p>
+<button class="ml-auto text-[10px] font-black uppercase tracking-widest text-on-tertiary-fixed-variant hover:text-primary transition-colors">Dismiss</button>
+</div>
+</div>
+</main>
+</body></html>

@@ -1,11 +1,5 @@
 export type MetricTone = 'positive' | 'negative' | 'neutral';
 
-export type NavItem = {
-  label: string;
-  icon: string;
-  active?: boolean;
-};
-
 export type Metric = {
   title: string;
   value: string;
@@ -41,13 +35,6 @@ export type EventDetail = {
   extractedParameters: Array<[string, string]>;
   attributionPath: Array<[string, string, string]>;
 };
-
-export const navItems: NavItem[] = [
-  { label: 'Data Analysis', icon: 'analytics', active: true },
-  { label: 'URL Rules', icon: 'rule' },
-  { label: 'Config', icon: 'settings_input_component' },
-  { label: 'System', icon: 'admin_panel_settings' },
-];
 
 export const metrics: Metric[] = [
   { title: 'Total Events', value: '1,284,930', note: '12.4% vs prev', tone: 'positive', icon: 'data_object' },
