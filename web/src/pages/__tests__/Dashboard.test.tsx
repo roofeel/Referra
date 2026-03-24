@@ -24,10 +24,10 @@ describe('Dashboard', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Attribution Dashboard' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Dashboard Navigation' })).toBeInTheDocument();
+    expect(screen.getByText('Data Analysis')).toBeInTheDocument();
     expect(screen.getByText('URL Classification & Performance')).toBeInTheDocument();
     expect(screen.getByText('AI Extraction Insights')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload Data' })).toBeInTheDocument();
     expect(screen.getByText('New Analysis Task')).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Event Detail' })).not.toBeInTheDocument();
   });
