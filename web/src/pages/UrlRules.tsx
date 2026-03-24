@@ -40,6 +40,7 @@ export default function UrlRules() {
   const [sandboxRuleId, setSandboxRuleId] = useState<string | null>(null);
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
+  const [savingRuleId, setSavingRuleId] = useState<string | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -134,6 +135,29 @@ export default function UrlRules() {
     }
   }
 
+  async function handleSaveRule(payload: {
+    id: string;
+    name: string;
+    status: 'active' | 'draft' | 'archived';
+    logicSource: string;
+  }) {
+    try {
+      setSavingRuleId(payload.id);
+      const updated = await api.urlRules.update(payload.id, {
+        name: payload.name,
+        status: payload.status,
+        logicSource: payload.logicSource,
+      });
+      setRules((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      toast.success('Rule updated');
+    } catch (updateError) {
+      const message = updateError instanceof Error ? updateError.message : 'Failed to update URL rule';
+      toast.error(message);
+    } finally {
+      setSavingRuleId(null);
+    }
+  }
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#f7f9fb] text-slate-900 antialiased">
       <AppSidebar activeItem="url-rules" ariaLabel="URL Rules Navigation" />
@@ -158,6 +182,8 @@ export default function UrlRules() {
           isOpen={selectedRule !== null}
           rule={selectedRule}
           showSandbox={selectedRule !== null && sandboxRuleId === selectedRule.id}
+          onSave={handleSaveRule}
+          isSaving={selectedRule !== null && savingRuleId === selectedRule.id}
           onClose={() => {
             setSelectedRuleId(null);
             setSandboxRuleId(null);

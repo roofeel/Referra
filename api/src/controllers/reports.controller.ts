@@ -6,10 +6,16 @@ import {
   type AttributionLogicMapping,
 } from '../config/attribution.config.js';
 import { findColumnName, parseCsvRows } from '../lib/reports-csv.lib.js';
-import { computeDurationSeconds, getSearchParamIgnoreCase, parseUrl, safeDecode } from '../lib/reports-url.lib.js';
+import {
+  computeSuccessRateAvg,
+  formatCompactCount,
+  formatCreatedAt,
+  normalizeReportTaskStatus,
+  progressLabelFor,
+  type ReportTaskStatus,
+} from '../lib/reports-presentation.lib.js';
 import { getReportDetailPayload } from '../services/reports-detail.service.js';
-
-type ReportTaskStatus = 'Running' | 'Completed' | 'Failed' | 'Paused';
+import { executeReportRows, type UrlRuleExecutor } from '../services/reports-execution.service.js';
 
 type ReportTask = {
   id: string;
@@ -48,58 +54,6 @@ type RequestWithParams<T extends Record<string, string>> = Request & { params: T
 
 type ReportRecord = Awaited<ReturnType<typeof reports.findById>>;
 type UrlRuleRecord = Awaited<ReturnType<typeof urlRules.findById>>;
-type UrlRuleExecutor = (ourl: unknown, rl: string, dl: string) => unknown | Promise<unknown>;
-
-function normalizeStatus(raw?: string | null): ReportTaskStatus | undefined {
-  const status = raw?.trim().toLowerCase();
-  if (!status) return undefined;
-
-  if (status === 'running') return 'Running';
-  if (status === 'completed') return 'Completed';
-  if (status === 'failed') return 'Failed';
-  if (status === 'paused') return 'Paused';
-  return undefined;
-}
-
-function computeSuccessRateAvg(list: ReportTask[]) {
-  const values = list
-    .map((task) => Number.parseFloat(task.attribution.replace('%', '')))
-    .filter((value) => Number.isFinite(value));
-
-  if (values.length === 0) return 0;
-
-  const avg = values.reduce((sum, value) => sum + value, 0) / values.length;
-  return Math.round(avg * 10) / 10;
-}
-
-function pad(value: number) {
-  return value.toString().padStart(2, '0');
-}
-
-function formatCreatedAt(dateInput: Date | string) {
-  const date = new Date(dateInput);
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const hours24 = date.getHours();
-  const minutes = date.getMinutes();
-  const ampm = hours24 >= 12 ? 'PM' : 'AM';
-  const hours12 = hours24 % 12 || 12;
-  return `${months[date.getMonth()]} ${pad(date.getDate())}, ${pad(hours12)}:${pad(minutes)} ${ampm}`;
-}
-
-function formatCompactCount(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return '0';
-  return new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
-function progressLabelFor(status: ReportTaskStatus, progress: number) {
-  if (status === 'Completed') return '100% Success';
-  if (status === 'Running') return `${progress}% Processed`;
-  if (status === 'Paused') return `${progress}% Complete`;
-  return progress <= 0 ? 'Failed' : `Error after ${progress}%`;
-}
 
 function toReportTask(item: NonNullable<ReportRecord>): ReportTask {
   return {
@@ -108,7 +62,7 @@ function toReportTask(item: NonNullable<ReportRecord>): ReportTask {
     client: item.client?.name || 'Unknown Client',
     source: item.source,
     sourceIcon: item.sourceIcon,
-    status: (normalizeStatus(item.status) || 'Running') as ReportTaskStatus,
+    status: (normalizeReportTaskStatus(item.status) || 'Running') as ReportTaskStatus,
     progress: item.progress,
     progressLabel: item.progressLabel,
     attribution: item.attribution,
@@ -193,64 +147,6 @@ return categorizeFunnel;
   }
 }
 
-function deriveReferrer(result: unknown) {
-  if (typeof result === 'string') {
-    return {
-      referrerType: result || 'unknown',
-      referrerDesc: '',
-    };
-  }
-
-  if (Array.isArray(result)) {
-    const [typeRaw, descRaw] = result;
-    const referrerType = typeof typeRaw === 'string' && typeRaw.trim() ? typeRaw : 'unknown';
-    const referrerDesc =
-      typeof descRaw === 'string'
-        ? descRaw
-        : descRaw === undefined || descRaw === null
-          ? ''
-          : JSON.stringify(descRaw);
-
-    return {
-      referrerType,
-      referrerDesc,
-    };
-  }
-
-  if (result && typeof result === 'object') {
-    const record = result as Record<string, unknown>;
-    const referrerTypeRaw =
-      record.referrer_type ?? record.referrerType ?? record.type ?? record.channel ?? record.category;
-    const referrerDescRaw =
-      record.referrer_desc ?? record.referrerDesc ?? record.desc ?? record.description ?? record.detail;
-
-    const referrerType = typeof referrerTypeRaw === 'string' ? referrerTypeRaw : 'unknown';
-    const referrerDesc =
-      typeof referrerDescRaw === 'string'
-        ? referrerDescRaw
-        : referrerDescRaw === undefined || referrerDescRaw === null
-          ? ''
-          : JSON.stringify(referrerDescRaw);
-
-    return {
-      referrerType,
-      referrerDesc,
-    };
-  }
-
-  if (result === undefined || result === null) {
-    return {
-      referrerType: 'unknown',
-      referrerDesc: '',
-    };
-  }
-
-  return {
-    referrerType: String(result),
-    referrerDesc: '',
-  };
-}
-
 function toReportLog(item: { id: string; level: string; message: string; createdAt: Date | string }): ReportLogItem {
   return {
     id: item.id,
@@ -263,7 +159,7 @@ function toReportLog(item: { id: string; level: string; message: string; created
 export const reportsController = {
   async list(req: Request) {
     const url = new URL(req.url);
-    const status = normalizeStatus(url.searchParams.get('status'));
+    const status = normalizeReportTaskStatus(url.searchParams.get('status'));
     const client = url.searchParams.get('client')?.trim();
     const search = url.searchParams.get('search')?.trim();
 
@@ -423,104 +319,41 @@ export const reportsController = {
       fieldMappings: body.fieldMappings,
     });
     const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
-    const pendingLogs: Array<{ level: string; message: string }> = [];
-    const log = (level: 'info' | 'warn' | 'error', message: string) => {
-      pendingLogs.push({ level, message });
-    };
 
     try {
-      log('info', `Start report processing. rows=${parsedCsv.rows.length}`);
-      log('info', `Columns mapped: event_url=${eventUrlColumn}, source_url=${sourceUrlColumn}, event_time=${eventTimeColumn}, source_time=${sourceTimeColumn}`);
-
-      const rawRowsToCreate: Array<{
-        referrerType: string;
-        referrerDesc: string;
-        duration: number;
-        json: unknown;
-      }> = [];
-      let failedRows = 0;
-
-      for (const [index, row] of parsedCsv.rows.entries()) {
-        const rawEventUrl = String(row[eventUrlColumn] ?? '');
-        const ourl = parseUrl(rawEventUrl) ?? new URL('https://invalid.local/');
-        const rl = safeDecode(getSearchParamIgnoreCase(ourl, 'rl'));
-        const dl = safeDecode(getSearchParamIgnoreCase(ourl, 'dl'));
-
-        let ruleResult: unknown;
-        try {
-          log('info', `Processing ourl: ${ourl.href} \n rl: ${rl} \n dl: ${dl}`);
-          ruleResult = await executeRule(ourl.href, rl, dl);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          failedRows += 1;
-          const runtimeError = `logic_runtime_error:${message}`;
-          log('error', `row=${index + 1} ${runtimeError}`);
-          ruleResult = {
-            referrer_type: 'unknown',
-            referrer_desc: runtimeError,
-          };
-        }
-
-        const { referrerType, referrerDesc } = deriveReferrer(ruleResult);
-        const duration = computeDurationSeconds(String(row[eventTimeColumn] ?? ''), String(row[sourceTimeColumn] ?? ''));
-
-        rawRowsToCreate.push({
-          referrerType,
-          referrerDesc,
-          duration,
+      const updated = await executeReportRows({
+        reportId: created.id,
+        rows: parsedCsv.rows.map((row) => ({
+          eventUrl: String(row[eventUrlColumn] ?? ''),
+          eventTime: String(row[eventTimeColumn] ?? ''),
+          sourceTime: String(row[sourceTimeColumn] ?? ''),
           json: row,
-        });
-      }
-
-      await referrerRaws.createMany(
-        rawRowsToCreate.map((item) => ({
-          reportId: created.id,
-          referrerType: item.referrerType,
-          referrerDesc: item.referrerDesc,
-          duration: item.duration,
-          json: item.json,
         })),
-      );
-
-      const totalRows = parsedCsv.rows.length;
-      const successRows = Math.max(0, totalRows - failedRows);
-      const successRate = totalRows <= 0 ? 100 : (successRows / totalRows) * 100;
-      const finalStatus: ReportTaskStatus = failedRows > 0 ? 'Failed' : 'Completed';
-      const finalProgress = 100;
-
-      log('info', `Report finished. status=${finalStatus} total=${totalRows} success=${successRows} failed=${failedRows}`);
-      await logs.createMany(
-        pendingLogs.map((item) => ({
-          reportId: created.id,
-          level: item.level,
-          message: item.message,
-        })),
-      );
-
-      const updated = await reports.update(created.id, {
-        status: finalStatus,
-        progress: finalProgress,
-        progressLabel: progressLabelFor(finalStatus, finalProgress),
-        attribution: `${successRate.toFixed(1)}%`,
+        executeRule,
+        persistRows: async (rows) => {
+          await referrerRaws.createMany(
+            rows.map((item) => ({
+              reportId: created.id,
+              referrerType: item.referrerType,
+              referrerDesc: item.referrerDesc,
+              duration: item.duration,
+              json: item.json,
+            })),
+          );
+        },
+        startMessage: `Start report processing. rows=${parsedCsv.rows.length}`,
+        beforeLoopMessages: [
+          `Columns mapped: event_url=${eventUrlColumn}, source_url=${sourceUrlColumn}, event_time=${eventTimeColumn}, source_time=${sourceTimeColumn}`,
+        ],
+        finishMessagePrefix: 'Report finished.',
+        runtimeErrorPrefix: 'create',
+        failureLogPrefix: 'report_failed',
+        progressLabelFor,
+        logRowInputs: true,
       });
-
       return Response.json(toReportTask(updated), { status: 201 });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      pendingLogs.push({ level: 'error', message: `report_failed:${message}` });
-      await logs.createMany(
-        pendingLogs.map((item) => ({
-          reportId: created.id,
-          level: item.level,
-          message: item.message,
-        })),
-      );
-      await reports.update(created.id, {
-        status: 'Failed',
-        progress: 100,
-        progressLabel: progressLabelFor('Failed', 100),
-        attribution: '--',
-      });
       return Response.json({ error: `Report execution failed: ${message}` }, { status: 500 });
     }
   },
@@ -567,7 +400,7 @@ export const reportsController = {
   async updateStatus(req: Request) {
     const request = req as RequestWithParams<{ id: string }>;
     const body = (await req.json()) as { status?: string; progress?: number };
-    const status = normalizeStatus(body.status);
+    const status = normalizeReportTaskStatus(body.status);
 
     if (!status) {
       return Response.json({ error: 'status is invalid' }, { status: 400 });
@@ -600,6 +433,69 @@ export const reportsController = {
     });
 
     return Response.json(toReportTask(updated));
+  },
+
+  async rerun(req: Request) {
+    const request = req as RequestWithParams<{ id: string }>;
+    const current = await reports.findById(request.params.id);
+
+    if (!current) {
+      return Response.json({ error: 'Report task not found' }, { status: 404 });
+    }
+
+    const existingRule = await urlRules.findById(current.ruleId);
+    if (!existingRule) {
+      return Response.json({ error: 'ruleId is invalid' }, { status: 400 });
+    }
+
+    const attributionLogic = normalizeAttributionLogicMapping(current.attributionLogic);
+    if (!attributionLogic) {
+      return Response.json({ error: 'Stored attributionLogic is invalid' }, { status: 400 });
+    }
+
+    const existingRows = await referrerRaws.listByReport(current.id);
+    if (!existingRows.length) {
+      return Response.json({ error: 'No source rows found to rerun' }, { status: 400 });
+    }
+
+    await reports.update(current.id, {
+      status: 'Running',
+      progress: 0,
+      progressLabel: progressLabelFor('Running', 0),
+    });
+
+    const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
+
+    try {
+      const updated = await executeReportRows({
+        reportId: current.id,
+        rows: existingRows.map((row: { json: unknown }) => {
+          const rowJson =
+            row.json && typeof row.json === 'object' && !Array.isArray(row.json)
+              ? (row.json as Record<string, unknown>)
+              : {};
+          return {
+            eventUrl: String(rowJson[attributionLogic.event_url] ?? ''),
+            eventTime: String(rowJson[attributionLogic.event_time] ?? ''),
+            sourceTime: String(rowJson[attributionLogic.source_time] ?? ''),
+            json: row.json,
+          };
+        }),
+        executeRule,
+        persistRows: async (rows) => {
+          await referrerRaws.replaceByReport(current.id, rows);
+        },
+        startMessage: `Rerun started. reportId=${current.id} rows=${existingRows.length}`,
+        finishMessagePrefix: 'Rerun finished.',
+        runtimeErrorPrefix: 'rerun',
+        failureLogPrefix: 'rerun_failed',
+        progressLabelFor,
+      });
+      return Response.json(toReportTask(updated));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return Response.json({ error: `Report rerun failed: ${message}` }, { status: 500 });
+    }
   },
 
   async delete(req: Request) {

@@ -522,6 +522,42 @@ export const referrerRaws = {
     });
   },
 
+  async deleteByReport(reportId: string) {
+    return await (db as any).referrerRaw.deleteMany({
+      where: { reportId },
+    });
+  },
+
+  async replaceByReport(
+    reportId: string,
+    data: Array<{
+      referrerType: string;
+      referrerDesc: string;
+      duration: number;
+      json: unknown;
+    }>,
+  ) {
+    return await (db as any).$transaction(async (tx: any) => {
+      await tx.referrerRaw.deleteMany({
+        where: { reportId },
+      });
+
+      if (data.length === 0) {
+        return { count: 0 };
+      }
+
+      return await tx.referrerRaw.createMany({
+        data: data.map((item) => ({
+          reportId,
+          referrerType: item.referrerType,
+          referrerDesc: item.referrerDesc,
+          duration: item.duration,
+          json: item.json,
+        })),
+      });
+    });
+  },
+
   async listByReport(
     reportId: string,
     options?: {

@@ -3,10 +3,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import Reports from '../Reports';
 
-const { mockReportsList, mockReportsCreate, mockReportsUpdateStatus, mockReportsDelete } = vi.hoisted(() => ({
+const { mockReportsList, mockReportsCreate, mockReportsUpdateStatus, mockReportsRerun, mockReportsDelete } = vi.hoisted(() => ({
   mockReportsList: vi.fn(),
   mockReportsCreate: vi.fn(),
   mockReportsUpdateStatus: vi.fn(),
+  mockReportsRerun: vi.fn(),
   mockReportsDelete: vi.fn(),
 }));
 
@@ -16,6 +17,7 @@ vi.mock('../../service', () => ({
       list: mockReportsList,
       create: mockReportsCreate,
       updateStatus: mockReportsUpdateStatus,
+      rerun: mockReportsRerun,
       delete: mockReportsDelete,
     },
   },
@@ -236,5 +238,85 @@ describe('Reports', () => {
     await screen.findByText('Q4 E-commerce Attribution');
     fireEvent.click(screen.getByRole('button', { name: 'View task' }));
     expect(await screen.findByText('Report detail page')).toBeInTheDocument();
+  });
+
+  it('reruns completed task when clicking play action', async () => {
+    mockReportsList
+      .mockResolvedValueOnce({
+        metrics: {
+          totalTasks: 1,
+          activeAnalyses: 0,
+          successRateAvg: 100,
+          dataPoints24h: '12K',
+        },
+        clients: ['Global Retail Corp'],
+        rules: [{ id: 'rule-az', name: 'AstraZeneca Global' }],
+        urlParsingVersions: ['v2.4.1'],
+        tasks: [
+          {
+            id: 'KTX-1001',
+            taskName: 'Completed Task',
+            client: 'Global Retail Corp',
+            source: 'CSV Import',
+            sourceIcon: 'description',
+            status: 'Completed',
+            progress: 100,
+            progressLabel: '100% Success',
+            attribution: '99.1%',
+            createdAt: 'Oct 24, 09:12 AM',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        metrics: {
+          totalTasks: 1,
+          activeAnalyses: 1,
+          successRateAvg: 99.1,
+          dataPoints24h: '12K',
+        },
+        clients: ['Global Retail Corp'],
+        rules: [{ id: 'rule-az', name: 'AstraZeneca Global' }],
+        urlParsingVersions: ['v2.4.1'],
+        tasks: [
+          {
+            id: 'KTX-1001',
+            taskName: 'Completed Task',
+            client: 'Global Retail Corp',
+            source: 'CSV Import',
+            sourceIcon: 'description',
+            status: 'Running',
+            progress: 0,
+            progressLabel: '0% Processed',
+            attribution: '99.1%',
+            createdAt: 'Oct 24, 09:12 AM',
+          },
+        ],
+      });
+
+    mockReportsRerun.mockResolvedValueOnce({
+      id: 'KTX-1001',
+      taskName: 'Completed Task',
+      client: 'Global Retail Corp',
+      source: 'CSV Import',
+      sourceIcon: 'description',
+      status: 'Running',
+      progress: 0,
+      progressLabel: '0% Processed',
+      attribution: '99.1%',
+      createdAt: 'Oct 24, 09:12 AM',
+    });
+
+    render(
+      <MemoryRouter>
+        <Reports />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Completed Task');
+    fireEvent.click(screen.getByRole('button', { name: 'Rerun task' }));
+
+    await waitFor(() => {
+      expect(mockReportsRerun).toHaveBeenCalledWith('KTX-1001');
+    });
   });
 });

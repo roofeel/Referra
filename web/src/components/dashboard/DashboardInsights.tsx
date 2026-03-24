@@ -62,8 +62,7 @@ function DonutChart({ stats }: { stats: ReferrerTypeStat[] }) {
 
 export function DashboardInsights({ referrerTypeStats }: DashboardInsightsProps) {
   const topStats = referrerTypeStats.slice(0, 6);
-  const topBarStats = referrerTypeStats.slice(0, 4);
-  const barData = topBarStats.map((item, index) => ({
+  const barData = referrerTypeStats.map((item, index) => ({
     referrerType: item.referrerType || 'unknown',
     count: item.count,
     color: chartColors[index % chartColors.length],

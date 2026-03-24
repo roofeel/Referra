@@ -125,6 +125,18 @@ export const reportsApi = {
     return response.json();
   },
 
+  rerun: async (id: string): Promise<ReportTask> => {
+    const response = await fetch(buildApiUrl(`/api/reports/${id}/rerun`), {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to rerun report task');
+    }
+
+    return response.json();
+  },
+
   delete: async (id: string): Promise<void> => {
     const response = await fetch(buildApiUrl(`/api/reports/${id}`), {
       method: 'DELETE',

@@ -61,6 +61,7 @@ export default function Reports() {
   const [error, setError] = useState<string | null>(null);
   const [isUploadDrawerOpen, setIsUploadDrawerOpen] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [playingTaskId, setPlayingTaskId] = useState<string | null>(null);
   const [logsTask, setLogsTask] = useState<ReportTask | null>(null);
   const [logs, setLogs] = useState<ReportLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -167,19 +168,20 @@ export default function Reports() {
     }
   }
 
-  async function handleToggleStatus(task: ReportTask) {
-    if (task.status !== 'Running' && task.status !== 'Paused') {
-      return;
-    }
+  async function handleRerun(task: ReportTask) {
+    if (task.status === 'Running') return;
+    if (playingTaskId === task.id) return;
 
-    const nextStatus = task.status === 'Running' ? 'Paused' : 'Running';
     try {
-      await api.reports.updateStatus(task.id, nextStatus, task.progress);
+      setPlayingTaskId(task.id);
+      await api.reports.rerun(task.id);
+      toast.success('Task rerun started');
       await refreshReportsWithHandling();
-      toast.success(nextStatus === 'Running' ? 'Task resumed' : 'Task paused');
-    } catch (statusError) {
-      const message = statusError instanceof Error ? statusError.message : 'Failed to update task status';
+    } catch (rerunError) {
+      const message = rerunError instanceof Error ? rerunError.message : 'Failed to rerun task';
       toast.error(message);
+    } finally {
+      setPlayingTaskId(null);
     }
   }
 
@@ -406,13 +408,13 @@ export default function Reports() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => void handleToggleStatus(task)}
+                                  onClick={() => void handleRerun(task)}
                                   className="rounded p-1.5 text-slate-600 hover:bg-white"
-                                  aria-label={task.status === 'Running' ? 'Pause task' : 'Resume task'}
-                                  disabled={task.status !== 'Running' && task.status !== 'Paused'}
+                                  aria-label={task.status === 'Running' ? 'Task running' : 'Rerun task'}
+                                  disabled={playingTaskId === task.id || task.status === 'Running'}
                                 >
                                   <span className="material-symbols-outlined text-lg">
-                                    {task.status === 'Running' ? 'pause' : 'play_arrow'}
+                                    play_arrow
                                   </span>
                                 </button>
                                 <button

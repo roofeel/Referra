@@ -8,6 +8,9 @@ export const reportsRoutes = {
   '/api/reports/:id/status': {
     PATCH: reportsController.updateStatus,
   },
+  '/api/reports/:id/rerun': {
+    POST: reportsController.rerun,
+  },
   '/api/reports/:id': {
     DELETE: reportsController.delete,
   },
