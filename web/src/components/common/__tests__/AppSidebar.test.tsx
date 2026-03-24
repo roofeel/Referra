@@ -17,6 +17,7 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Feedmob')).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
+    expect(within(nav).getByRole('link', { name: /Reports/i })).toHaveAttribute('href', '/reports');
   });
 
   it('marks the active item with active styling', () => {

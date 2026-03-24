@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-type SidebarItemKey = 'dashboard' | 'url-rules' | 'data-sources' | 'attribution' | 'settings';
+type SidebarItemKey = 'dashboard' | 'url-rules' | 'reports' | 'data-sources' | 'attribution' | 'settings';
 
 type SidebarItem = {
   key: SidebarItemKey;
@@ -12,6 +12,7 @@ type SidebarItem = {
 const sidebarItems: SidebarItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', to: '/dashboard' },
   { key: 'url-rules', label: 'Url Rules', icon: 'terminal', to: '/url-rules' },
+  { key: 'reports', label: 'Reports', icon: 'analytics', to: '/reports' },
 ];
 
 type AppSidebarProps = {
