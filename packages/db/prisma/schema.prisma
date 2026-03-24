@@ -53,6 +53,7 @@ model Report {
   clientId          String?
   client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   referrerRaws      ReferrerRaw[]
+  logs              Log[]
   taskName          String
   ruleId            String
   source            String   @default("CSV Import")
@@ -61,7 +62,7 @@ model Report {
   progress          Int      @default(0)
   progressLabel     String   @default("0% Processed")
   attribution       String   @default("--")
-  attributionLogic  String
+  attributionLogic  Json
   fieldMappings     Json
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -81,4 +82,16 @@ model ReferrerRaw {
   json         Json
 
   @@index([reportId])
+}
+
+model Log {
+  id        String   @id @default(cuid())
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  level     String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([reportId])
+  @@index([createdAt])
 }

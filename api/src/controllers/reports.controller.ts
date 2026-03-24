@@ -1,4 +1,10 @@
-import { clients, referrerRaws, reports, urlRules } from '../../../packages/db/index.js';
+import { clients, logs, referrerRaws, reports, urlRules } from '../../../packages/db/index.js';
+import {
+  ATTRIBUTION_ALIAS_CONFIG,
+  isAttributionMode,
+  normalizeAttributionLogicMapping,
+  type AttributionLogicMapping,
+} from '../config/attribution.config.js';
 
 type ReportTaskStatus = 'Running' | 'Completed' | 'Failed' | 'Paused';
 
@@ -15,7 +21,12 @@ type ReportTask = {
   createdAt: string;
 };
 
-type AttributionLogic = 'registration' | 'pageload';
+type ReportLogItem = {
+  id: string;
+  level: string;
+  message: string;
+  createdAt: string;
+};
 
 type ReportsPayload = {
   metrics: {
@@ -34,7 +45,7 @@ type RequestWithParams<T extends Record<string, string>> = Request & { params: T
 
 type ReportRecord = Awaited<ReturnType<typeof reports.findById>>;
 type UrlRuleRecord = Awaited<ReturnType<typeof urlRules.findById>>;
-type UrlRuleExecutor = (ourl: URL, rl: string, dl: string) => unknown | Promise<unknown>;
+type UrlRuleExecutor = (ourl: unknown, rl: string, dl: string) => unknown | Promise<unknown>;
 
 function normalizeStatus(raw?: string | null): ReportTaskStatus | undefined {
   const status = raw?.trim().toLowerCase();
@@ -232,6 +243,33 @@ function findColumnName(
   return undefined;
 }
 
+function resolveAttributionLogicFromBody(body: {
+  attributionLogic?: unknown;
+  fieldMappings?: Record<string, string>;
+}) {
+  const mapped = normalizeAttributionLogicMapping(body.attributionLogic);
+  if (mapped) return mapped;
+
+  if (!isAttributionMode(body.attributionLogic) || !body.fieldMappings) {
+    return null;
+  }
+
+  const aliasConfig = ATTRIBUTION_ALIAS_CONFIG[body.attributionLogic];
+  const sourceUrl = body.fieldMappings[aliasConfig.source_url] || body.fieldMappings.source_url || '';
+  const eventUrl = body.fieldMappings[aliasConfig.event_url] || body.fieldMappings.event_url || '';
+  const sourceTime = body.fieldMappings[aliasConfig.source_time] || body.fieldMappings.source_time || '';
+  const eventTime = body.fieldMappings[aliasConfig.event_time] || body.fieldMappings.event_time || '';
+
+  const fallback = normalizeAttributionLogicMapping({
+    source_url: sourceUrl,
+    event_url: eventUrl,
+    source_time: sourceTime,
+    event_time: eventTime,
+  });
+
+  return fallback;
+}
+
 function safeDecode(value: string) {
   try {
     return decodeURIComponent(value);
@@ -355,6 +393,15 @@ function deriveReferrer(result: unknown) {
   };
 }
 
+function toReportLog(item: { id: string; level: string; message: string; createdAt: Date | string }): ReportLogItem {
+  return {
+    id: item.id,
+    level: item.level,
+    message: item.message,
+    createdAt: new Date(item.createdAt).toISOString(),
+  };
+}
+
 export const reportsController = {
   async list(req: Request) {
     const url = new URL(req.url);
@@ -427,7 +474,7 @@ export const reportsController = {
       client?: string;
       source?: string;
       sourceIcon?: string;
-      attributionLogic?: AttributionLogic;
+      attributionLogic?: AttributionLogicMapping | 'registration' | 'pageload';
       fieldMappings?: Record<string, string>;
       fileName?: string;
       fileContent?: string;
@@ -459,12 +506,12 @@ export const reportsController = {
       return Response.json({ error: 'fileContent is required' }, { status: 400 });
     }
 
-    if (!body.fieldMappings || Object.keys(body.fieldMappings).length === 0) {
-      return Response.json({ error: 'fieldMappings is required' }, { status: 400 });
-    }
-
-    if (!body.attributionLogic || !['registration', 'pageload'].includes(body.attributionLogic)) {
-      return Response.json({ error: 'attributionLogic is invalid' }, { status: 400 });
+    const attributionLogic = resolveAttributionLogicFromBody(body);
+    if (!attributionLogic) {
+      return Response.json(
+        { error: 'attributionLogic is invalid. Expect {event_url,event_time,source_url,source_time}' },
+        { status: 400 },
+      );
     }
 
     const parsedCsv = parseCsvRows(body.fileContent);
@@ -473,63 +520,34 @@ export const reportsController = {
     }
 
     const fieldMappings = body.fieldMappings || {};
-    const eventUrlColumn = findColumnName(parsedCsv.headers, fieldMappings, [
-      'event_url',
-      'impression_url',
-      'registration_url',
-      'page_load_url',
-    ]);
-    const eventTimeColumn = findColumnName(parsedCsv.headers, fieldMappings, [
-      'event_time',
-      'registration_time',
-      'page_load_time',
-    ]);
-    const sourceTimeColumn = findColumnName(parsedCsv.headers, fieldMappings, ['source_time', 'impression_time']);
+    const eventUrlColumn =
+      (attributionLogic.event_url && parsedCsv.headers.includes(attributionLogic.event_url)
+        ? attributionLogic.event_url
+        : undefined) ||
+      findColumnName(parsedCsv.headers, fieldMappings, ['event_url', 'registration_url', 'page_load_url']);
+    const eventTimeColumn =
+      (attributionLogic.event_time && parsedCsv.headers.includes(attributionLogic.event_time)
+        ? attributionLogic.event_time
+        : undefined) ||
+      findColumnName(parsedCsv.headers, fieldMappings, ['event_time', 'registration_time', 'page_load_time']);
+    const sourceUrlColumn =
+      (attributionLogic.source_url && parsedCsv.headers.includes(attributionLogic.source_url)
+        ? attributionLogic.source_url
+        : undefined) ||
+      findColumnName(parsedCsv.headers, fieldMappings, ['source_url', 'impression_url']);
+    const sourceTimeColumn =
+      (attributionLogic.source_time && parsedCsv.headers.includes(attributionLogic.source_time)
+        ? attributionLogic.source_time
+        : undefined) ||
+      findColumnName(parsedCsv.headers, fieldMappings, ['source_time', 'impression_time']);
 
-    if (!eventUrlColumn || !eventTimeColumn || !sourceTimeColumn) {
+    if (!eventUrlColumn || !eventTimeColumn || !sourceUrlColumn || !sourceTimeColumn) {
       return Response.json(
         {
-          error: 'CSV must contain event_url/event_time/source_time (or mapped equivalent columns)',
+          error: 'CSV headers must match attributionLogic mapping for event_url/event_time/source_url/source_time',
         },
         { status: 400 },
       );
-    }
-
-    const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
-
-    const rawRowsToCreate: Array<{
-      referrerType: string;
-      referrerDesc: string;
-      duration: number;
-      json: unknown;
-    }> = [];
-
-    for (const row of parsedCsv.rows) {
-      const rawEventUrl = String(row[eventUrlColumn] ?? '');
-      const ourl = parseUrl(rawEventUrl) ?? new URL('https://invalid.local/');
-      const rl = safeDecode(ourl.searchParams.get('rl') || '');
-      const dl = safeDecode(ourl.searchParams.get('dl') || '');
-
-      let ruleResult: unknown;
-      try {
-        ruleResult = await executeRule(ourl, rl, dl);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        ruleResult = {
-          referrer_type: 'unknown',
-          referrer_desc: `logic_runtime_error:${message}`,
-        };
-      }
-
-      const { referrerType, referrerDesc } = deriveReferrer(ruleResult);
-      const duration = computeDurationSeconds(String(row[eventTimeColumn] ?? ''), String(row[sourceTimeColumn] ?? ''));
-
-      rawRowsToCreate.push({
-        referrerType,
-        referrerDesc,
-        duration,
-        json: row,
-      });
     }
 
     const existingClient = await clients.getOrCreateByName(clientName);
@@ -543,21 +561,121 @@ export const reportsController = {
       progress: 0,
       progressLabel: '0% Processed',
       attribution: '--',
-      attributionLogic: body.attributionLogic,
+      attributionLogic,
       fieldMappings: body.fieldMappings,
     });
+    const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
+    const pendingLogs: Array<{ level: string; message: string }> = [];
+    const log = (level: 'info' | 'warn' | 'error', message: string) => {
+      pendingLogs.push({ level, message });
+    };
 
-    await referrerRaws.createMany(
-      rawRowsToCreate.map((item) => ({
-        reportId: created.id,
-        referrerType: item.referrerType,
-        referrerDesc: item.referrerDesc,
-        duration: item.duration,
-        json: item.json,
-      })),
-    );
+    try {
+      log('info', `Start report processing. rows=${parsedCsv.rows.length}`);
+      log('info', `Columns mapped: event_url=${eventUrlColumn}, source_url=${sourceUrlColumn}, event_time=${eventTimeColumn}, source_time=${sourceTimeColumn}`);
 
-    return Response.json(toReportTask(created), { status: 201 });
+      const rawRowsToCreate: Array<{
+        referrerType: string;
+        referrerDesc: string;
+        duration: number;
+        json: unknown;
+      }> = [];
+      let failedRows = 0;
+
+      for (const [index, row] of parsedCsv.rows.entries()) {
+        const rawEventUrl = String(row[eventUrlColumn] ?? '');
+        const ourl = parseUrl(rawEventUrl) ?? new URL('https://invalid.local/');
+        const rl = safeDecode(ourl.searchParams.get('rl') || '');
+        const dl = safeDecode(ourl.searchParams.get('dl') || '');
+
+        let ruleResult: unknown;
+        try {
+          ruleResult = await executeRule(ourl.href, rl, dl);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          failedRows += 1;
+          const runtimeError = `logic_runtime_error:${message}`;
+          log('error', `row=${index + 1} ${runtimeError}`);
+          ruleResult = {
+            referrer_type: 'unknown',
+            referrer_desc: runtimeError,
+          };
+        }
+
+        const { referrerType, referrerDesc } = deriveReferrer(ruleResult);
+        const duration = computeDurationSeconds(String(row[eventTimeColumn] ?? ''), String(row[sourceTimeColumn] ?? ''));
+
+        rawRowsToCreate.push({
+          referrerType,
+          referrerDesc,
+          duration,
+          json: row,
+        });
+      }
+
+      await referrerRaws.createMany(
+        rawRowsToCreate.map((item) => ({
+          reportId: created.id,
+          referrerType: item.referrerType,
+          referrerDesc: item.referrerDesc,
+          duration: item.duration,
+          json: item.json,
+        })),
+      );
+
+      const totalRows = parsedCsv.rows.length;
+      const successRows = Math.max(0, totalRows - failedRows);
+      const successRate = totalRows <= 0 ? 100 : (successRows / totalRows) * 100;
+      const finalStatus: ReportTaskStatus = failedRows > 0 ? 'Failed' : 'Completed';
+      const finalProgress = 100;
+
+      log('info', `Report finished. status=${finalStatus} total=${totalRows} success=${successRows} failed=${failedRows}`);
+      await logs.createMany(
+        pendingLogs.map((item) => ({
+          reportId: created.id,
+          level: item.level,
+          message: item.message,
+        })),
+      );
+
+      const updated = await reports.update(created.id, {
+        status: finalStatus,
+        progress: finalProgress,
+        progressLabel: progressLabelFor(finalStatus, finalProgress),
+        attribution: `${successRate.toFixed(1)}%`,
+      });
+
+      return Response.json(toReportTask(updated), { status: 201 });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      pendingLogs.push({ level: 'error', message: `report_failed:${message}` });
+      await logs.createMany(
+        pendingLogs.map((item) => ({
+          reportId: created.id,
+          level: item.level,
+          message: item.message,
+        })),
+      );
+      await reports.update(created.id, {
+        status: 'Failed',
+        progress: 100,
+        progressLabel: progressLabelFor('Failed', 100),
+        attribution: '--',
+      });
+      return Response.json({ error: `Report execution failed: ${message}` }, { status: 500 });
+    }
+  },
+
+  async listLogs(req: Request) {
+    const request = req as RequestWithParams<{ id: string }>;
+    const current = await reports.findById(request.params.id);
+
+    if (!current) {
+      return Response.json({ error: 'Report task not found' }, { status: 404 });
+    }
+
+    const items = await logs.listByReport(request.params.id);
+    return Response.json(items.map((item: any) => toReportLog(item)));
   },
 
   async updateStatus(req: Request) {

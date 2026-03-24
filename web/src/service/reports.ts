@@ -15,6 +15,13 @@ export interface ReportTask {
   createdAt: string;
 }
 
+export interface ReportLog {
+  id: string;
+  level: string;
+  message: string;
+  createdAt: string;
+}
+
 export interface ReportsResponse {
   metrics: {
     totalTasks: number;
@@ -33,7 +40,12 @@ export type CreateReportTaskPayload = {
   client: string;
   source?: string;
   sourceIcon?: string;
-  attributionLogic: 'registration' | 'pageload';
+  attributionLogic: {
+    source_url: string;
+    source_time: string;
+    event_url: string;
+    event_time: string;
+  };
   fieldMappings: Record<string, string>;
   fileName: string;
   fileContent: string;
@@ -97,5 +109,15 @@ export const reportsApi = {
     if (!response.ok) {
       await throwApiError(response, 'Failed to delete report task');
     }
+  },
+
+  listLogs: async (id: string): Promise<ReportLog[]> => {
+    const response = await fetch(buildApiUrl(`/api/reports/${id}/logs`));
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to fetch report logs');
+    }
+
+    return response.json();
   },
 };

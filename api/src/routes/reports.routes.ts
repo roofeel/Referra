@@ -11,4 +11,7 @@ export const reportsRoutes = {
   '/api/reports/:id': {
     DELETE: reportsController.delete,
   },
+  '/api/reports/:id/logs': {
+    GET: reportsController.listLogs,
+  },
 };

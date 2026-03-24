@@ -5,7 +5,7 @@ import { TablePagination } from '../components/common/TablePagination';
 import { UploadDataDrawer } from '../components/reports/UploadDataDrawer';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
-import type { ReportTask, ReportTaskStatus, ReportsResponse } from '../service/reports';
+import type { ReportLog, ReportTask, ReportTaskStatus, ReportsResponse } from '../service/reports';
 
 function statusStyles(status: ReportTaskStatus) {
   switch (status) {
@@ -65,6 +65,10 @@ export default function Reports() {
   const [error, setError] = useState<string | null>(null);
   const [isUploadDrawerOpen, setIsUploadDrawerOpen] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [logsTask, setLogsTask] = useState<ReportTask | null>(null);
+  const [logs, setLogs] = useState<ReportLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState<string | null>(null);
   const toast = useToast();
 
   const loadReports = useCallback(async () => {
@@ -183,6 +187,21 @@ export default function Reports() {
     }
   }
 
+  async function handleViewLogs(task: ReportTask) {
+    setLogsTask(task);
+    setLogs([]);
+    setLogsLoading(true);
+    setLogsError(null);
+    try {
+      const items = await api.reports.listLogs(task.id);
+      setLogs(items);
+    } catch (error) {
+      setLogsError(error instanceof Error ? error.message : 'Failed to load logs');
+    } finally {
+      setLogsLoading(false);
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#f7f9fb] text-slate-900 antialiased">
       <AppSidebar activeItem="reports" ariaLabel="Reports Navigation" />
@@ -204,7 +223,7 @@ export default function Reports() {
           <button
             type="button"
             onClick={() => setIsUploadDrawerOpen(true)}
-            className="ml-4 inline-flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
+            className="flex items-center gap-2 rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-800"
           >
             <span className="material-symbols-outlined text-base">upload</span>
             Upload Data
@@ -367,6 +386,14 @@ export default function Reports() {
                                 </button>
                                 <button
                                   type="button"
+                                  onClick={() => void handleViewLogs(task)}
+                                  className="rounded p-1.5 text-amber-700 hover:bg-white"
+                                  aria-label="View logs"
+                                >
+                                  <span className="material-symbols-outlined text-lg">subject</span>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => void handleToggleStatus(task)}
                                   className="rounded p-1.5 text-slate-600 hover:bg-white"
                                   aria-label={task.status === 'Running' ? 'Pause task' : 'Resume task'}
@@ -406,6 +433,57 @@ export default function Reports() {
           onClose={() => setIsUploadDrawerOpen(false)}
           onSubmit={handleCreateTask}
         />
+        {logsTask ? (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setLogsTask(null)} aria-hidden="true" />
+            <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl border-l border-slate-200 bg-white shadow-2xl">
+              <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Execution Logs</p>
+                  <h3 className="text-sm font-bold text-slate-900">{logsTask.taskName}</h3>
+                </div>
+                <button
+                  type="button"
+                  className="rounded p-2 text-slate-500 hover:bg-slate-100"
+                  onClick={() => setLogsTask(null)}
+                  aria-label="Close logs"
+                >
+                  <span className="material-symbols-outlined text-base">close</span>
+                </button>
+              </div>
+              <div className="h-[calc(100%-4rem)] overflow-y-auto p-4">
+                {logsLoading ? <p className="text-sm text-slate-500">Loading logs...</p> : null}
+                {logsError ? <p className="text-sm text-red-600">{logsError}</p> : null}
+                {!logsLoading && !logsError && logs.length === 0 ? (
+                  <p className="text-sm text-slate-500">No logs yet.</p>
+                ) : null}
+                {!logsLoading && !logsError && logs.length > 0 ? (
+                  <div className="space-y-2">
+                    {logs.map((log) => (
+                      <div key={log.id} className="rounded border border-slate-200 bg-slate-50 p-3">
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
+                              log.level === 'error'
+                                ? 'bg-red-100 text-red-700'
+                                : log.level === 'warn'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-blue-100 text-blue-700'
+                            }`}
+                          >
+                            {log.level}
+                          </span>
+                          <span className="text-[11px] text-slate-500">{new Date(log.createdAt).toLocaleString()}</span>
+                        </div>
+                        <p className="mt-2 break-all font-mono text-xs text-slate-700">{log.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </aside>
+          </>
+        ) : null}
       </main>
     </div>
   );

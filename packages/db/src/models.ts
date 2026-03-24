@@ -141,7 +141,7 @@ export interface Report {
   progress: number;
   progressLabel: string;
   attribution: string;
-  attributionLogic: string;
+  attributionLogic: unknown;
   fieldMappings: unknown;
   createdAt: Date;
   updatedAt: Date;
@@ -154,6 +154,14 @@ export interface ReferrerRaw {
   referrerDesc: string;
   duration: number;
   json: unknown;
+}
+
+export interface Log {
+  id: string;
+  reportId: string;
+  level: string;
+  message: string;
+  createdAt: Date;
 }
 
 function normalizeEmail(email: string) {
@@ -377,7 +385,7 @@ export const reports = {
     progress?: number;
     progressLabel?: string;
     attribution?: string;
-    attributionLogic: string;
+    attributionLogic: unknown;
     fieldMappings: unknown;
   }) {
     return await (db as any).report.create({
@@ -511,6 +519,35 @@ export const referrerRaws = {
         duration: item.duration,
         json: item.json,
       })),
+    });
+  },
+};
+
+export const logs = {
+  async createMany(
+    data: Array<{
+      reportId: string;
+      level: string;
+      message: string;
+    }>,
+  ) {
+    if (data.length === 0) {
+      return { count: 0 };
+    }
+
+    return await (db as any).log.createMany({
+      data: data.map((item) => ({
+        reportId: item.reportId,
+        level: item.level,
+        message: item.message,
+      })),
+    });
+  },
+
+  async listByReport(reportId: string) {
+    return await (db as any).log.findMany({
+      where: { reportId },
+      orderBy: { createdAt: "asc" },
     });
   },
 };

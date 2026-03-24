@@ -1,5 +1,13 @@
 import { useEffect, useId, useMemo, useState, type ChangeEvent } from 'react';
 import type { CreateReportTaskPayload } from '../../service/reports';
+import {
+  ATTRIBUTION_ALIAS_CONFIG,
+  CANONICAL_FIELD_ALIASES,
+  REQUIRED_CANONICAL_FIELDS,
+  type AttributionLogicMapping,
+  type AttributionMode,
+  type CanonicalAttributionField,
+} from './attributionConfig';
 
 type UploadDataDrawerProps = {
   isOpen: boolean;
@@ -9,30 +17,7 @@ type UploadDataDrawerProps = {
   onSubmit: (payload: CreateReportTaskPayload) => Promise<void>;
 };
 
-type AttributionLogic = 'registration' | 'pageload';
-type RequiredField =
-  | 'impression_url'
-  | 'registration_url'
-  | 'impression_time'
-  | 'registration_time'
-  | 'page_load_url'
-  | 'page_load_time';
-
-const REQUIRED_FIELDS_BY_LOGIC: Record<AttributionLogic, RequiredField[]> = {
-  registration: ['impression_url', 'registration_url', 'impression_time', 'registration_time'],
-  pageload: ['impression_url', 'page_load_url', 'impression_time', 'page_load_time'],
-};
-
-const FIELD_ALIASES: Record<RequiredField, string[]> = {
-  impression_url: ['impression_url', 'impressionurl', 'imp_url'],
-  registration_url: ['registration_url', 'registrationurl', 'register_url', 'reg_url'],
-  impression_time: ['impression_time', 'impressiontime', 'imp_time', 'impression_timestamp', 'impression_ts'],
-  registration_time: ['registration_time', 'registrationtime', 'reg_time', 'registration_timestamp', 'registration_ts'],
-  page_load_url: ['page_load_url', 'pageload_url', 'page_loadurl', 'pageloadurl'],
-  page_load_time: ['page_load_time', 'pageload_time', 'page_loadtime', 'pageloadtime', 'page_load_timestamp', 'page_load_ts'],
-};
-
-type FieldMappingState = Record<AttributionLogic, Partial<Record<RequiredField, string>>>;
+type FieldMappingState = Record<AttributionMode, Partial<AttributionLogicMapping>>;
 
 function normalizeHeaderKey(value: string) {
   return value
@@ -81,9 +66,9 @@ function parseCsvHeaders(csvText: string): string[] {
 }
 
 function autoMatchRequiredFields(
-  requiredFields: RequiredField[],
+  requiredFields: CanonicalAttributionField[],
   headers: string[],
-  previous: Partial<Record<RequiredField, string>>,
+  previous: Partial<AttributionLogicMapping>,
 ) {
   const normalizedToHeader = new Map<string, string>();
   headers.forEach((header) => {
@@ -93,7 +78,7 @@ function autoMatchRequiredFields(
     }
   });
 
-  const next: Partial<Record<RequiredField, string>> = {};
+  const next: Partial<AttributionLogicMapping> = {};
   const usedHeaders = new Set<string>();
 
   requiredFields.forEach((field) => {
@@ -104,7 +89,7 @@ function autoMatchRequiredFields(
       return;
     }
 
-    const aliases = [field, ...FIELD_ALIASES[field]];
+    const aliases = [field, ...(CANONICAL_FIELD_ALIASES[field] || [])];
     let matchedHeader = '';
     for (const alias of aliases) {
       const candidate = normalizedToHeader.get(normalizeHeaderKey(alias));
@@ -141,7 +126,7 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
   const [taskName, setTaskName] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedRuleId, setSelectedRuleId] = useState('');
-  const [attributionLogic, setAttributionLogic] = useState<AttributionLogic>('registration');
+  const [attributionLogic, setAttributionLogic] = useState<AttributionMode>('registration');
   const [selectedFileName, setSelectedFileName] = useState('');
   const [selectedFileContent, setSelectedFileContent] = useState('');
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
@@ -183,8 +168,8 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
 
   useEffect(() => {
     setFieldMappings((prev) => ({
-      registration: autoMatchRequiredFields(REQUIRED_FIELDS_BY_LOGIC.registration, csvHeaders, prev.registration),
-      pageload: autoMatchRequiredFields(REQUIRED_FIELDS_BY_LOGIC.pageload, csvHeaders, prev.pageload),
+      registration: autoMatchRequiredFields(REQUIRED_CANONICAL_FIELDS, csvHeaders, prev.registration),
+      pageload: autoMatchRequiredFields(REQUIRED_CANONICAL_FIELDS, csvHeaders, prev.pageload),
     }));
   }, [csvHeaders]);
 
@@ -226,7 +211,7 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
     }
   }
 
-  function handleMappingChange(field: RequiredField, header: string) {
+  function handleMappingChange(field: CanonicalAttributionField, header: string) {
     setFieldMappings((prev) => ({
       ...prev,
       [attributionLogic]: {
@@ -246,7 +231,12 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
       const payload: CreateReportTaskPayload = {
         taskName: taskName.trim(),
         client: selectedClient,
-        attributionLogic,
+        attributionLogic: {
+          event_url: currentMappings.event_url || '',
+          event_time: currentMappings.event_time || '',
+          source_url: currentMappings.source_url || '',
+          source_time: currentMappings.source_time || '',
+        },
         fieldMappings: requiredFields.reduce<Record<string, string>>((acc, field) => {
           const mappedHeader = currentMappings[field];
           if (mappedHeader) {
@@ -267,17 +257,18 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
     }
   }
 
-  const requiredFields = REQUIRED_FIELDS_BY_LOGIC[attributionLogic];
+  const mappingRows = ATTRIBUTION_ALIAS_CONFIG[attributionLogic];
+  const requiredFields = mappingRows.map((item) => item.canonical);
   const currentMappings = fieldMappings[attributionLogic];
   const mappingValues = Object.values(currentMappings).filter((value): value is string => Boolean(value));
-  const mappedCount = requiredFields.filter((field) => Boolean(currentMappings[field])).length;
+  const mappedCount = mappingRows.filter((field) => Boolean(currentMappings[field.canonical])).length;
   const isFormComplete =
     Boolean(selectedClient) &&
     Boolean(taskName.trim()) &&
     Boolean(selectedRuleId) &&
     Boolean(selectedFileName) &&
     Boolean(selectedFileContent) &&
-    requiredFields.every((field) => Boolean(currentMappings[field]));
+    mappingRows.every((field) => Boolean(currentMappings[field.canonical]));
 
   return (
     <>
@@ -467,25 +458,23 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
                   </p>
                   <div className="mb-3 flex items-center justify-between rounded border border-white/10 bg-white/5 px-3 py-2">
                     <span className="text-xs text-slate-300">Mapped</span>
-                    <span className="text-xs font-bold text-blue-100">
-                      {mappedCount}/{requiredFields.length}
-                    </span>
+                    <span className="text-xs font-bold text-blue-100">{mappedCount}/{mappingRows.length}</span>
                   </div>
                   <div className="space-y-3">
-                    {requiredFields.map((field) => {
-                      const selectedHeader = currentMappings[field] || '';
+                    {mappingRows.map(({ alias, canonical }) => {
+                      const selectedHeader = currentMappings[canonical] || '';
 
                       return (
                         <div
-                          key={field}
+                          key={alias}
                           className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded border border-white/10 bg-white/5 px-3 py-2"
                         >
                           <div>
                             <p className="text-[10px] uppercase text-slate-400">CSV Header</p>
                             <select
                               value={selectedHeader}
-                              onChange={(event) => handleMappingChange(field, event.target.value)}
-                              aria-label={`Map ${field}`}
+                              onChange={(event) => handleMappingChange(canonical, event.target.value)}
+                              aria-label={`Map ${alias}`}
                               className="mt-1 w-full rounded border border-white/15 bg-slate-950/30 px-2 py-1 font-mono text-xs text-white outline-none focus:ring-2 focus:ring-blue-300"
                               disabled={csvHeaders.length === 0}
                             >
@@ -493,7 +482,7 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
                               {csvHeaders.map((header) => {
                                 const headerUsedByOtherField = mappingValues.includes(header) && selectedHeader !== header;
                                 return (
-                                  <option key={`${field}-${header}`} value={header} disabled={headerUsedByOtherField}>
+                                  <option key={`${canonical}-${header}`} value={header} disabled={headerUsedByOtherField}>
                                     {header}
                                   </option>
                                 );
@@ -502,8 +491,8 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
                           </div>
                           <span className="material-symbols-outlined text-blue-300">arrow_forward</span>
                           <div className="text-right">
-                            <p className="text-[10px] uppercase text-slate-400">System Field</p>
-                            <p className="text-sm font-bold text-blue-100">{field}</p>
+                            <p className="text-[10px] uppercase text-slate-400">Alias</p>
+                            <p className="text-sm font-bold text-blue-100">{alias}</p>
                           </div>
                         </div>
                       );
