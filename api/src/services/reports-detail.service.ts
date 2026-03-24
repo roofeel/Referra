@@ -153,7 +153,7 @@ function extractUidFromEventUrl(urlValue: string) {
   const parsed = parseUrl(urlValue);
   if (!parsed) return '--';
 
-  const preferredKeys = new Set(['uid', 'user_id', 'userid', 'distinct_id']);
+  const preferredKeys = new Set(['uid']);
   for (const [key, value] of parsed.searchParams.entries()) {
     if (!value || !value.trim()) continue;
     if (preferredKeys.has(key.trim().toLowerCase())) return value.trim();
