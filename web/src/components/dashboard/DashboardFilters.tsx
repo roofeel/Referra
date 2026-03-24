@@ -2,10 +2,10 @@ type DashboardFiltersProps = {
   clientName: string;
   startDate: string;
   endDate: string;
-  windowHours: '24' | '48' | '72';
+  windowHours: '12' | '24' | '48' | '72';
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
-  onWindowHoursChange: (value: '24' | '48' | '72') => void;
+  onWindowHoursChange: (value: '12' | '24' | '48' | '72') => void;
   onApply: () => void;
   onReset: () => void;
 };
@@ -23,24 +23,10 @@ export function DashboardFilters({
 }: DashboardFiltersProps) {
   return (
     <section className="mb-8 rounded-xl border border-slate-200/15 bg-white p-6 shadow-sm">
-      <div className="flex flex-wrap items-end gap-6">
-        <div className="min-w-[200px] flex-1">
-          <label className="mb-2 block text-[10px] font-bold uppercase text-slate-500">Client</label>
-          <div className="relative">
-            <select
-              disabled
-              className="w-full appearance-none rounded-lg border-none bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-900 disabled:cursor-not-allowed disabled:opacity-80"
-            >
-              <option>{clientName || 'Unknown Client'}</option>
-            </select>
-            <span className="material-symbols-outlined pointer-events-none absolute right-3 top-2.5 text-sm text-slate-500">
-              expand_more
-            </span>
-          </div>
-        </div>
-        <div className="min-w-[280px] flex-1">
-          <label className="mb-2 block text-[10px] font-bold uppercase text-slate-500">Date Range</label>
-          <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2">
+      <div className="flex flex-wrap items-end gap-6">        
+        <div className="w-auto min-w-[220px] flex-none">
+          <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Date Range</label>
+          <div className="flex h-10 flex-wrap items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5">
             <input
               type="date"
               aria-label="Start Date"
@@ -59,12 +45,13 @@ export function DashboardFilters({
           </div>
         </div>
         <div className="w-32">
-          <label className="mb-2 block text-[10px] font-bold uppercase text-slate-500">Window</label>
+          <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Window</label>
           <select
             value={windowHours}
-            onChange={(event) => onWindowHoursChange(event.target.value as '24' | '48' | '72')}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
+            onChange={(event) => onWindowHoursChange(event.target.value as '12' | '24' | '48' | '72')}
+            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
           >
+            <option value="12">12h</option>
             <option value="24">24h</option>
             <option value="48">48h</option>
             <option value="72">72h</option>

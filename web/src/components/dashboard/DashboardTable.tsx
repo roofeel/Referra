@@ -31,7 +31,7 @@ export function DashboardTable({
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50">
-              {['uid', 'event_name', 'event_time', 'referrer_type', 'referrer_desc', 'duration'].map(
+              {['uid', 'event_name', 'event_time', 'source_time', 'referrer_type', 'referrer_desc', 'duration'].map(
                 (header) => (
                   <th key={header} className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     {header}
@@ -57,6 +57,7 @@ export function DashboardTable({
                   </span>
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-500">{row.ts}</td>
+                <td className="px-4 py-3 text-xs text-slate-500">{row.sourceTs}</td>
                 <td className="px-4 py-3 text-xs text-slate-700">{row.category}</td>
                 <td className="max-w-[280px] truncate px-4 py-3 text-xs text-slate-700" title={row.type}>
                   {row.type}

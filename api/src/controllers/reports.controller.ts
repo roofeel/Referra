@@ -60,6 +60,7 @@ type ReportDetailTableRow = {
   uid: string;
   eventName: string;
   ts: string;
+  sourceTs: string;
   category: string;
   type: string;
   status: string;
@@ -547,6 +548,18 @@ function formatTableTimestamp(rawValue: string) {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
+function formatTimestampFromMs(ms: number | null) {
+  if (ms === null || !Number.isFinite(ms)) return '--';
+  const date = new Date(ms);
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hour = pad(date.getHours());
+  const minute = pad(date.getMinutes());
+  const second = pad(date.getSeconds());
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+}
+
 function parseQueryParams(urlValue: string): Array<[string, string]> {
   const parsed = parseUrl(urlValue);
   if (!parsed) return [];
@@ -579,9 +592,14 @@ function extractEventNameFromEventUrl(urlValue: string) {
   const parsed = parseUrl(urlValue);
   if (!parsed) return '';
 
-  const value = parsed.searchParams.get('ev');
-  if (!value || !value.trim()) return '';
-  return value.trim();
+  for (const [key, value] of parsed.searchParams.entries()) {
+    if (!value || !value.trim()) continue;
+    if (key.trim().toLowerCase() === 'action') {
+      return value.trim();
+    }
+  }
+
+  return '';
 }
 
 function isMatchedReferrerType(type: string) {
@@ -663,9 +681,19 @@ function buildDetailPayload(
     const eventUrl =
       getJsonValue(json, ['event_url', 'registration_url', 'page_load_url', 'url', 'ourl']) || '';
     const eventTime = getJsonValue(json, ['event_time', 'registration_time', 'page_load_time', 'timestamp', 'ts']);
+    const sourceTime = getJsonValue(json, ['source_time', 'impression_time']);
+    const eventMs = parseTimestampToMs(eventTime);
+    const sourceMsFromRaw = parseTimestampToMs(sourceTime);
+    const sourceMsDerived =
+      sourceMsFromRaw !== null
+        ? sourceMsFromRaw
+        : eventMs !== null && Number.isFinite(item.duration)
+          ? eventMs - Math.max(0, Math.round(item.duration)) * 1000
+          : null;
     const uid = extractUidFromEventUrl(eventUrl);
     const eventName =
-      (extractEventNameFromEventUrl(eventUrl) || getJsonValue(json, ['event_name', 'event', 'event_type', 'action']))
+      (extractEventNameFromEventUrl(eventUrl) ||
+        getJsonValue(json, ['action', 'event_name', 'event', 'event_type']))
         .toUpperCase() || 'EVENT';
     const status = isMatchedRow(item) ? 'SUCCESS' : 'UNMATCHED';
 
@@ -674,6 +702,7 @@ function buildDetailPayload(
       uid,
       eventName,
       ts: formatTableTimestamp(eventTime),
+      sourceTs: sourceMsFromRaw !== null ? formatTableTimestamp(sourceTime) : formatTimestampFromMs(sourceMsDerived),
       category: item.referrerType || 'unknown',
       type: item.referrerDesc || '--',
       status,
@@ -1050,7 +1079,7 @@ export const reportsController = {
     const endDate = url.searchParams.get('endDate')?.trim() || '';
     const startMs = startDate ? startOfDayMs(startDate) : null;
     const endMs = endDate ? endOfDayMs(endDate) : null;
-    const windowHours = [24, 48, 72].includes(windowHoursRaw) ? windowHoursRaw : null;
+    const windowHours = [12, 24, 48, 72].includes(windowHoursRaw) ? windowHoursRaw : null;
     const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
     const pageSize =
       Number.isFinite(pageSizeRaw) && pageSizeRaw > 0 ? Math.min(200, Math.floor(pageSizeRaw)) : 50;

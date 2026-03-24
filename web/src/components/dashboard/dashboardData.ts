@@ -34,6 +34,7 @@ export type TableRow = {
   uid: string;
   eventName: string;
   ts: string;
+  sourceTs: string;
   category: string;
   type: string;
   status: string;

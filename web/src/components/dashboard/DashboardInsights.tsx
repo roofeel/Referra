@@ -89,21 +89,6 @@ export function DashboardInsights({ distribution, insights, referrerTypeStats }:
             </div>
           ))}
         </div>
-
-        <div className="mt-6 flex justify-between border-t border-slate-200/20 pt-6">
-          <div className="text-center">
-            <div className="text-xl font-black text-slate-900">{insights.parsingSuccess.toFixed(1)}%</div>
-            <div className="text-[10px] font-bold uppercase text-slate-500">Parsing Success</div>
-          </div>
-          <div className="text-center">
-            <div className="text-xl font-black text-slate-900">{insights.missedRules}</div>
-            <div className="text-[10px] font-bold uppercase text-slate-500">Missed Rules</div>
-          </div>
-          <div className="text-center">
-            <div className="text-xl font-black text-slate-900">{insights.aiParameterCoverage.toFixed(1)}%</div>
-            <div className="text-[10px] font-bold uppercase text-slate-500">Coverage</div>
-          </div>
-        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200/15 bg-white p-6">

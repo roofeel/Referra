@@ -20,10 +20,10 @@ export default function ReportsDetail() {
   const [page, setPage] = useState(1);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftEndDate, setDraftEndDate] = useState('');
-  const [draftWindowHours, setDraftWindowHours] = useState<'24' | '48' | '72'>('24');
+  const [draftWindowHours, setDraftWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
-  const [appliedWindowHours, setAppliedWindowHours] = useState<'24' | '48' | '72'>('24');
+  const [appliedWindowHours, setAppliedWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
   const pageSize = 50;
 
   useEffect(() => {

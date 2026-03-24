@@ -319,7 +319,7 @@ export default function Reports() {
                   <table className="w-full min-w-[1080px] border-collapse text-left">
                     <thead>
                       <tr className="bg-slate-100">
-                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Task Name</th>
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Report Name</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Client</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Source</th>
                         <th className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
@@ -334,7 +334,19 @@ export default function Reports() {
                         const styles = statusStyles(task.status);
 
                         return (
-                          <tr key={task.id} className="group transition-colors hover:bg-slate-50">
+                          <tr
+                            key={task.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => navigate(`/reports/${task.id}`)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                navigate(`/reports/${task.id}`);
+                              }
+                            }}
+                            className="group cursor-pointer transition-colors hover:bg-slate-50"
+                          >
                             <td className="px-6 py-4">
                               <p className="text-sm font-bold text-slate-900">{task.taskName}</p>
                               <p className="text-[10px] uppercase tracking-wider text-slate-500">ID: #{task.id}</p>
@@ -375,7 +387,11 @@ export default function Reports() {
                             <td className="px-6 py-4 text-right text-sm font-medium text-slate-700">{task.attribution}</td>
                             <td className="px-6 py-4 text-right text-xs text-slate-500">{task.createdAt}</td>
                             <td className="px-6 py-4">
-                              <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <div
+                                className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                                onClick={(event) => event.stopPropagation()}
+                                onKeyDown={(event) => event.stopPropagation()}
+                              >
                                 <button
                                   type="button"
                                   onClick={() => navigate(`/reports/${task.id}`)}
