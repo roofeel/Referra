@@ -13,18 +13,41 @@ function safeDecode(value: string) {
   }
 }
 
+function getSearchParamIgnoreCase(url: URL, key: string) {
+  const normalizedKey = key.toLowerCase();
+  for (const [paramKey, value] of url.searchParams.entries()) {
+    if (paramKey.toLowerCase() === normalizedKey) {
+      return safeDecode(value);
+    }
+  }
+  return '';
+}
+
+function extractRlDlFromOurl(ourlRaw: string) {
+  const ourl = ourlRaw.trim();
+  if (!ourl) return null;
+
+  try {
+    const parsed = new URL(ourl);
+    return {
+      rl: getSearchParamIgnoreCase(parsed, 'rl'),
+      dl: getSearchParamIgnoreCase(parsed, 'dl'),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function resolveParams(ourlRaw: string, rlRaw: string, dlRaw: string) {
   const ourl = ourlRaw.trim();
   let rl = rlRaw.trim();
   let dl = dlRaw.trim();
 
   if (ourl && (!rl || !dl)) {
-    try {
-      const parsed = new URL(ourl);
-      if (!rl) rl = safeDecode(parsed.searchParams.get('rl') || '');
-      if (!dl) dl = safeDecode(parsed.searchParams.get('dl') || '');
-    } catch {
-      // Keep user-entered fallback values.
+    const extracted = extractRlDlFromOurl(ourl);
+    if (extracted) {
+      if (!rl) rl = extracted.rl;
+      if (!dl) dl = extracted.dl;
     }
   }
 
@@ -42,6 +65,16 @@ export function NodeSandbox({ inDrawer = false, logicSource }: NodeSandboxProps)
   const canExecute = useMemo(() => {
     return Boolean(ourlValue.trim()) && Boolean(logicSource.trim());
   }, [ourlValue, logicSource]);
+
+  function handleOurlChange(nextOurl: string) {
+    setOurlValue(nextOurl);
+
+    const extracted = extractRlDlFromOurl(nextOurl);
+    if (!extracted) return;
+
+    setRlValue(extracted.rl);
+    setDlValue(extracted.dl);
+  }
 
   async function handleExecute() {
     if (!canExecute || isExecuting) return;
@@ -92,7 +125,7 @@ return categorizeFunnel;
           <textarea
             id="ourl-input"
             value={ourlValue}
-            onChange={(event) => setOurlValue(event.target.value)}
+            onChange={(event) => handleOurlChange(event.target.value)}
             className="h-24 w-full resize-none rounded-lg border-none bg-slate-100 p-3 font-mono text-xs placeholder:text-slate-400 focus:ring-1 focus:ring-blue-700"
             placeholder="https://astrazeneca.com/global?gclid=az_8892..."
           />
