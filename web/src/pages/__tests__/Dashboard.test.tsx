@@ -1,45 +1,19 @@
-import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import Dashboard from '../Dashboard';
 
 describe('Dashboard', () => {
-  it('renders dashboard shell and key analytics modules', () => {
+  it('redirects /dashboard to /reports', () => {
     render(
-      <MemoryRouter>
-        <Dashboard />
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Routes>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/reports" element={<div>Reports page</div>} />
+        </Routes>
       </MemoryRouter>,
     );
 
-    const nav = screen.getByRole('navigation', { name: 'Dashboard Navigation' });
-    expect(nav).toBeInTheDocument();
-    expect(screen.getByText('Referrer AI')).toBeInTheDocument();
-    expect(screen.getByText('Feedmob')).toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
-    expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
-    expect(screen.getByText('URL Classification & Performance')).toBeInTheDocument();
-    expect(screen.getByText('AI Extraction Insights')).toBeInTheDocument();
-    expect(screen.getByText('New Analysis Task')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: 'Event Detail' })).not.toBeInTheDocument();
-  });
-
-  it('opens and closes the event detail drawer from a table row', async () => {
-    const user = userEvent.setup();
-
-    render(
-      <MemoryRouter>
-        <Dashboard />
-      </MemoryRouter>,
-    );
-
-    await user.click(screen.getAllByText('ev_9x128a')[0]);
-
-    expect(screen.getByRole('dialog', { name: 'Event Detail' })).toBeInTheDocument();
-    expect(screen.getByText('r_auth_772')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Close Event Detail' }));
-
-    expect(screen.queryByRole('dialog', { name: 'Event Detail' })).not.toBeInTheDocument();
+    expect(screen.getByText('Reports page')).toBeInTheDocument();
   });
 });

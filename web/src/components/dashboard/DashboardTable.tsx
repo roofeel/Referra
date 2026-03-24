@@ -14,7 +14,7 @@ export function DashboardTable({ selectedRow, onSelectRow }: DashboardTableProps
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50">
-              {['event_id', 'uid', 'event_name', 'ts', 'url_category', 'rl_type', 'attribution_status', 'duration'].map(
+              {['event_id', 'uid', 'event_name', 'ts', 'url_category', 'rl_type', 'duration'].map(
                 (header) => (
                   <th key={header} className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     {header}
@@ -42,7 +42,6 @@ export function DashboardTable({ selectedRow, onSelectRow }: DashboardTableProps
                 </td>
                 <td className="px-4 py-3 text-xs text-slate-500">{row.ts}</td>
                 <td className="px-4 py-3 text-xs text-slate-700">{row.category}</td>
-                <td className="px-4 py-3 text-xs text-slate-700">{row.type}</td>
                 <td className="px-4 py-3">
                   <div className={`flex items-center gap-1.5 text-[10px] font-bold ${statusClasses(row.status).split(' ')[1]}`}>
                     <div className={`h-1.5 w-1.5 rounded-full ${statusClasses(row.status).split(' ')[0]}`} />

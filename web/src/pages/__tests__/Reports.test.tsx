@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import Reports from '../Reports';
 
@@ -38,7 +38,7 @@ describe('Reports', () => {
         dataPoints24h: '8.2M',
       },
       clients: ['Global Retail Corp', 'Vertex Finance'],
-      ruleNames: ['AstraZeneca Global'],
+      rules: [{ id: 'rule-az', name: 'AstraZeneca Global' }],
       urlParsingVersions: ['v2.4.1', 'v1.9.8'],
       tasks: [
         {
@@ -94,7 +94,7 @@ describe('Reports', () => {
         dataPoints24h: '0',
       },
       clients: ['Global Retail Corp'],
-      ruleNames: ['AstraZeneca Global'],
+      rules: [{ id: 'rule-az', name: 'AstraZeneca Global' }],
       urlParsingVersions: ['v2.4.1'],
       tasks: [],
     });
@@ -122,7 +122,7 @@ describe('Reports', () => {
         dataPoints24h: '0',
       },
       clients: ['Global Retail Corp'],
-      ruleNames: ['AstraZeneca Global'],
+      rules: [{ id: 'rule-az', name: 'AstraZeneca Global' }],
       urlParsingVersions: ['v2.4.1'],
       tasks: [],
     });
@@ -167,7 +167,7 @@ describe('Reports', () => {
         dataPoints24h: '0',
       },
       clients: ['Global Retail Corp'],
-      ruleNames: ['AstraZeneca Global'],
+      rules: [{ id: 'rule-az', name: 'AstraZeneca Global' }],
       urlParsingVersions: ['v2.4.1'],
       tasks: [],
     });
@@ -195,5 +195,46 @@ describe('Reports', () => {
     await waitFor(() => {
       expect(startButton).toBeEnabled();
     });
+  });
+
+  it('navigates to report detail page from view action', async () => {
+    mockReportsList.mockResolvedValueOnce({
+      metrics: {
+        totalTasks: 1,
+        activeAnalyses: 1,
+        successRateAvg: 95,
+        dataPoints24h: '1.2M',
+      },
+      clients: ['Global Retail Corp'],
+      rules: [{ id: 'rule-az', name: 'AstraZeneca Global' }],
+      urlParsingVersions: ['v2.4.1'],
+      tasks: [
+        {
+          id: 'KTX-8821',
+          taskName: 'Q4 E-commerce Attribution',
+          client: 'Global Retail Corp',
+          source: 'Pixel API',
+          sourceIcon: 'api',
+          status: 'Running',
+          progress: 65,
+          progressLabel: '65% Processed',
+          attribution: '84.2%',
+          createdAt: 'Oct 24, 09:12 AM',
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/reports']}>
+        <Routes>
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/reports/:reportId" element={<div>Report detail page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Q4 E-commerce Attribution');
+    fireEvent.click(screen.getByRole('button', { name: 'View task' }));
+    expect(await screen.findByText('Report detail page')).toBeInTheDocument();
   });
 });

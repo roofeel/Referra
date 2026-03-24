@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
 import { UploadDataDrawer } from '../components/reports/UploadDataDrawer';
@@ -52,6 +53,7 @@ function formatPercent(value: number) {
 }
 
 export default function Reports() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -355,7 +357,12 @@ export default function Reports() {
                             <td className="px-6 py-4 text-right text-xs text-slate-500">{task.createdAt}</td>
                             <td className="px-6 py-4">
                               <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                                <button type="button" className="rounded p-1.5 text-blue-700 hover:bg-white" aria-label="View task">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/reports/${task.id}`)}
+                                  className="rounded p-1.5 text-blue-700 hover:bg-white"
+                                  aria-label="View task"
+                                >
                                   <span className="material-symbols-outlined text-lg">visibility</span>
                                 </button>
                                 <button
@@ -395,7 +402,7 @@ export default function Reports() {
         <UploadDataDrawer
           isOpen={isUploadDrawerOpen}
           clients={payload?.clients || []}
-          ruleNames={payload?.ruleNames || []}
+          rules={payload?.rules || []}
           onClose={() => setIsUploadDrawerOpen(false)}
           onSubmit={handleCreateTask}
         />

@@ -23,7 +23,7 @@ export interface ReportsResponse {
     dataPoints24h: string;
   };
   clients: string[];
-  ruleNames: string[];
+  rules: Array<{ id: string; name: string }>;
   urlParsingVersions: string[];
   tasks: ReportTask[];
 }
@@ -37,7 +37,7 @@ export type CreateReportTaskPayload = {
   fieldMappings: Record<string, string>;
   fileName: string;
   fileContent: string;
-  ruleName: string;
+  ruleId: string;
 };
 
 export const reportsApi = {

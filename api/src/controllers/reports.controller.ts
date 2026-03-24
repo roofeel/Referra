@@ -1,7 +1,4 @@
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { clients, reports, urlRules } from '../../../packages/db/index.js';
+import { clients, referrerRaws, reports, urlRules } from '../../../packages/db/index.js';
 
 type ReportTaskStatus = 'Running' | 'Completed' | 'Failed' | 'Paused';
 
@@ -28,7 +25,7 @@ type ReportsPayload = {
     dataPoints24h: string;
   };
   clients: string[];
-  ruleNames: string[];
+  rules: Array<{ id: string; name: string }>;
   urlParsingVersions: string[];
   tasks: ReportTask[];
 };
@@ -36,6 +33,8 @@ type ReportsPayload = {
 type RequestWithParams<T extends Record<string, string>> = Request & { params: T };
 
 type ReportRecord = Awaited<ReturnType<typeof reports.findById>>;
+type UrlRuleRecord = Awaited<ReturnType<typeof urlRules.findById>>;
+type UrlRuleExecutor = (ourl: URL, rl: string, dl: string) => unknown | Promise<unknown>;
 
 function normalizeStatus(raw?: string | null): ReportTaskStatus | undefined {
   const status = raw?.trim().toLowerCase();
@@ -81,41 +80,6 @@ function formatCompactCount(value: number) {
   }).format(value);
 }
 
-function sanitizeFileName(fileName: string) {
-  const normalized = fileName.trim().replace(/\s+/g, '_');
-  const safe = normalized.replace(/[^a-zA-Z0-9._-]/g, '');
-  return safe || `upload_${Date.now()}.csv`;
-}
-
-function getStorageRoot() {
-  const currentFile = fileURLToPath(import.meta.url);
-  const controllerDir = path.dirname(currentFile);
-  return path.resolve(controllerDir, '../../storage/reports');
-}
-
-async function saveUploadedFile(fileName: string, fileContent: string) {
-  const now = new Date();
-  const yyyy = String(now.getFullYear());
-  const mm = pad(now.getMonth() + 1);
-  const dd = pad(now.getDate());
-
-  const safeName = sanitizeFileName(fileName);
-  const uniqueName = `${Date.now()}_${safeName}`;
-  const relativeDir = path.join(yyyy, mm, dd);
-  const absoluteDir = path.join(getStorageRoot(), relativeDir);
-
-  await mkdir(absoluteDir, { recursive: true });
-
-  const absolutePath = path.join(absoluteDir, uniqueName);
-  await writeFile(absolutePath, fileContent, 'utf-8');
-
-  return {
-    relativePath: path.join(relativeDir, uniqueName),
-    absolutePath,
-    size: Buffer.byteLength(fileContent, 'utf-8'),
-  };
-}
-
 function progressLabelFor(status: ReportTaskStatus, progress: number) {
   if (status === 'Completed') return '100% Success';
   if (status === 'Running') return `${progress}% Processed`;
@@ -141,7 +105,7 @@ function toReportTask(item: NonNullable<ReportRecord>): ReportTask {
 function buildPayload(
   filteredTasks: ReportTask[],
   clientNames: string[],
-  ruleNames: string[],
+  rules: Array<{ id: string; name: string }>,
   urlParsingVersions: string[],
   dataPoints24h: string,
 ): ReportsPayload {
@@ -153,9 +117,241 @@ function buildPayload(
       dataPoints24h,
     },
     clients: clientNames,
-    ruleNames,
+    rules,
     urlParsingVersions,
     tasks: filteredTasks,
+  };
+}
+
+function normalizeHeaderKey(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function parseCsvRows(fileContent: string) {
+  const text = fileContent.replace(/^\uFEFF/, '');
+  const matrix: string[][] = [];
+  let row: string[] = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        cell += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      row.push(cell);
+      cell = '';
+
+      if (row.some((value) => value.trim().length > 0)) {
+        matrix.push(row);
+      }
+      row = [];
+
+      if (char === '\r' && nextChar === '\n') {
+        i += 1;
+      }
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell);
+  if (row.some((value) => value.trim().length > 0)) {
+    matrix.push(row);
+  }
+
+  if (matrix.length === 0) {
+    return { headers: [], rows: [] as Array<Record<string, string>> };
+  }
+
+  const [headerRow, ...dataRows] = matrix;
+  if (!headerRow) {
+    return { headers: [], rows: [] as Array<Record<string, string>> };
+  }
+
+  const headers = headerRow.map((header) => header.trim());
+  const rows = dataRows.map((values) => {
+    const output: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      output[header] = values[index] ?? '';
+    });
+    return output;
+  });
+
+  return { headers, rows };
+}
+
+function findColumnName(
+  headers: string[],
+  fieldMappings: Record<string, string>,
+  candidates: string[],
+): string | undefined {
+  const headerByNormalized = new Map<string, string>();
+  headers.forEach((header) => {
+    const normalized = normalizeHeaderKey(header);
+    if (normalized && !headerByNormalized.has(normalized)) {
+      headerByNormalized.set(normalized, header);
+    }
+  });
+
+  for (const candidate of candidates) {
+    const mapped = fieldMappings[candidate];
+    if (mapped && headers.includes(mapped)) {
+      return mapped;
+    }
+
+    const byNormalized = headerByNormalized.get(normalizeHeaderKey(candidate));
+    if (byNormalized) {
+      return byNormalized;
+    }
+  }
+
+  return undefined;
+}
+
+function safeDecode(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function parseUrl(rawValue: string) {
+  const value = rawValue.trim();
+  if (!value) return null;
+
+  const decoded = safeDecode(value);
+
+  try {
+    return new URL(decoded);
+  } catch {
+    try {
+      return new URL(value);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function parseTimestampToMs(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const asNumber = Number(trimmed);
+  if (Number.isFinite(asNumber)) {
+    if (Math.abs(asNumber) >= 1e11) {
+      return asNumber;
+    }
+    return asNumber * 1000;
+  }
+
+  const parsed = Date.parse(trimmed);
+  if (Number.isNaN(parsed)) return null;
+  return parsed;
+}
+
+function computeDurationSeconds(eventTimeRaw: string, sourceTimeRaw: string) {
+  const eventMs = parseTimestampToMs(eventTimeRaw);
+  const sourceMs = parseTimestampToMs(sourceTimeRaw);
+  if (eventMs === null || sourceMs === null) {
+    return 0;
+  }
+
+  return Math.round((eventMs - sourceMs) / 1000);
+}
+
+function buildUrlRuleExecutor(logicSource: string | null | undefined): UrlRuleExecutor {
+  const source = logicSource?.trim();
+  if (!source) {
+    return () => ({ referrer_type: 'unknown', referrer_desc: 'empty_logic_source' });
+  }
+
+  try {
+    const createExecutor = new Function(
+      `
+${source}
+if (typeof categorizeFunnel !== 'function') {
+  throw new Error('logicSource must define categorizeFunnel(ourl, rl, dl)');
+}
+return categorizeFunnel;
+`,
+    );
+
+    const executor = createExecutor();
+    if (typeof executor !== 'function') {
+      return () => ({ referrer_type: 'unknown', referrer_desc: 'invalid_logic_source' });
+    }
+
+    return executor as UrlRuleExecutor;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return () => ({ referrer_type: 'unknown', referrer_desc: `logic_compile_error:${message}` });
+  }
+}
+
+function deriveReferrer(result: unknown) {
+  if (typeof result === 'string') {
+    return {
+      referrerType: result || 'unknown',
+      referrerDesc: '',
+    };
+  }
+
+  if (result && typeof result === 'object') {
+    const record = result as Record<string, unknown>;
+    const referrerTypeRaw =
+      record.referrer_type ?? record.referrerType ?? record.type ?? record.channel ?? record.category;
+    const referrerDescRaw =
+      record.referrer_desc ?? record.referrerDesc ?? record.desc ?? record.description ?? record.detail;
+
+    const referrerType = typeof referrerTypeRaw === 'string' ? referrerTypeRaw : 'unknown';
+    const referrerDesc =
+      typeof referrerDescRaw === 'string'
+        ? referrerDescRaw
+        : referrerDescRaw === undefined || referrerDescRaw === null
+          ? ''
+          : JSON.stringify(referrerDescRaw);
+
+    return {
+      referrerType,
+      referrerDesc,
+    };
+  }
+
+  if (result === undefined || result === null) {
+    return {
+      referrerType: 'unknown',
+      referrerDesc: '',
+    };
+  }
+
+  return {
+    referrerType: String(result),
+    referrerDesc: '',
   };
 }
 
@@ -168,12 +364,12 @@ export const reportsController = {
 
     let taskRows: any[] = [];
     let clientNames: string[] = [];
-    let ruleNames: string[] = [];
+    let rulesPayload: Array<{ id: string; name: string }> = [];
     let urlParsingVersions: string[] = [];
     let dataPoints24h = '0';
 
     try {
-      const [reportRows, clientRows, rules, updated24hRows] = await Promise.all([
+      const [reportRowsRaw, clientRowsRaw, rulesRaw, updated24hRows] = await Promise.all([
         reports.list({
           status,
           client: client || undefined,
@@ -183,29 +379,35 @@ export const reportsController = {
         urlRules.list(),
         reports.listUpdatedAfter(new Date(Date.now() - 24 * 60 * 60 * 1000)),
       ]);
+      const reportRows = reportRowsRaw as Array<{ client?: { name?: string | null } | null }>;
+      const clientRows = clientRowsRaw as Array<{ name?: string | null }>;
+      const rules = rulesRaw as Array<NonNullable<UrlRuleRecord>>;
 
       taskRows = reportRows;
       clientNames = Array.from(
         new Set([
-          ...clientRows.map((item) => item.name?.trim()).filter((value): value is string => Boolean(value)),
-          ...reportRows.map((item: any) => item.client?.name?.trim()).filter((value: any): value is string => Boolean(value)),
-          ...rules.map((rule) => rule.client?.name?.trim()).filter((value): value is string => Boolean(value)),
+          ...clientRows
+            .map((item) => item.name?.trim())
+            .filter((value: string | undefined): value is string => Boolean(value)),
+          ...reportRows
+            .map((item) => item.client?.name?.trim())
+            .filter((value: string | undefined): value is string => Boolean(value)),
+          ...rules
+            .map((rule) => rule.client?.name?.trim())
+            .filter((value: string | undefined): value is string => Boolean(value)),
         ]),
       ).sort((a, b) => a.localeCompare(b));
 
-      ruleNames = Array.from(
-        new Set(
-          rules
-            .map((rule) => rule.name?.trim())
-            .filter((value): value is string => Boolean(value)),
-        ),
-      ).sort((a, b) => a.localeCompare(b));
+      rulesPayload = rules
+        .map((rule) => ({ id: rule.id, name: rule.name?.trim() || '' }))
+        .filter((rule) => Boolean(rule.id) && Boolean(rule.name))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
       urlParsingVersions = Array.from(
         new Set(
           rules
             .map((rule) => rule.activeVersion?.trim())
-            .filter((value): value is string => Boolean(value)),
+            .filter((value: string | undefined): value is string => Boolean(value)),
         ),
       ).sort((a, b) => a.localeCompare(b));
 
@@ -216,7 +418,7 @@ export const reportsController = {
     }
 
     const tasks = taskRows.map((row) => toReportTask(row));
-    return Response.json(buildPayload(tasks, clientNames, ruleNames, urlParsingVersions, dataPoints24h));
+    return Response.json(buildPayload(tasks, clientNames, rulesPayload, urlParsingVersions, dataPoints24h));
   },
 
   async create(req: Request) {
@@ -229,12 +431,12 @@ export const reportsController = {
       fieldMappings?: Record<string, string>;
       fileName?: string;
       fileContent?: string;
-      ruleName?: string;
+      ruleId?: string;
     };
 
     const taskName = body.taskName?.trim();
     const clientName = body.client?.trim();
-    const ruleName = body.ruleName?.trim();
+    const ruleId = body.ruleId?.trim();
 
     if (!taskName) {
       return Response.json({ error: 'taskName is required' }, { status: 400 });
@@ -244,12 +446,13 @@ export const reportsController = {
       return Response.json({ error: 'client is required' }, { status: 400 });
     }
 
-    if (!ruleName) {
-      return Response.json({ error: 'ruleName is required' }, { status: 400 });
+    if (!ruleId) {
+      return Response.json({ error: 'ruleId is required' }, { status: 400 });
     }
 
-    if (!body.fileName?.trim()) {
-      return Response.json({ error: 'fileName is required' }, { status: 400 });
+    const existingRule = await urlRules.findById(ruleId);
+    if (!existingRule) {
+      return Response.json({ error: 'ruleId is invalid' }, { status: 400 });
     }
 
     if (!body.fileContent || typeof body.fileContent !== 'string') {
@@ -264,13 +467,76 @@ export const reportsController = {
       return Response.json({ error: 'attributionLogic is invalid' }, { status: 400 });
     }
 
-    const existingClient = await clients.getOrCreateByName(clientName);
-    const fileSaved = await saveUploadedFile(body.fileName, body.fileContent);
+    const parsedCsv = parseCsvRows(body.fileContent);
+    if (parsedCsv.headers.length === 0) {
+      return Response.json({ error: 'CSV header is required' }, { status: 400 });
+    }
 
+    const fieldMappings = body.fieldMappings || {};
+    const eventUrlColumn = findColumnName(parsedCsv.headers, fieldMappings, [
+      'event_url',
+      'impression_url',
+      'registration_url',
+      'page_load_url',
+    ]);
+    const eventTimeColumn = findColumnName(parsedCsv.headers, fieldMappings, [
+      'event_time',
+      'registration_time',
+      'page_load_time',
+    ]);
+    const sourceTimeColumn = findColumnName(parsedCsv.headers, fieldMappings, ['source_time', 'impression_time']);
+
+    if (!eventUrlColumn || !eventTimeColumn || !sourceTimeColumn) {
+      return Response.json(
+        {
+          error: 'CSV must contain event_url/event_time/source_time (or mapped equivalent columns)',
+        },
+        { status: 400 },
+      );
+    }
+
+    const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
+
+    const rawRowsToCreate: Array<{
+      referrerType: string;
+      referrerDesc: string;
+      duration: number;
+      json: unknown;
+    }> = [];
+
+    for (const row of parsedCsv.rows) {
+      const rawEventUrl = String(row[eventUrlColumn] ?? '');
+      const ourl = parseUrl(rawEventUrl) ?? new URL('https://invalid.local/');
+      const rl = safeDecode(ourl.searchParams.get('rl') || '');
+      const dl = safeDecode(ourl.searchParams.get('dl') || '');
+
+      let ruleResult: unknown;
+      try {
+        ruleResult = await executeRule(ourl, rl, dl);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        ruleResult = {
+          referrer_type: 'unknown',
+          referrer_desc: `logic_runtime_error:${message}`,
+        };
+      }
+
+      const { referrerType, referrerDesc } = deriveReferrer(ruleResult);
+      const duration = computeDurationSeconds(String(row[eventTimeColumn] ?? ''), String(row[sourceTimeColumn] ?? ''));
+
+      rawRowsToCreate.push({
+        referrerType,
+        referrerDesc,
+        duration,
+        json: row,
+      });
+    }
+
+    const existingClient = await clients.getOrCreateByName(clientName);
     const created = await reports.create({
       clientId: existingClient?.id,
       taskName,
-      ruleName,
+      ruleId,
       source: body.source?.trim() || 'CSV Import',
       sourceIcon: body.sourceIcon?.trim() || 'description',
       status: 'Running',
@@ -279,10 +545,17 @@ export const reportsController = {
       attribution: '--',
       attributionLogic: body.attributionLogic,
       fieldMappings: body.fieldMappings,
-      uploadedFileName: body.fileName,
-      uploadedFilePath: fileSaved.relativePath,
-      uploadedFileSize: fileSaved.size,
     });
+
+    await referrerRaws.createMany(
+      rawRowsToCreate.map((item) => ({
+        reportId: created.id,
+        referrerType: item.referrerType,
+        referrerDesc: item.referrerDesc,
+        duration: item.duration,
+        json: item.json,
+      })),
+    );
 
     return Response.json(toReportTask(created), { status: 201 });
   },
@@ -334,16 +607,6 @@ export const reportsController = {
     }
 
     await reports.delete(request.params.id);
-
-    if (current.uploadedFilePath) {
-      const filePath = path.join(getStorageRoot(), current.uploadedFilePath);
-      try {
-        await unlink(filePath);
-      } catch {
-        // Ignore file cleanup failures after DB delete.
-      }
-    }
-
     return new Response(null, { status: 204 });
   },
 };

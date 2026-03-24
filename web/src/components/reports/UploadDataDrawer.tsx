@@ -4,7 +4,7 @@ import type { CreateReportTaskPayload } from '../../service/reports';
 type UploadDataDrawerProps = {
   isOpen: boolean;
   clients: string[];
-  ruleNames: string[];
+  rules: Array<{ id: string; name: string }>;
   onClose: () => void;
   onSubmit: (payload: CreateReportTaskPayload) => Promise<void>;
 };
@@ -133,14 +133,14 @@ function autoMatchRequiredFields(
   return next;
 }
 
-export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit }: UploadDataDrawerProps) {
+export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: UploadDataDrawerProps) {
   const taskNameId = useId();
   const clientId = useId();
   const versionId = useId();
   const fileInputId = useId();
   const [taskName, setTaskName] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
-  const [selectedRuleName, setSelectedRuleName] = useState('');
+  const [selectedRuleId, setSelectedRuleId] = useState('');
   const [attributionLogic, setAttributionLogic] = useState<AttributionLogic>('registration');
   const [selectedFileName, setSelectedFileName] = useState('');
   const [selectedFileContent, setSelectedFileContent] = useState('');
@@ -173,13 +173,13 @@ export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit
       return;
     }
 
-    setSelectedRuleName((prev) => {
-      if (prev && ruleNames.includes(prev)) {
+    setSelectedRuleId((prev) => {
+      if (prev && rules.some((rule) => rule.id === prev)) {
         return prev;
       }
-      return ruleNames[0] || '';
+      return rules[0]?.id || '';
     });
-  }, [isOpen, ruleNames]);
+  }, [isOpen, rules]);
 
   useEffect(() => {
     setFieldMappings((prev) => ({
@@ -256,7 +256,7 @@ export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit
         }, {}),
         fileName: selectedFileName,
         fileContent: selectedFileContent,
-        ruleName: selectedRuleName,
+        ruleId: selectedRuleId,
       };
 
       await onSubmit(payload);
@@ -274,7 +274,7 @@ export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit
   const isFormComplete =
     Boolean(selectedClient) &&
     Boolean(taskName.trim()) &&
-    Boolean(selectedRuleName) &&
+    Boolean(selectedRuleId) &&
     Boolean(selectedFileName) &&
     Boolean(selectedFileContent) &&
     requiredFields.every((field) => Boolean(currentMappings[field]));
@@ -368,17 +368,17 @@ export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit
                       Rule Name
                       <select
                         id={versionId}
-                        value={selectedRuleName}
-                        onChange={(event) => setSelectedRuleName(event.target.value)}
-                        disabled={ruleNames.length === 0}
+                        value={selectedRuleId}
+                        onChange={(event) => setSelectedRuleId(event.target.value)}
+                        disabled={rules.length === 0}
                         className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                       >
-                        {ruleNames.length === 0 ? (
+                        {rules.length === 0 ? (
                           <option value="">No rules available</option>
                         ) : (
-                          ruleNames.map((ruleName) => (
-                            <option key={ruleName} value={ruleName}>
-                              {ruleName}
+                          rules.map((rule) => (
+                            <option key={rule.id} value={rule.id}>
+                              {rule.name}
                             </option>
                           ))
                         )}

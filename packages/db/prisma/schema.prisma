@@ -52,8 +52,9 @@ model Report {
   id                String   @id @default(cuid())
   clientId          String?
   client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  referrerRaws      ReferrerRaw[]
   taskName          String
-  ruleName          String
+  ruleId            String
   source            String   @default("CSV Import")
   sourceIcon        String   @default("description")
   status            String   @default("Running")
@@ -62,13 +63,22 @@ model Report {
   attribution       String   @default("--")
   attributionLogic  String
   fieldMappings     Json
-  uploadedFileName  String
-  uploadedFilePath  String
-  uploadedFileSize  Int
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([clientId])
   @@index([status])
   @@index([createdAt])
+}
+
+model ReferrerRaw {
+  id           String @id @default(cuid())
+  reportId     String
+  report       Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  referrerType String @map("referrer_type")
+  referrerDesc String @map("referrer_desc")
+  duration     Int
+  json         Json
+
+  @@index([reportId])
 }

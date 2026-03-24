@@ -38,7 +38,7 @@ export type EventDetail = {
 
 export const metrics: Metric[] = [
   { title: 'Total Events', value: '1,284,930', note: '12.4% vs prev', tone: 'positive', icon: 'data_object' },
-  { title: 'Impression Count', value: '842,102', note: '65% of total volume', tone: 'neutral', icon: 'visibility', progress: 65 },
+  { title: 'Impression Count', value: '842,102', note: '65% of total volume', tone: 'neutral', icon: 'visibility' },
   { title: 'Pageload Count', value: '312,440', note: '37.1% conversion from imp', tone: 'neutral', icon: 'browser_updated' },
   { title: 'Registration Count', value: '12,840', note: '2.1% vs target', tone: 'negative', icon: 'person_add' },
   { title: 'Successful Attributions', value: '9,412', note: 'Verified logical chains', tone: 'neutral', icon: 'check_circle' },

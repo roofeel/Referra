@@ -134,7 +134,7 @@ export interface Report {
   clientId?: string | null;
   client?: Pick<Client, "id" | "name"> | null;
   taskName: string;
-  ruleName: string;
+  ruleId: string;
   source: string;
   sourceIcon: string;
   status: string;
@@ -143,11 +143,17 @@ export interface Report {
   attribution: string;
   attributionLogic: string;
   fieldMappings: unknown;
-  uploadedFileName: string;
-  uploadedFilePath: string;
-  uploadedFileSize: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface ReferrerRaw {
+  id: string;
+  reportId: string;
+  referrerType: string;
+  referrerDesc: string;
+  duration: number;
+  json: unknown;
 }
 
 function normalizeEmail(email: string) {
@@ -364,7 +370,7 @@ export const reports = {
   async create(data: {
     clientId?: string;
     taskName: string;
-    ruleName: string;
+    ruleId: string;
     source?: string;
     sourceIcon?: string;
     status?: string;
@@ -373,15 +379,12 @@ export const reports = {
     attribution?: string;
     attributionLogic: string;
     fieldMappings: unknown;
-    uploadedFileName: string;
-    uploadedFilePath: string;
-    uploadedFileSize: number;
   }) {
     return await (db as any).report.create({
       data: {
         clientId: data.clientId || null,
         taskName: data.taskName,
-        ruleName: data.ruleName,
+        ruleId: data.ruleId,
         source: data.source || "CSV Import",
         sourceIcon: data.sourceIcon || "description",
         status: data.status || "Running",
@@ -390,9 +393,6 @@ export const reports = {
         attribution: data.attribution || "--",
         attributionLogic: data.attributionLogic,
         fieldMappings: data.fieldMappings,
-        uploadedFileName: data.uploadedFileName,
-        uploadedFilePath: data.uploadedFilePath,
-        uploadedFileSize: data.uploadedFileSize,
       },
       include: {
         client: {
@@ -431,7 +431,7 @@ export const reports = {
     if (options?.search) {
       const searchFilter = [
         { taskName: { contains: options.search, mode: "insensitive" } },
-        { ruleName: { contains: options.search, mode: "insensitive" } },
+        { ruleId: { contains: options.search, mode: "insensitive" } },
         { id: { contains: options.search, mode: "insensitive" } },
         { client: { is: { name: { contains: options.search, mode: "insensitive" } } } },
       ];
@@ -487,6 +487,30 @@ export const reports = {
   async delete(id: string) {
     await (db as any).report.delete({
       where: { id },
+    });
+  },
+};
+
+export const referrerRaws = {
+  async createMany(data: Array<{
+    reportId: string;
+    referrerType: string;
+    referrerDesc: string;
+    duration: number;
+    json: unknown;
+  }>) {
+    if (data.length === 0) {
+      return { count: 0 };
+    }
+
+    return await (db as any).referrerRaw.createMany({
+      data: data.map((item) => ({
+        reportId: item.reportId,
+        referrerType: item.referrerType,
+        referrerDesc: item.referrerDesc,
+        duration: item.duration,
+        json: item.json,
+      })),
     });
   },
 };
