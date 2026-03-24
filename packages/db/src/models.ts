@@ -129,6 +129,27 @@ export interface UrlRule {
   updatedAt: Date;
 }
 
+export interface Report {
+  id: string;
+  clientId?: string | null;
+  client?: Pick<Client, "id" | "name"> | null;
+  taskName: string;
+  ruleName: string;
+  source: string;
+  sourceIcon: string;
+  status: string;
+  progress: number;
+  progressLabel: string;
+  attribution: string;
+  attributionLogic: string;
+  fieldMappings: unknown;
+  uploadedFileName: string;
+  uploadedFilePath: string;
+  uploadedFileSize: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -334,6 +355,137 @@ export const urlRules = {
 
   async delete(id: string) {
     await (db as any).urlRule.delete({
+      where: { id },
+    });
+  },
+};
+
+export const reports = {
+  async create(data: {
+    clientId?: string;
+    taskName: string;
+    ruleName: string;
+    source?: string;
+    sourceIcon?: string;
+    status?: string;
+    progress?: number;
+    progressLabel?: string;
+    attribution?: string;
+    attributionLogic: string;
+    fieldMappings: unknown;
+    uploadedFileName: string;
+    uploadedFilePath: string;
+    uploadedFileSize: number;
+  }) {
+    return await (db as any).report.create({
+      data: {
+        clientId: data.clientId || null,
+        taskName: data.taskName,
+        ruleName: data.ruleName,
+        source: data.source || "CSV Import",
+        sourceIcon: data.sourceIcon || "description",
+        status: data.status || "Running",
+        progress: data.progress ?? 0,
+        progressLabel: data.progressLabel || "0% Processed",
+        attribution: data.attribution || "--",
+        attributionLogic: data.attributionLogic,
+        fieldMappings: data.fieldMappings,
+        uploadedFileName: data.uploadedFileName,
+        uploadedFilePath: data.uploadedFilePath,
+        uploadedFileSize: data.uploadedFileSize,
+      },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+  },
+
+  async findById(id: string) {
+    return await (db as any).report.findUnique({
+      where: { id },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+  },
+
+  async list(options?: { status?: string; client?: string; search?: string }) {
+    const where: any = {};
+    if (options?.status) {
+      where.status = options.status;
+    }
+    if (options?.client) {
+      where.client = {
+        is: {
+          name: {
+            equals: options.client,
+            mode: "insensitive",
+          },
+        },
+      };
+    }
+    if (options?.search) {
+      const searchFilter = [
+        { taskName: { contains: options.search, mode: "insensitive" } },
+        { ruleName: { contains: options.search, mode: "insensitive" } },
+        { id: { contains: options.search, mode: "insensitive" } },
+        { client: { is: { name: { contains: options.search, mode: "insensitive" } } } },
+      ];
+
+      if (where.client) {
+        where.AND = [{ client: where.client }, { OR: searchFilter }];
+        delete where.client;
+      } else {
+        where.OR = searchFilter;
+      }
+    }
+
+    return await (db as any).report.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+  },
+
+  async listUpdatedAfter(since: Date) {
+    return await (db as any).report.findMany({
+      where: {
+        updatedAt: {
+          gte: since,
+        },
+      },
+      select: { id: true },
+    });
+  },
+
+  async update(id: string, data: Partial<Report>) {
+    const updateData: any = { ...data };
+    delete updateData.id;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+    delete updateData.client;
+
+    return await (db as any).report.update({
+      where: { id },
+      data: updateData,
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+      },
+    });
+  },
+
+  async delete(id: string) {
+    await (db as any).report.delete({
       where: { id },
     });
   },

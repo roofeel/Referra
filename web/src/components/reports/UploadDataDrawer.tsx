@@ -143,6 +143,7 @@ export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit
   const [selectedRuleName, setSelectedRuleName] = useState('');
   const [attributionLogic, setAttributionLogic] = useState<AttributionLogic>('registration');
   const [selectedFileName, setSelectedFileName] = useState('');
+  const [selectedFileContent, setSelectedFileContent] = useState('');
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [fileParseError, setFileParseError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -209,6 +210,7 @@ export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit
 
     try {
       const raw = await file.text();
+      setSelectedFileContent(raw);
       const parsedHeaders = parseCsvHeaders(raw);
       if (parsedHeaders.length === 0) {
         setCsvHeaders([]);
@@ -218,6 +220,7 @@ export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit
 
       setCsvHeaders(parsedHeaders);
     } catch {
+      setSelectedFileContent('');
       setCsvHeaders([]);
       setFileParseError('CSV 读取失败，请重新上传。');
     }
@@ -252,6 +255,7 @@ export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit
           return acc;
         }, {}),
         fileName: selectedFileName,
+        fileContent: selectedFileContent,
         ruleName: selectedRuleName,
       };
 
@@ -272,6 +276,7 @@ export function UploadDataDrawer({ isOpen, clients, ruleNames, onClose, onSubmit
     Boolean(taskName.trim()) &&
     Boolean(selectedRuleName) &&
     Boolean(selectedFileName) &&
+    Boolean(selectedFileContent) &&
     requiredFields.every((field) => Boolean(currentMappings[field]));
 
   return (

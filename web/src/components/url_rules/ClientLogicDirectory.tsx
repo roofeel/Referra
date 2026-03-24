@@ -1,4 +1,5 @@
 import type { ClientRow, ClientStatus } from './urlRulesData';
+import { TablePagination } from '../common/TablePagination';
 
 function StatusBadge({ status }: { status: ClientStatus }) {
   const isActive = status === 'Active';
@@ -144,22 +145,7 @@ export function ClientLogicDirectory({
           </tbody>
         </table>
 
-        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50/80 px-6 py-4">
-          <span className="text-xs font-medium text-slate-500">
-            Viewing {start}-{end} of {rows.length} url rules modules
-          </span>
-          <div className="flex items-center gap-2">
-            <button type="button" className="rounded border border-slate-300 p-2 transition-all hover:bg-slate-100 active:scale-90">
-              <span className="material-symbols-outlined text-sm">chevron_left</span>
-            </button>
-            <button
-              type="button"
-              className="rounded border border-slate-300 bg-white p-2 shadow-sm transition-all hover:bg-slate-100 active:scale-90"
-            >
-              <span className="material-symbols-outlined text-sm">chevron_right</span>
-            </button>
-          </div>
-        </div>
+        <TablePagination summary={`Viewing ${start}-${end} of ${rows.length} url rules modules`} />
       </div>
     </section>
   );

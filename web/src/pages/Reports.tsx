@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppSidebar } from '../components/common/AppSidebar';
+import { TablePagination } from '../components/common/TablePagination';
 import { UploadDataDrawer } from '../components/reports/UploadDataDrawer';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
@@ -386,28 +387,7 @@ export default function Reports() {
                   </table>
                 </div>
 
-                <footer className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-3">
-                  <p className="text-xs text-slate-500">
-                    Showing <span className="font-bold text-slate-800">1-{tasks.length}</span> of{' '}
-                    <span className="font-bold text-slate-800">{tasks.length}</span> tasks
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      disabled
-                      className="rounded border border-slate-300 px-2 py-1 text-slate-400 disabled:opacity-50"
-                      aria-label="Previous page"
-                    >
-                      <span className="material-symbols-outlined text-base">chevron_left</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded border border-blue-700 bg-blue-700 px-3 py-1 text-xs font-bold text-white"
-                    >
-                      1
-                    </button>
-                  </div>
-                </footer>
+                <TablePagination summary={`Showing 1-${tasks.length} of ${tasks.length} tasks`} />
               </>
             )}
           </section>

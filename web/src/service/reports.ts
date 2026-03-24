@@ -36,6 +36,7 @@ export type CreateReportTaskPayload = {
   attributionLogic: 'registration' | 'pageload';
   fieldMappings: Record<string, string>;
   fileName: string;
+  fileContent: string;
   ruleName: string;
 };
 
