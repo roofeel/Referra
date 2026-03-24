@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import Reports from '../Reports';
@@ -68,5 +68,111 @@ describe('Reports', () => {
     expect(screen.getByText('AdWords Spend Audit')).toBeInTheDocument();
     expect(screen.getAllByText('2').length).toBeGreaterThan(0);
     expect(mockReportsList).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens upload data drawer on click', async () => {
+    mockReportsList.mockResolvedValueOnce({
+      metrics: {
+        totalTasks: 0,
+        activeAnalyses: 0,
+        successRateAvg: 0,
+        dataPoints24h: '0',
+      },
+      clients: ['Global Retail Corp'],
+      tasks: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <Reports />
+      </MemoryRouter>,
+    );
+
+    const uploadButton = await screen.findByRole('button', { name: /Upload Data/i });
+    fireEvent.click(uploadButton);
+
+    expect(screen.getByRole('heading', { name: 'Upload Data' })).toBeInTheDocument();
+    expect(screen.getByText('Task Information')).toBeInTheDocument();
+    expect(screen.getByText('Data Source')).toBeInTheDocument();
+  });
+
+  it('switches required mapping fields by attribution logic and auto-matches CSV headers', async () => {
+    mockReportsList.mockResolvedValueOnce({
+      metrics: {
+        totalTasks: 0,
+        activeAnalyses: 0,
+        successRateAvg: 0,
+        dataPoints24h: '0',
+      },
+      clients: ['Global Retail Corp'],
+      tasks: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <Reports />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Upload Data/i }));
+
+    expect(screen.getByText('registration_url')).toBeInTheDocument();
+    expect(screen.queryByText('page_load_url')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Impression → Earliest Pageload'));
+    expect(screen.getByText('page_load_url')).toBeInTheDocument();
+    expect(screen.queryByText('registration_url')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Impression → Registration'));
+    const csvFile = new File(
+      ['impression_url,registration_url,impression_time,other_column\n/a,/b,2026-03-24,1'],
+      'report.csv',
+      { type: 'text/csv' },
+    );
+    fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [csvFile] } });
+
+    await waitFor(() => {
+      expect((screen.getByLabelText('Map impression_url') as HTMLSelectElement).value).toBe('impression_url');
+      expect((screen.getByLabelText('Map registration_url') as HTMLSelectElement).value).toBe('registration_url');
+      expect((screen.getByLabelText('Map impression_time') as HTMLSelectElement).value).toBe('impression_time');
+      expect((screen.getByLabelText('Map registration_time') as HTMLSelectElement).value).toBe('');
+    });
+  });
+
+  it('enables Start Analysis only when required form fields are complete', async () => {
+    mockReportsList.mockResolvedValueOnce({
+      metrics: {
+        totalTasks: 0,
+        activeAnalyses: 0,
+        successRateAvg: 0,
+        dataPoints24h: '0',
+      },
+      clients: ['Global Retail Corp'],
+      tasks: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <Reports />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Upload Data/i }));
+    const startButton = screen.getByRole('button', { name: /Start Analysis/i });
+    expect(startButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Analysis Task Name'), { target: { value: 'Q4 Conversion Audit' } });
+    expect(startButton).toBeDisabled();
+
+    const csvFile = new File(
+      ['impression_url,registration_url,impression_time,registration_time\n/a,/b,2026-03-24,2026-03-24'],
+      'report.csv',
+      { type: 'text/csv' },
+    );
+    fireEvent.change(screen.getByLabelText('Upload CSV file'), { target: { files: [csvFile] } });
+
+    await waitFor(() => {
+      expect(startButton).toBeEnabled();
+    });
   });
 });

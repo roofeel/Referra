@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AppSidebar } from '../components/common/AppSidebar';
+import { UploadDataDrawer } from '../components/reports/UploadDataDrawer';
 import { api } from '../service';
 import type { ReportTask, ReportTaskStatus, ReportsResponse } from '../service/reports';
 
@@ -58,6 +59,7 @@ export default function Reports() {
   const [payload, setPayload] = useState<ReportsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isUploadDrawerOpen, setIsUploadDrawerOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -153,6 +155,7 @@ export default function Reports() {
           </div>
           <button
             type="button"
+            onClick={() => setIsUploadDrawerOpen(true)}
             className="ml-4 inline-flex items-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800"
           >
             <span className="material-symbols-outlined text-base">upload</span>
@@ -350,6 +353,11 @@ export default function Reports() {
             )}
           </section>
         </div>
+        <UploadDataDrawer
+          isOpen={isUploadDrawerOpen}
+          clients={payload?.clients || []}
+          onClose={() => setIsUploadDrawerOpen(false)}
+        />
       </main>
     </div>
   );

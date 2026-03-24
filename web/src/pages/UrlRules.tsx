@@ -4,7 +4,6 @@ import { ClientLogicDirectory } from '../components/url_rules/ClientLogicDirecto
 import { CreateRuleDrawer } from '../components/url_rules/CreateRuleDrawer';
 import { LogicDrawer } from '../components/url_rules/LogicDrawer';
 import { useToast } from '../components/ToastProvider';
-import { UrlRulesFooter } from '../components/url_rules/UrlRulesFooter';
 import { UrlRulesHeader } from '../components/url_rules/UrlRulesHeader';
 import type { ClientRow } from '../components/url_rules/urlRulesData';
 import { api } from '../service';
@@ -173,7 +172,6 @@ export default function UrlRules() {
             setIsCreateDrawerOpen(false);
           }}
         />
-        <UrlRulesFooter drawerOpen={selectedRule !== null || isCreateDrawerOpen} />
       </main>
     </div>
   );

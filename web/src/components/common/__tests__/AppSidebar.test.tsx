@@ -18,6 +18,8 @@ describe('AppSidebar', () => {
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
     expect(within(nav).getByRole('link', { name: /Reports/i })).toHaveAttribute('href', '/reports');
+    expect(screen.getByText('Guest User')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Logout/i })).toBeDisabled();
   });
 
   it('marks the active item with active styling', () => {
