@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Analysis Results | Precision Intelligence Framework</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-highest": "#e0e3e5",
+                        "on-secondary-container": "#586377",
+                        "on-tertiary-container": "#dbe9ff",
+                        "tertiary-container": "#596980",
+                        "surface-dim": "#d8dadc",
+                        "secondary-fixed-dim": "#bcc7de",
+                        "secondary-fixed": "#d8e3fb",
+                        "inverse-primary": "#b3c5ff",
+                        "on-background": "#191c1e",
+                        "inverse-surface": "#2d3133",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "tertiary": "#415167",
+                        "on-primary-fixed-variant": "#003ea7",
+                        "secondary-container": "#d5e0f8",
+                        "primary-fixed": "#dbe1ff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-low": "#f2f4f6",
+                        "surface-tint": "#0053d9",
+                        "surface-bright": "#f7f9fb",
+                        "secondary": "#545f73",
+                        "inverse-on-surface": "#eff1f3",
+                        "tertiary-fixed": "#d3e4fe",
+                        "on-error-container": "#93000a",
+                        "on-secondary": "#ffffff",
+                        "outline": "#737687",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "surface": "#f7f9fb",
+                        "on-tertiary-fixed": "#0b1c30",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed": "#111c2d",
+                        "background": "#f7f9fb",
+                        "primary": "#0046ba",
+                        "on-surface-variant": "#424655",
+                        "on-tertiary-fixed-variant": "#38485d",
+                        "outline-variant": "#c3c6d8",
+                        "surface-container-high": "#e6e8ea",
+                        "primary-container": "#005cee",
+                        "surface-container": "#eceef0",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#b7c8e1",
+                        "on-primary-container": "#e2e7ff",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-variant": "#e0e3e5",
+                        "on-surface": "#191c1e",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "on-primary-fixed": "#00174a"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-surface-container-low text-on-surface antialiased flex overflow-hidden h-screen">
+<!-- SideNavBar (Execution from JSON) -->
+<aside class="bg-slate-800 dark:bg-slate-950 fixed left-0 top-0 h-full flex flex-col z-40 w-64 border-r-0 transition-all">
+<div class="p-6">
+<div class="text-xl font-black text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-blue-500" style="font-variation-settings: 'FILL' 1;">account_tree</span>
+                Rerferr AI
+            </div>
+</div>
+<nav class="flex-1 px-2 space-y-1">
+<!-- Active Navigation Logic: Data Analysis matches current page intent -->
+<a class="text-white bg-blue-700/20 border-l-4 border-blue-600 font-medium px-4 py-3 transition-all flex items-center gap-3 text-xs" href="#">
+<span class="material-symbols-outlined text-lg text-blue-400" style="font-variation-settings: 'FILL' 1;">analytics</span>
+                Data Analysis
+            </a>
+<a class="text-slate-400 hover:text-white px-4 py-3 transition-colors flex items-center gap-3 text-xs" href="#">
+<span class="material-symbols-outlined text-lg">rule</span>
+                URL Rules
+            </a>
+<a class="text-slate-400 hover:text-white px-4 py-3 transition-colors flex items-center gap-3 text-xs" href="#">
+<span class="material-symbols-outlined text-lg">settings_input_component</span>
+                Config
+            </a>
+<a class="text-slate-400 hover:text-white px-4 py-3 transition-colors flex items-center gap-3 text-xs" href="#">
+<span class="material-symbols-outlined text-lg">admin_panel_settings</span>
+                System
+            </a>
+</nav>
+<div class="p-4 border-t border-slate-700/50">
+<div class="flex items-center gap-3 p-3 bg-slate-900/50 rounded-lg mb-4">
+<div class="h-8 w-8 bg-blue-600 rounded flex items-center justify-center text-white font-bold text-xs">PI</div>
+<div class="flex-1 min-w-0">
+<p class="text-xs font-bold text-white truncate">Admin Terminal</p>
+<p class="text-[10px] text-slate-500 truncate">Precision Intelligence</p>
+</div>
+</div>
+<div class="space-y-1">
+<a class="text-slate-400 hover:text-white px-4 py-2 transition-colors flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined text-sm">auto_stories</span>
+                    Documentation
+                </a>
+<a class="text-slate-400 hover:text-white px-4 py-2 transition-colors flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest" href="#">
+<span class="material-symbols-outlined text-sm">help</span>
+                    Help Center
+                </a>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 ml-64 flex flex-col relative overflow-hidden">
+<!-- TopAppBar (Execution from JSON) -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] flex justify-between items-center px-8 h-16 bg-white/85 backdrop-blur-xl border-b border-slate-200/15 z-50">
+<div class="flex items-center gap-8">
+  <h1 class="text-lg font-bold text-slate-900 font-headline">Data Analysis</h1>
+
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-500 hover:text-blue-600 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-500 hover:text-blue-600 transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+<div class="h-8 w-[1px] bg-slate-200 mx-2"></div>
+<button class="bg-primary text-on-primary px-4 py-2 text-sm font-bold flex items-center gap-2 rounded transition-all hover:opacity-90">
+                    Upload Data
+                </button>
+</div>
+</header>
+<!-- Content Area -->
+<div class="mt-16 p-8 overflow-y-auto flex-1 no-scrollbar">
+<!-- Filter Area -->
+<section class="mb-8 p-6 bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/15">
+<div class="flex flex-wrap items-end gap-6">
+<div class="flex-1 min-w-[200px]">
+<label class="block text-[10px] font-bold uppercase text-on-surface-variant mb-2">Client selection</label>
+<div class="relative">
+<select class="w-full bg-surface-container-highest border-none text-sm font-medium py-2.5 px-4 rounded-lg focus:ring-2 focus:ring-primary/20 appearance-none">
+<option>Global Enterprise Solutions (All)</option>
+<option>Astra Financial</option>
+<option>Vanguard Logistics</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-on-surface-variant pointer-events-none">expand_more</span>
+</div>
+</div>
+<div class="flex-1 min-w-[180px]">
+<label class="block text-[10px] font-bold uppercase text-on-surface-variant mb-2">Date Range</label>
+<div class="flex items-center bg-surface-container-highest px-4 py-2.5 rounded-lg text-sm font-medium">
+<span class="material-symbols-outlined text-sm mr-2">calendar_today</span>
+                            Oct 01 - Oct 31, 2023
+                        </div>
+</div>
+<div class="w-48">
+<label class="block text-[10px] font-bold uppercase text-on-surface-variant mb-2">Attribution Logic</label>
+<select class="w-full bg-surface-container-highest border-none text-sm font-medium py-2.5 px-4 rounded-lg">
+<option>impression → reg</option>
+<option>earliest pageload</option>
+</select>
+</div>
+<div class="w-32">
+<label class="block text-[10px] font-bold uppercase text-on-surface-variant mb-2">Window</label>
+<select class="w-full bg-surface-container-highest border-none text-sm font-medium py-2.5 px-4 rounded-lg">
+<option>24h</option>
+<option>48h</option>
+<option>7d</option>
+</select>
+</div>
+<div class="w-48">
+<label class="block text-[10px] font-bold uppercase text-on-surface-variant mb-2">URL Parsing</label>
+<select class="w-full bg-surface-container-highest border-none text-sm font-medium py-2.5 px-4 rounded-lg">
+<option>Current (v2.4.1)</option>
+<option>Specified (v2.3.0)</option>
+</select>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2.5 font-bold rounded-lg text-sm hover:bg-primary-container transition-colors">
+                        Refresh
+                    </button>
+</div>
+</section>
+<!-- Overview Metrics Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+<!-- Metric Card 1 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/15 flex flex-col">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Total Events</span>
+<span class="material-symbols-outlined text-blue-600 bg-blue-50 p-1.5 rounded">data_object</span>
+</div>
+<div class="text-3xl font-black text-slate-900 tracking-tight">1,284,930</div>
+<div class="mt-2 flex items-center gap-1 text-[10px] font-bold text-emerald-600">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+                        12.4% vs prev
+                    </div>
+</div>
+<!-- Metric Card 2 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/15">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Impression count</span>
+<span class="material-symbols-outlined text-slate-400">visibility</span>
+</div>
+<div class="text-3xl font-black text-slate-900 tracking-tight">842,102</div>
+<div class="h-1 w-full bg-surface-container-highest mt-4 rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 65%;"></div>
+</div>
+</div>
+<!-- Metric Card 3 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/15">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Pageload count</span>
+<span class="material-symbols-outlined text-slate-400">browser_updated</span>
+</div>
+<div class="text-3xl font-black text-slate-900 tracking-tight">312,440</div>
+<div class="mt-2 text-[10px] text-on-surface-variant font-medium">37.1% Conversion from Imp</div>
+</div>
+<!-- Metric Card 4 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/15">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Registration count</span>
+<span class="material-symbols-outlined text-slate-400">person_add</span>
+</div>
+<div class="text-3xl font-black text-slate-900 tracking-tight">12,840</div>
+<div class="mt-2 flex items-center gap-1 text-[10px] font-bold text-red-600">
+<span class="material-symbols-outlined text-sm">trending_down</span>
+                        2.1% vs target
+                    </div>
+</div>
+<!-- Metric Card 5 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/15">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Successful Attributions</span>
+<span class="material-symbols-outlined text-emerald-600">check_circle</span>
+</div>
+<div class="text-3xl font-black text-slate-900 tracking-tight">9,412</div>
+<div class="mt-2 text-[10px] text-on-surface-variant font-medium">Verified logical chains</div>
+</div>
+<!-- Metric Card 6 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/15">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Attribution Rate (%)</span>
+<span class="material-symbols-outlined text-slate-400">percent</span>
+</div>
+<div class="text-3xl font-black text-slate-900 tracking-tight">73.3%</div>
+<div class="mt-2 text-[10px] text-on-surface-variant font-medium">Target: &gt; 75.0%</div>
+</div>
+<!-- Metric Card 7 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/15">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">Avg Duration</span>
+<span class="material-symbols-outlined text-slate-400">timer</span>
+</div>
+<div class="text-3xl font-black text-slate-900 tracking-tight">4.2h</div>
+<div class="mt-2 text-[10px] text-on-surface-variant font-medium">Time-to-action median</div>
+</div>
+<!-- Metric Card 8 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/15">
+<div class="flex justify-between items-start mb-4">
+<span class="text-[10px] font-bold uppercase text-on-surface-variant tracking-wider">P50 / P90 Duration</span>
+<span class="material-symbols-outlined text-slate-400">analytics</span>
+</div>
+<div class="text-3xl font-black text-slate-900 tracking-tight flex items-baseline gap-2">
+<span>1.8h</span>
+<span class="text-lg font-medium text-slate-400">/ 14.2h</span>
+</div>
+<div class="mt-2 text-[10px] text-on-surface-variant font-medium">Standard deviation: 2.4h</div>
+</div>
+</section>
+<!-- URL Classification Bento -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+<!-- Classification Distribution -->
+<div class="lg:col-span-2 bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/15">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-sm font-bold text-slate-900 uppercase tracking-tight">URL Classification &amp; Performance</h3>
+<div class="flex items-center gap-2">
+<span class="flex items-center gap-1 text-[10px] font-medium"><div class="w-2 h-2 rounded-full bg-primary"></div> ourl</span>
+<span class="flex items-center gap-1 text-[10px] font-medium"><div class="w-2 h-2 rounded-full bg-blue-300"></div> rl</span>
+<span class="flex items-center gap-1 text-[10px] font-medium"><div class="w-2 h-2 rounded-full bg-slate-300"></div> dl</span>
+</div>
+</div>
+<div class="grid grid-cols-4 gap-4 h-48">
+<div class="flex flex-col justify-end gap-2 group">
+<div class="w-full bg-primary rounded-t-sm" style="height: 85%;"></div>
+<div class="text-[10px] font-bold text-center">organic</div>
+</div>
+<div class="flex flex-col justify-end gap-2 group">
+<div class="w-full bg-blue-300 rounded-t-sm" style="height: 45%;"></div>
+<div class="text-[10px] font-bold text-center">referral</div>
+</div>
+<div class="flex flex-col justify-end gap-2 group">
+<div class="w-full bg-slate-300 rounded-t-sm" style="height: 25%;"></div>
+<div class="text-[10px] font-bold text-center">direct</div>
+</div>
+<div class="flex flex-col justify-end gap-2 group">
+<div class="w-full bg-primary/40 rounded-t-sm" style="height: 60%;"></div>
+<div class="text-[10px] font-bold text-center">paid</div>
+</div>
+</div>
+<div class="mt-6 flex justify-between pt-6 border-t border-outline-variant/10">
+<div class="text-center">
+<div class="text-xl font-black text-slate-900">99.2%</div>
+<div class="text-[10px] uppercase font-bold text-on-surface-variant">Parsing Success</div>
+</div>
+<div class="text-center">
+<div class="text-xl font-black text-slate-900">142</div>
+<div class="text-[10px] uppercase font-bold text-on-surface-variant">Missed Rules</div>
+</div>
+<div class="text-center">
+<div class="text-xl font-black text-slate-900">84%</div>
+<div class="text-[10px] uppercase font-bold text-on-surface-variant">AI Parameter Coverage</div>
+</div>
+</div>
+</div>
+<!-- AI Summary Card -->
+<div class="bg-primary-container/20 p-6 rounded-xl border border-primary/10 relative overflow-hidden">
+<div class="relative z-10">
+<h3 class="text-sm font-bold text-primary mb-2 flex items-center gap-2">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+                            AI Extraction Insights
+                        </h3>
+<p class="text-xs text-on-primary-fixed-variant leading-relaxed mb-6">
+                            Deep analysis identified 428 new recurring URL patterns that are currently classified as 'Unknown'. Recommendation: Upgrade rule version to v2.5.0 to capture an additional 8.2% of attribution paths.
+                        </p>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-[10px] font-bold">
+<span>UNMATCHED TOKENS</span>
+<span>3,219</span>
+</div>
+<div class="w-full bg-white/50 h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full" style="width: 22%;"></div>
+</div>
+<div class="flex justify-between items-center text-[10px] font-bold pt-2">
+<span>AI CONFIDENCE AVG</span>
+<span>94.8%</span>
+</div>
+<div class="w-full bg-white/50 h-1.5 rounded-full overflow-hidden">
+<div class="bg-emerald-500 h-full" style="width: 94%;"></div>
+</div>
+</div>
+</div>
+<div class="absolute -bottom-8 -right-8 opacity-5">
+<span class="material-symbols-outlined text-[160px]">neurology</span>
+</div>
+</div>
+</section>
+<!-- Dimension Analysis Tabs & Table -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant/15 overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-4 py-3 text-[10px] font-bold uppercase text-on-surface-variant">event_id</th>
+<th class="px-4 py-3 text-[10px] font-bold uppercase text-on-surface-variant">uid</th>
+<th class="px-4 py-3 text-[10px] font-bold uppercase text-on-surface-variant">event_name</th>
+<th class="px-4 py-3 text-[10px] font-bold uppercase text-on-surface-variant">ts</th>
+<th class="px-4 py-3 text-[10px] font-bold uppercase text-on-surface-variant">url_category</th>
+<th class="px-4 py-3 text-[10px] font-bold uppercase text-on-surface-variant">rl_type</th>
+<th class="px-4 py-3 text-[10px] font-bold uppercase text-on-surface-variant">attribution_status</th>
+<th class="px-4 py-3 text-[10px] font-bold uppercase text-on-surface-variant text-right">duration</th>
+<th class="px-4 py-3 w-10"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/10">
+<tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+<td class="px-4 py-3 text-xs font-mono text-slate-500">ev_9x128a</td>
+<td class="px-4 py-3 text-xs font-medium text-slate-900">u_881-x92</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold">REGISTRATION</span>
+</td>
+<td class="px-4 py-3 text-xs text-on-surface-variant">2023-10-24 14:22:01</td>
+<td class="px-4 py-3 text-xs">Organic Search</td>
+<td class="px-4 py-3 text-xs">Direct Link</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-1.5 text-emerald-600 font-bold text-[10px]">
+<div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                        SUCCESS
+                                    </div>
+</td>
+<td class="px-4 py-3 text-xs font-mono text-right">12.4m</td>
+<td class="px-4 py-3">
+<span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group cursor-pointer bg-surface-container-low/20">
+<td class="px-4 py-3 text-xs font-mono text-slate-500">ev_9x129b</td>
+<td class="px-4 py-3 text-xs font-medium text-slate-900">u_421-k12</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold">PAGELOAD</span>
+</td>
+<td class="px-4 py-3 text-xs text-on-surface-variant">2023-10-24 14:23:45</td>
+<td class="px-4 py-3 text-xs">Paid Social</td>
+<td class="px-4 py-3 text-xs">Short URL</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-1.5 text-blue-600 font-bold text-[10px]">
+<div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                        PENDING
+                                    </div>
+</td>
+<td class="px-4 py-3 text-xs font-mono text-right">0.8m</td>
+<td class="px-4 py-3">
+<span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+<td class="px-4 py-3 text-xs font-mono text-slate-500">ev_9x130c</td>
+<td class="px-4 py-3 text-xs font-medium text-slate-900">u_109-f54</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold">REGISTRATION</span>
+</td>
+<td class="px-4 py-3 text-xs text-on-surface-variant">2023-10-24 14:25:12</td>
+<td class="px-4 py-3 text-xs">Referral</td>
+<td class="px-4 py-3 text-xs">Partner Portal</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-1.5 text-red-600 font-bold text-[10px]">
+<div class="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                                        UNMATCHED
+                                    </div>
+</td>
+<td class="px-4 py-3 text-xs font-mono text-right">4.1h</td>
+<td class="px-4 py-3">
+<span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group cursor-pointer">
+<td class="px-4 py-3 text-xs font-mono text-slate-500">ev_9x131d</td>
+<td class="px-4 py-3 text-xs font-medium text-slate-900">u_881-x92</td>
+<td class="px-4 py-3">
+<span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold">IMPRESSION</span>
+</td>
+<td class="px-4 py-3 text-xs text-on-surface-variant">2023-10-24 14:26:59</td>
+<td class="px-4 py-3 text-xs">Internal</td>
+<td class="px-4 py-3 text-xs">Cross-Product</td>
+<td class="px-4 py-3">
+<div class="flex items-center gap-1.5 text-emerald-600 font-bold text-[10px]">
+<div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                        SUCCESS
+                                    </div>
+</td>
+<td class="px-4 py-3 text-xs font-mono text-right">--</td>
+<td class="px-4 py-3">
+<span class="material-symbols-outlined text-slate-300 group-hover:text-primary transition-colors">chevron_right</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 bg-surface-container-low/30 border-t border-outline-variant/10 flex items-center justify-between text-xs font-medium text-on-surface-variant">
+<span>Showing 1-10 of 12,840 results</span>
+<div class="flex items-center gap-2">
+<button class="px-3 py-1 bg-white border border-outline-variant rounded hover:bg-surface-container-low transition-colors disabled:opacity-50" disabled="">Previous</button>
+<button class="px-3 py-1 bg-primary text-white border border-primary rounded hover:bg-primary-container transition-colors">1</button>
+<button class="px-3 py-1 bg-white border border-outline-variant rounded hover:bg-surface-container-low transition-colors">2</button>
+<button class="px-3 py-1 bg-white border border-outline-variant rounded hover:bg-surface-container-low transition-colors">3</button>
+<span class="mx-1">...</span>
+<button class="px-3 py-1 bg-white border border-outline-variant rounded hover:bg-surface-container-low transition-colors">Next</button>
+</div>
+</div>
+</section>
+</div>
+<!-- Detail Drawer (Simulated / Suggestions) -->
+<div class="fixed right-0 top-16 bottom-0 w-96 bg-white shadow-2xl border-l border-outline-variant/30 transform translate-x-0 transition-transform duration-300 z-50 overflow-y-auto">
+<div class="p-6">
+<div class="flex items-center justify-between mb-8">
+<h2 class="text-sm font-bold uppercase tracking-widest text-slate-900">Event Detail</h2>
+<button class="p-2 hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">close</span>
+</button>
+</div>
+<div class="space-y-8">
+<!-- URL Context -->
+<div>
+<h3 class="text-[10px] font-bold text-on-surface-variant uppercase mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">link</span> URL Context
+                        </h3>
+<div class="p-3 bg-surface-container-low rounded-lg break-all">
+<p class="text-[11px] leading-relaxed font-mono text-slate-700">
+                                https://enterprise.kinetic-intel.com/v1/auth/callback?session=xyz_7721&amp;ref=ad_campaign_alpha_441&amp;utm_source=google&amp;utm_medium=cpc
+                            </p>
+</div>
+</div>
+<!-- Rule Analysis -->
+<div>
+<h3 class="text-[10px] font-bold text-on-surface-variant uppercase mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">rule_folder</span> Rule Analysis
+                        </h3>
+<div class="space-y-3">
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant">Rule Version</span>
+<span class="font-bold">v2.4.1 (Active)</span>
+</div>
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant">Matched Rule ID</span>
+<span class="font-mono bg-slate-100 px-1.5 rounded">r_auth_772</span>
+</div>
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface-variant">Confidence Score</span>
+<span class="text-emerald-600 font-bold">98.2%</span>
+</div>
+</div>
+</div>
+<!-- AI Insights -->
+<div>
+<h3 class="text-[10px] font-bold text-primary uppercase mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">auto_awesome</span> AI results
+                        </h3>
+<div class="p-3 border-l-2 border-primary bg-primary/5">
+<p class="text-[11px] text-primary-container leading-relaxed">
+                                Parameter <span class="font-bold">ref</span> mapped to <span class="font-bold">internal_campaign_id</span> based on historical path variance.
+                            </p>
+</div>
+</div>
+<!-- Parameter Details -->
+<div>
+<h3 class="text-[10px] font-bold text-on-surface-variant uppercase mb-3">Extracted Parameters</h3>
+<div class="space-y-2">
+<div class="flex items-center gap-2">
+<span class="w-16 text-[10px] font-bold text-slate-400">utm_source</span>
+<div class="flex-1 border-b border-dotted border-outline-variant h-0"></div>
+<span class="text-xs font-bold">google</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-16 text-[10px] font-bold text-slate-400">session</span>
+<div class="flex-1 border-b border-dotted border-outline-variant h-0"></div>
+<span class="text-xs font-bold">xyz_7721</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-16 text-[10px] font-bold text-slate-400">campaign</span>
+<div class="flex-1 border-b border-dotted border-outline-variant h-0"></div>
+<span class="text-xs font-bold">alpha_441</span>
+</div>
+</div>
+</div>
+<!-- Attribution Path -->
+<div>
+<h3 class="text-[10px] font-bold text-on-surface-variant uppercase mb-4">Attribution Path</h3>
+<div class="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1px] before:bg-outline-variant">
+<div class="relative">
+<div class="absolute -left-[22px] top-1 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-white"></div>
+<p class="text-xs font-bold">Impression (Ad #441)</p>
+<p class="text-[10px] text-on-surface-variant">Oct 24, 09:12 AM • Google Search</p>
+</div>
+<div class="relative">
+<div class="absolute -left-[22px] top-1 w-3 h-3 rounded-full bg-blue-500 ring-4 ring-white"></div>
+<p class="text-xs font-bold">Landing Page</p>
+<p class="text-[10px] text-on-surface-variant">Oct 24, 11:45 AM • /solutions/enterprise</p>
+</div>
+<div class="relative">
+<div class="absolute -left-[22px] top-1 w-3 h-3 rounded-full bg-primary ring-4 ring-white"></div>
+<p class="text-xs font-bold">Registration</p>
+<p class="text-[10px] text-on-surface-variant">Oct 24, 14:22 PM • Success</p>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-12 pt-6 border-t border-outline-variant/15">
+<button class="w-full bg-surface-container-high py-3 rounded-lg text-sm font-bold text-on-surface hover:bg-surface-container-highest transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">flag</span>
+                        Flag for Manual Review
+                    </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Floating Action Suggestion -->
+<div class="fixed bottom-8 right-104 z-30">
+<button class="bg-slate-900 text-white shadow-xl px-6 py-4 rounded-full flex items-center gap-3 hover:scale-105 active:scale-95 transition-all">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+<span class="text-sm font-bold">New Analysis Task</span>
+</button>
+</div>
+</body></html>
