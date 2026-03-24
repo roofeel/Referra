@@ -87,6 +87,7 @@ describe('ReportsDetail', () => {
     const nav = screen.getByRole('navigation', { name: 'Reports Detail Navigation' });
     expect(nav).toBeInTheDocument();
     expect(screen.getByText('Report #KTX-8821')).toBeInTheDocument();
+    expect(await screen.findByText('Client: Global Retail Corp')).toBeInTheDocument();
     expect(await screen.findByText('Referrer Type Bar Chart')).toBeInTheDocument();
     expect(screen.getByText('Referrer Type Donut Chart')).toBeInTheDocument();
     expect(screen.getByText('REGISTRATION')).toBeInTheDocument();

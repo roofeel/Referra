@@ -14,25 +14,12 @@ function formatTimestamp(iso: string) {
   return value.toLocaleString();
 }
 
-function getEnvironmentVariableRows(environmentVariables: unknown): Array<{ key: string; value: string }> {
-  if (!environmentVariables || typeof environmentVariables !== 'object' || Array.isArray(environmentVariables)) {
-    return [];
-  }
-
-  return Object.entries(environmentVariables as Record<string, unknown>).map(([key, value]) => ({
-    key,
-    value: typeof value === 'string' ? value : JSON.stringify(value),
-  }));
-}
-
 export function LogicDrawer({ isOpen, rule, showSandbox = false, onClose }: LogicDrawerProps) {
   if (!isOpen || !rule) {
     return null;
   }
 
   const sourceCode = rule.logicSource || 'async function categorizeFunnel(ourl, rl, dl) { return { channel: "Direct" }; }';
-  const environmentVariables = getEnvironmentVariableRows(rule.environmentVariables);
-
   return (
     <div className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-[720px] flex-col border-l border-slate-200 bg-white shadow-[-10px_0_30px_-5px_rgba(0,0,0,0.1)]">
       <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 p-6">

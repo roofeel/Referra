@@ -100,6 +100,7 @@ export default function ReportsDetail() {
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Report Detail</p>
             <h1 className="text-lg font-bold text-slate-900">{reportId ? `Report #${reportId}` : 'Report Detail'}</h1>
+            <p className="text-xs text-slate-500">Client: {payload?.clientName || 'Unknown Client'}</p>
           </div>
           <Link
             to="/reports"
@@ -145,7 +146,6 @@ export default function ReportsDetail() {
               <DashboardMetrics metrics={payload.metrics} />
               <DashboardInsights
                 distribution={payload.distribution}
-                insights={payload.insights}
                 referrerTypeStats={payload.referrerTypeStats}
               />
               <DashboardTable

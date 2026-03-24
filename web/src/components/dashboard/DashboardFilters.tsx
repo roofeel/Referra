@@ -23,7 +23,13 @@ export function DashboardFilters({
 }: DashboardFiltersProps) {
   return (
     <section className="mb-8 rounded-xl border border-slate-200/15 bg-white p-6 shadow-sm">
-      <div className="flex flex-wrap items-end gap-6">        
+      <div className="flex flex-wrap items-end gap-6">
+        <div className="w-auto min-w-[220px] flex-none">
+          <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Client</label>
+          <div className="flex h-10 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800">
+            {clientName || 'Unknown Client'}
+          </div>
+        </div>
         <div className="w-auto min-w-[220px] flex-none">
           <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Date Range</label>
           <div className="flex h-10 flex-wrap items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5">

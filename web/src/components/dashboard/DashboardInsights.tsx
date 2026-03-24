@@ -1,17 +1,11 @@
-import type { DashboardInsightsPayload, DistributionItem, ReferrerTypeStat } from './dashboardData';
+import type { DistributionItem, ReferrerTypeStat } from './dashboardData';
 
 type DashboardInsightsProps = {
   distribution: DistributionItem[];
-  insights: DashboardInsightsPayload;
   referrerTypeStats: ReferrerTypeStat[];
 };
 
 const chartColors = ['#1d4ed8', '#3b82f6', '#60a5fa', '#94a3b8', '#14b8a6', '#f59e0b'];
-
-function widthPercent(value: number) {
-  const safe = Number.isFinite(value) ? value : 0;
-  return `${Math.max(0, Math.min(100, Math.round(safe)))}%`;
-}
 
 function DonutChart({ stats }: { stats: ReferrerTypeStat[] }) {
   const size = 140;
@@ -66,7 +60,7 @@ function DonutChart({ stats }: { stats: ReferrerTypeStat[] }) {
   );
 }
 
-export function DashboardInsights({ distribution, insights, referrerTypeStats }: DashboardInsightsProps) {
+export function DashboardInsights({ distribution, referrerTypeStats }: DashboardInsightsProps) {
   const topStats = referrerTypeStats.slice(0, 6);
 
   return (

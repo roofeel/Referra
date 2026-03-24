@@ -48,10 +48,6 @@ function statusStyles(status: ReportTaskStatus) {
   }
 }
 
-function formatPercent(value: number) {
-  return `${value.toFixed(1)}%`;
-}
-
 export default function Reports() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({
