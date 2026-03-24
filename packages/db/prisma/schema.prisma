@@ -21,3 +21,16 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model UrlRule {
+  id                   String   @id @default(cuid())
+  name                 String
+  shortName            String
+  status               String   @default("active")
+  logicSource          String   @default("")
+  activeVersion        String   @default("v1.0.0")
+  updatedBy            String?  @default("System")
+  environmentVariables Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}

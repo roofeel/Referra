@@ -1,29 +1,52 @@
-const sourceCode = `async function categorizeFunnel(ourl) {
-  const url = new URL(ourl);
-  const source = url.searchParams.get('utm_source');
+import type { UrlRule } from '../../service/urlRules';
 
-  if (source === 'google') {
-    return {
-      channel: 'Search',
-      type: 'Paid'
-    };
+type LogicDrawerProps = {
+  isOpen: boolean;
+  rule: UrlRule | null;
+  onClose: () => void;
+};
+
+function formatTimestamp(iso: string) {
+  const value = new Date(iso);
+  if (Number.isNaN(value.getTime())) return '-';
+  return value.toLocaleString();
+}
+
+function getEnvironmentVariableRows(environmentVariables: unknown): Array<{ key: string; value: string }> {
+  if (!environmentVariables || typeof environmentVariables !== 'object' || Array.isArray(environmentVariables)) {
+    return [];
   }
 
-  return { channel: 'Direct' };
-}`;
+  return Object.entries(environmentVariables as Record<string, unknown>).map(([key, value]) => ({
+    key,
+    value: typeof value === 'string' ? value : JSON.stringify(value),
+  }));
+}
 
-export function LogicDrawer() {
+export function LogicDrawer({ isOpen, rule, onClose }: LogicDrawerProps) {
+  if (!isOpen || !rule) {
+    return null;
+  }
+
+  const sourceCode = rule.logicSource || 'async function categorizeFunnel(ourl) { return { channel: "Direct" }; }';
+  const environmentVariables = getEnvironmentVariableRows(rule.environmentVariables);
+
   return (
-    <div className="fixed inset-y-0 right-0 z-[60] flex w-[500px] translate-x-0 flex-col border-l border-slate-200 bg-white shadow-[-10px_0_30px_-5px_rgba(0,0,0,0.1)]">
+    <div className="fixed inset-y-0 right-0 z-[60] flex w-[500px] flex-col border-l border-slate-200 bg-white shadow-[-10px_0_30px_-5px_rgba(0,0,0,0.1)]">
       <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 p-6">
         <div>
           <div className="mb-1 flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-widest text-blue-700">Url Rules</span>
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
           </div>
-          <h2 className="text-xl font-extrabold tracking-tight text-slate-900">AstraZeneca Global</h2>
+          <h2 className="text-xl font-extrabold tracking-tight text-slate-900">{rule.name}</h2>
         </div>
-        <button type="button" className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-slate-200">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close logic drawer"
+          className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-slate-200"
+        >
           <span className="material-symbols-outlined text-slate-500">close</span>
         </button>
       </div>
@@ -32,16 +55,16 @@ export function LogicDrawer() {
         <div className="rounded-lg border border-slate-200 bg-slate-100 p-4">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Active Version</span>
-            <span className="rounded bg-blue-700/10 px-2 py-0.5 text-[10px] font-bold text-blue-700">v2.4.12-prod</span>
+            <span className="rounded bg-blue-700/10 px-2 py-0.5 text-[10px] font-bold text-blue-700">{rule.activeVersion}</span>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500">Last deployed by</span>
-              <span className="font-semibold text-slate-900">Adrian Vane</span>
+              <span className="font-semibold text-slate-900">{rule.updatedBy || 'System'}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-500">Timestamp</span>
-              <span className="font-semibold text-slate-900">Today, 11:42 AM</span>
+              <span className="font-semibold text-slate-900">{formatTimestamp(rule.updatedAt)}</span>
             </div>
           </div>
         </div>
@@ -67,16 +90,18 @@ export function LogicDrawer() {
 
         <div className="space-y-3">
           <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Environment Variables</label>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded border border-slate-200 bg-slate-100 p-3">
-              <div className="mb-1 text-[9px] text-slate-500">LOG_LEVEL</div>
-              <div className="text-xs font-mono font-bold">&quot;info&quot;</div>
+          {environmentVariables.length === 0 ? (
+            <div className="rounded border border-slate-200 bg-slate-100 p-3 text-xs text-slate-500">No environment variables</div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {environmentVariables.map((item) => (
+                <div key={item.key} className="rounded border border-slate-200 bg-slate-100 p-3">
+                  <div className="mb-1 text-[9px] text-slate-500">{item.key}</div>
+                  <div className="text-xs font-mono font-bold">{item.value}</div>
+                </div>
+              ))}
             </div>
-            <div className="rounded border border-slate-200 bg-slate-100 p-3">
-              <div className="mb-1 text-[9px] text-slate-500">RETRY_COUNT</div>
-              <div className="text-xs font-mono font-bold">3</div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 

@@ -159,3 +159,22 @@ CREATE TABLE IF NOT EXISTS "Mood" (
 -- Mood indexes
 CREATE INDEX IF NOT EXISTS "idx_mood_user_recorded_at" ON "Mood"("userId", "recordedAt");
 CREATE INDEX IF NOT EXISTS "idx_mood_user" ON "Mood"("userId");
+
+-- UrlRule table
+CREATE TABLE IF NOT EXISTS "UrlRule" (
+  "id" TEXT PRIMARY KEY,
+  "name" TEXT NOT NULL,
+  "shortName" TEXT NOT NULL,
+  "status" TEXT NOT NULL DEFAULT 'active',
+  "logicSource" TEXT NOT NULL DEFAULT '',
+  "activeVersion" TEXT NOT NULL DEFAULT 'v1.0.0',
+  "updatedBy" TEXT DEFAULT 'System',
+  "environmentVariables" JSONB,
+  "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- UrlRule indexes
+CREATE INDEX IF NOT EXISTS "idx_url_rule_status" ON "UrlRule"("status");
+CREATE INDEX IF NOT EXISTS "idx_url_rule_updated_at" ON "UrlRule"("updatedAt");
+CREATE INDEX IF NOT EXISTS "idx_url_rule_name" ON "UrlRule"("name");

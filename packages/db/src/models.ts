@@ -107,6 +107,19 @@ export interface AiEvaluationResult {
   createdAt: Date;
 }
 
+export interface UrlRule {
+  id: string;
+  name: string;
+  shortName: string;
+  status: string;
+  logicSource: string;
+  activeVersion: string;
+  updatedBy?: string | null;
+  environmentVariables?: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
@@ -164,6 +177,72 @@ export const users = {
   async list() {
     return await db.user.findMany({
       orderBy: { createdAt: "desc" },
+    });
+  },
+};
+
+export const urlRules = {
+  async create(data: {
+    name: string;
+    shortName: string;
+    status?: string;
+    logicSource?: string;
+    activeVersion?: string;
+    updatedBy?: string;
+    environmentVariables?: unknown;
+  }) {
+    return await (db as any).urlRule.create({
+      data: {
+        name: data.name,
+        shortName: data.shortName,
+        status: data.status || "active",
+        logicSource: data.logicSource || "",
+        activeVersion: data.activeVersion || "v1.0.0",
+        updatedBy: data.updatedBy || "System",
+        environmentVariables: data.environmentVariables,
+      },
+    });
+  },
+
+  async findById(id: string) {
+    return await (db as any).urlRule.findUnique({
+      where: { id },
+    });
+  },
+
+  async list(options?: { status?: string; search?: string }) {
+    const where: any = {};
+    if (options?.status) {
+      where.status = options.status;
+    }
+    if (options?.search) {
+      where.OR = [
+        { name: { contains: options.search, mode: "insensitive" } },
+        { shortName: { contains: options.search, mode: "insensitive" } },
+      ];
+    }
+
+    return await (db as any).urlRule.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+    });
+  },
+
+  async update(id: string, data: Partial<UrlRule>) {
+    const updateData: any = { ...data };
+    delete updateData.id;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+
+    return await (db as any).urlRule.update({
+      where: { id },
+      data: updateData,
+    });
+  },
+
+  async delete(id: string) {
+    await (db as any).urlRule.delete({
+      where: { id },
     });
   },
 };
