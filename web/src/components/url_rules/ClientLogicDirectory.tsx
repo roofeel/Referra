@@ -17,6 +17,8 @@ type ClientLogicDirectoryProps = {
   selectedRowId?: string | null;
   onSelectRow?: (rowId: string) => void;
   onTestInSandbox?: (rowId: string) => void;
+  onDeleteRow?: (rowId: string) => void;
+  deletingRowId?: string | null;
 };
 
 export function ClientLogicDirectory({
@@ -26,12 +28,14 @@ export function ClientLogicDirectory({
   selectedRowId = null,
   onSelectRow,
   onTestInSandbox,
+  onDeleteRow,
+  deletingRowId = null,
 }: ClientLogicDirectoryProps) {
   const start = rows.length > 0 ? 1 : 0;
   const end = rows.length;
 
   return (
-    <section className="col-span-12 space-y-6 lg:col-span-9">
+    <section className="col-span-12 space-y-6">
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 p-2">
         <div className="mr-2 flex items-center gap-2 border-r border-slate-300 px-4 py-2 text-xs font-bold uppercase tracking-widest text-slate-500">
           <span className="material-symbols-outlined text-sm">filter_list</span>
@@ -107,33 +111,30 @@ export function ClientLogicDirectory({
                     </td>
                     <td className="px-6 py-4 text-xs text-slate-500">{row.updated}</td>
                     <td className="px-6 py-4 text-right">
-                      <details className="group/actions relative inline-block text-left" onClick={(event) => event.stopPropagation()}>
-                        <summary className="list-none cursor-pointer rounded border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-700/5">
-                          Actions
-                        </summary>
-                        <div className="absolute right-0 z-20 mt-2 w-40 rounded-md border border-slate-200 bg-white py-1 shadow-lg">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onSelectRow?.(row.id);
-                            }}
-                            className="block w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100"
-                          >
-                            Open Editor
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onTestInSandbox?.(row.id);
-                            }}
-                            className="block w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100"
-                          >
-                            Test in Sandbox
-                          </button>
-                        </div>
-                      </details>
+                      <div className="inline-flex items-center justify-end gap-2" onClick={(event) => event.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => onSelectRow?.(row.id)}
+                          className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-700/5"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onTestInSandbox?.(row.id)}
+                          className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100"
+                        >
+                          Test in Sandbox
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDeleteRow?.(row.id)}
+                          disabled={deletingRowId === row.id}
+                          className="rounded border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {deletingRowId === row.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

@@ -1,8 +1,10 @@
 import type { UrlRule } from '../../service/urlRules';
+import { NodeSandbox } from './NodeSandbox';
 
 type LogicDrawerProps = {
   isOpen: boolean;
   rule: UrlRule | null;
+  showSandbox?: boolean;
   onClose: () => void;
 };
 
@@ -23,16 +25,16 @@ function getEnvironmentVariableRows(environmentVariables: unknown): Array<{ key:
   }));
 }
 
-export function LogicDrawer({ isOpen, rule, onClose }: LogicDrawerProps) {
+export function LogicDrawer({ isOpen, rule, showSandbox = false, onClose }: LogicDrawerProps) {
   if (!isOpen || !rule) {
     return null;
   }
 
-  const sourceCode = rule.logicSource || 'async function categorizeFunnel(ourl) { return { channel: "Direct" }; }';
+  const sourceCode = rule.logicSource || 'async function categorizeFunnel(ourl, rl, dl) { return { channel: "Direct" }; }';
   const environmentVariables = getEnvironmentVariableRows(rule.environmentVariables);
 
   return (
-    <div className="fixed inset-y-0 right-0 z-[60] flex w-[500px] flex-col border-l border-slate-200 bg-white shadow-[-10px_0_30px_-5px_rgba(0,0,0,0.1)]">
+    <div className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-[720px] flex-col border-l border-slate-200 bg-white shadow-[-10px_0_30px_-5px_rgba(0,0,0,0.1)]">
       <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 p-6">
         <div>
           <div className="mb-1 flex items-center gap-2">
@@ -87,39 +89,15 @@ export function LogicDrawer({ isOpen, rule, onClose }: LogicDrawerProps) {
             </div>
           </div>
         </div>
-
-        <div className="space-y-3">
-          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Environment Variables</label>
-          {environmentVariables.length === 0 ? (
-            <div className="rounded border border-slate-200 bg-slate-100 p-3 text-xs text-slate-500">No environment variables</div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {environmentVariables.map((item) => (
-                <div key={item.key} className="rounded border border-slate-200 bg-slate-100 p-3">
-                  <div className="mb-1 text-[9px] text-slate-500">{item.key}</div>
-                  <div className="text-xs font-mono font-bold">{item.value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        
+        {showSandbox ? (
+          <div className="space-y-3">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Test In Sandbox</label>
+            <NodeSandbox inDrawer />
+          </div>
+        ) : null}
       </div>
 
-      <div className="space-y-3 border-t border-slate-100 bg-white p-6">
-        <button
-          type="button"
-          className="flex w-full items-center justify-center gap-2 rounded bg-blue-700 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-blue-800 hover:shadow-xl"
-        >
-          <span className="material-symbols-outlined text-lg">rocket_launch</span>
-          Save &amp; Deploy Logic
-        </button>
-        <button
-          type="button"
-          className="w-full rounded bg-slate-100 py-3 text-sm font-bold text-slate-600 transition-all hover:bg-slate-200"
-        >
-          Draft as New Version
-        </button>
-      </div>
     </div>
   );
 }

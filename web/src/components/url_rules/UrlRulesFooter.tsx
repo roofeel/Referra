@@ -4,7 +4,7 @@ type UrlRulesFooterProps = {
 
 export function UrlRulesFooter({ drawerOpen = false }: UrlRulesFooterProps) {
   return (
-    <footer className={`mt-auto flex items-center justify-between border-t border-slate-200 bg-white px-8 py-6 ${drawerOpen ? 'pr-[540px]' : 'pr-8'}`}>
+    <footer className={`mt-auto flex items-center justify-between border-t border-slate-200 bg-white px-8 py-6 ${drawerOpen ? 'pr-[760px]' : 'pr-8'}`}>
       <div className="flex items-center gap-12">
         <div className="space-y-0.5">
           <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Logic Executions (24h)</div>

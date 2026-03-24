@@ -1,6 +1,10 @@
-export function NodeSandbox() {
+type NodeSandboxProps = {
+  inDrawer?: boolean;
+};
+
+export function NodeSandbox({ inDrawer = false }: NodeSandboxProps) {
   return (
-    <div className="sticky top-24 overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className={`${inDrawer ? '' : 'sticky top-24'} overflow-hidden rounded-xl border border-slate-200 bg-white`}>
       <div className="flex items-center justify-between bg-slate-900 px-5 py-4 text-white">
         <h2 className="text-xs font-bold uppercase tracking-wider">Node.js Sandbox</h2>
         <span className="material-symbols-outlined text-sm text-slate-400">terminal</span>

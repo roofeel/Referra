@@ -1,8 +1,9 @@
 import { AppSidebar } from '../components/common/AppSidebar';
 import { useEffect, useMemo, useState } from 'react';
 import { ClientLogicDirectory } from '../components/url_rules/ClientLogicDirectory';
+import { CreateRuleDrawer } from '../components/url_rules/CreateRuleDrawer';
 import { LogicDrawer } from '../components/url_rules/LogicDrawer';
-import { NodeSandbox } from '../components/url_rules/NodeSandbox';
+import { useToast } from '../components/ToastProvider';
 import { UrlRulesFooter } from '../components/url_rules/UrlRulesFooter';
 import { UrlRulesHeader } from '../components/url_rules/UrlRulesHeader';
 import type { ClientRow } from '../components/url_rules/urlRulesData';
@@ -38,6 +39,9 @@ export default function UrlRules() {
   const [error, setError] = useState<string | null>(null);
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [sandboxRuleId, setSandboxRuleId] = useState<string | null>(null);
+  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
+  const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     let alive = true;
@@ -75,7 +79,7 @@ export default function UrlRules() {
         shortNameClasses: index === 0 ? 'bg-blue-700/10 text-blue-700' : 'bg-slate-100 text-slate-500',
         status: normalizeStatus(item.status),
         updated: formatUpdatedText(item.updatedAt, item.updatedBy),
-        preview: item.logicSource || 'async function categorizeFunnel(ourl) { ... }',
+        preview: item.logicSource || 'async function categorizeFunnel(ourl, rl, dl) { ... }',
       })),
     [rules],
   );
@@ -85,36 +89,91 @@ export default function UrlRules() {
     [rules, selectedRuleId],
   );
 
+  function handleOpenEditor(ruleId: string) {
+    setIsCreateDrawerOpen(false);
+    setSelectedRuleId(ruleId);
+    setSandboxRuleId(null);
+  }
+
+  function handleOpenSandbox(ruleId: string) {
+    setIsCreateDrawerOpen(false);
+    setSelectedRuleId(ruleId);
+    setSandboxRuleId(ruleId);
+  }
+
+  function handleOpenCreateDrawer() {
+    setSelectedRuleId(null);
+    setSandboxRuleId(null);
+    setIsCreateDrawerOpen(true);
+  }
+
+  async function handleDeleteRule(ruleId: string) {
+    const targetRule = rules.find((item) => item.id === ruleId);
+    const name = targetRule?.name || 'this rule';
+    const confirmed = window.confirm(`Delete "${name}"?`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingRuleId(ruleId);
+      await api.urlRules.delete(ruleId);
+      setRules((prev) => prev.filter((item) => item.id !== ruleId));
+
+      if (selectedRuleId === ruleId) {
+        setSelectedRuleId(null);
+      }
+      if (sandboxRuleId === ruleId) {
+        setSandboxRuleId(null);
+      }
+
+      toast.success('Rule deleted');
+    } catch (deleteError) {
+      const message = deleteError instanceof Error ? deleteError.message : 'Failed to delete URL rule';
+      toast.error(message);
+    } finally {
+      setDeletingRuleId(null);
+    }
+  }
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#f7f9fb] text-slate-900 antialiased">
       <AppSidebar activeItem="url-rules" ariaLabel="URL Rules Navigation" />
 
       <main className="relative ml-64 flex min-h-screen flex-col">
-        <UrlRulesHeader />
+        <UrlRulesHeader onCreateRule={handleOpenCreateDrawer} />
 
         <div className="flex-1 space-y-8 p-8">
-          <div className="grid grid-cols-12 items-start gap-8">
-            <ClientLogicDirectory
-              rows={tableRows}
-              isLoading={isLoading}
-              error={error}
-              selectedRowId={selectedRuleId}
-              onSelectRow={setSelectedRuleId}
-              onTestInSandbox={setSandboxRuleId}
-            />
-
-            <aside className="col-span-12 space-y-6 lg:col-span-3">
-              {sandboxRuleId ? <NodeSandbox /> : null}
-            </aside>
-          </div>
+          <ClientLogicDirectory
+            rows={tableRows}
+            isLoading={isLoading}
+            error={error}
+            selectedRowId={selectedRuleId}
+            onSelectRow={handleOpenEditor}
+            onTestInSandbox={handleOpenSandbox}
+            onDeleteRow={handleDeleteRule}
+            deletingRowId={deletingRuleId}
+          />
         </div>
 
         <LogicDrawer
           isOpen={selectedRule !== null}
           rule={selectedRule}
-          onClose={() => setSelectedRuleId(null)}
+          showSandbox={selectedRule !== null && sandboxRuleId === selectedRule.id}
+          onClose={() => {
+            setSelectedRuleId(null);
+            setSandboxRuleId(null);
+          }}
         />
-        <UrlRulesFooter drawerOpen={selectedRule !== null} />
+        <CreateRuleDrawer
+          isOpen={isCreateDrawerOpen}
+          onClose={() => setIsCreateDrawerOpen(false)}
+          onCreated={(created) => {
+            setRules((prev) => [created, ...prev.filter((item) => item.id !== created.id)]);
+            setSelectedRuleId(created.id);
+            setSandboxRuleId(null);
+            setIsCreateDrawerOpen(false);
+          }}
+        />
+        <UrlRulesFooter drawerOpen={selectedRule !== null || isCreateDrawerOpen} />
       </main>
     </div>
   );
