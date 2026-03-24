@@ -74,18 +74,23 @@ Default URL (Vite): usually `http://localhost:5173`
 
 ## Separate Coolify Deployment (Nixpacks)
 
-Create two services in Coolify from the same repository, with different Base Directories:
+Create two services in Coolify from the same repository:
 
 - API Service
   - Build Pack: `Nixpacks`
-  - Base Directory: `api`
+  - Base Directory: repository root (`.`)
   - Port: `3000`
 - Web Service
   - Build Pack: `Nixpacks`
   - Base Directory: `web`
   - Port: `3000` (the port used by `vite preview` inside the container)
 
-This repository already includes independent build/start settings in `api/nixpacks.toml` and `web/nixpacks.toml`, and Coolify will load them automatically based on each directory.
+This repository includes build/start settings in:
+
+- API at repository root: `nixpacks.toml`
+- Web in subdirectory: `web/nixpacks.toml`
+
+Use the root service for API so `api` can access `packages/db` during install and runtime.
 
 ## Google Login Setup
 
