@@ -1,48 +1,91 @@
-export function DashboardFilters() {
+type DashboardFiltersProps = {
+  clientName: string;
+  startDate: string;
+  endDate: string;
+  windowHours: '24' | '48' | '72';
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
+  onWindowHoursChange: (value: '24' | '48' | '72') => void;
+  onApply: () => void;
+  onReset: () => void;
+};
+
+export function DashboardFilters({
+  clientName,
+  startDate,
+  endDate,
+  windowHours,
+  onStartDateChange,
+  onEndDateChange,
+  onWindowHoursChange,
+  onApply,
+  onReset,
+}: DashboardFiltersProps) {
   return (
     <section className="mb-8 rounded-xl border border-slate-200/15 bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-end gap-6">
         <div className="min-w-[200px] flex-1">
           <label className="mb-2 block text-[10px] font-bold uppercase text-slate-500">Client</label>
           <div className="relative">
-            <select className="w-full appearance-none rounded-lg border-none bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-900 focus:ring-2 focus:ring-blue-700/20">
-              <option>Global Enterprise Solutions (All)</option>
-              <option>Astra Financial</option>
-              <option>Vanguard Logistics</option>
+            <select
+              disabled
+              className="w-full appearance-none rounded-lg border-none bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-900 disabled:cursor-not-allowed disabled:opacity-80"
+            >
+              <option>{clientName || 'Unknown Client'}</option>
             </select>
             <span className="material-symbols-outlined pointer-events-none absolute right-3 top-2.5 text-sm text-slate-500">
               expand_more
             </span>
           </div>
         </div>
-        <div className="min-w-[180px] flex-1">
+        <div className="min-w-[280px] flex-1">
           <label className="mb-2 block text-[10px] font-bold uppercase text-slate-500">Date Range</label>
-          <div className="flex items-center rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-900">
-            <span className="material-symbols-outlined mr-2 text-sm">calendar_today</span>
-            Oct 01 - Oct 31, 2023
+          <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2">
+            <input
+              type="date"
+              aria-label="Start Date"
+              value={startDate}
+              onChange={(event) => onStartDateChange(event.target.value)}
+              className="rounded border border-slate-200 bg-white px-2 py-1 text-sm text-slate-900 outline-none focus:border-blue-300"
+            />
+            <span className="text-xs text-slate-500">to</span>
+            <input
+              type="date"
+              aria-label="End Date"
+              value={endDate}
+              onChange={(event) => onEndDateChange(event.target.value)}
+              className="rounded border border-slate-200 bg-white px-2 py-1 text-sm text-slate-900 outline-none focus:border-blue-300"
+            />
           </div>
-        </div>
-        <div className="w-48">
-          <label className="mb-2 block text-[10px] font-bold uppercase text-slate-500">Attribution Logic</label>
-          <select className="w-full rounded-lg border-none bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-900">
-            <option>impression → reg</option>
-            <option>earliest pageload</option>
-          </select>
         </div>
         <div className="w-32">
           <label className="mb-2 block text-[10px] font-bold uppercase text-slate-500">Window</label>
-          <select className="w-full rounded-lg border-none bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-900">
-            <option>24h</option>
-            <option>48h</option>
-            <option>7d</option>
+          <select
+            value={windowHours}
+            onChange={(event) => onWindowHoursChange(event.target.value as '24' | '48' | '72')}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
+          >
+            <option value="24">24h</option>
+            <option value="48">48h</option>
+            <option value="72">72h</option>
           </select>
         </div>
-        <button
-          type="button"
-          className="rounded-lg bg-blue-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-600"
-        >
-          Refresh
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onReset}
+            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={onApply}
+            className="rounded-lg bg-blue-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-600"
+          >
+            Apply
+          </button>
+        </div>
       </div>
     </section>
   );

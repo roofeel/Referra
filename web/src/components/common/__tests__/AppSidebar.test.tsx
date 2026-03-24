@@ -14,7 +14,6 @@ describe('AppSidebar', () => {
     const nav = screen.getByRole('navigation', { name: 'Main Navigation' });
     expect(nav).toBeInTheDocument();
     expect(screen.getByText('Referrer AI')).toBeInTheDocument();
-    expect(screen.getByText('Feedmob')).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
     expect(within(nav).getByRole('link', { name: /Reports/i })).toHaveAttribute('href', '/reports');

@@ -1,4 +1,12 @@
 import { buildApiUrl, throwApiError } from './http';
+import type {
+  DashboardInsightsPayload,
+  DistributionItem,
+  EventDetail,
+  Metric,
+  ReferrerTypeStat,
+  TableRow,
+} from '../components/dashboard/dashboardData';
 
 export type ReportTaskStatus = 'Running' | 'Completed' | 'Failed' | 'Paused';
 
@@ -33,6 +41,22 @@ export interface ReportsResponse {
   rules: Array<{ id: string; name: string }>;
   urlParsingVersions: string[];
   tasks: ReportTask[];
+}
+
+export interface ReportDetailResponse {
+  clientName: string;
+  referrerTypeStats: ReferrerTypeStat[];
+  metrics: Metric[];
+  distribution: DistributionItem[];
+  insights: DashboardInsightsPayload;
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalRows: number;
+    totalPages: number;
+  };
+  rows: TableRow[];
+  eventDetails: Record<string, EventDetail>;
 }
 
 export type CreateReportTaskPayload = {
@@ -116,6 +140,26 @@ export const reportsApi = {
 
     if (!response.ok) {
       await throwApiError(response, 'Failed to fetch report logs');
+    }
+
+    return response.json();
+  },
+
+  detail: async (
+    id: string,
+    options?: { page?: number; pageSize?: number; startDate?: string; endDate?: string; windowHours?: number },
+  ): Promise<ReportDetailResponse> => {
+    const params = new URLSearchParams();
+    if (options?.page) params.set('page', String(options.page));
+    if (options?.pageSize) params.set('pageSize', String(options.pageSize));
+    if (options?.startDate) params.set('startDate', options.startDate);
+    if (options?.endDate) params.set('endDate', options.endDate);
+    if (options?.windowHours) params.set('windowHours', String(options.windowHours));
+    const query = params.toString();
+    const response = await fetch(buildApiUrl(`/api/reports/${id}/detail${query ? `?${query}` : ''}`));
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to fetch report detail');
     }
 
     return response.json();

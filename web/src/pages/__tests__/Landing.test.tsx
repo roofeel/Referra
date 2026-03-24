@@ -63,7 +63,7 @@ describe('Landing', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByText('Referrer AI')).toHaveLength(2);
+    expect(screen.getAllByText('Referra')).toHaveLength(2);
     expect(screen.getByRole('heading', { name: /master the architecture of data attribution/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /the precision engine/i })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /sign in with google/i })).not.toBeInTheDocument();

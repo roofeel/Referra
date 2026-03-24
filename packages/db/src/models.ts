@@ -521,6 +521,37 @@ export const referrerRaws = {
       })),
     });
   },
+
+  async listByReport(
+    reportId: string,
+    options?: {
+      skip?: number;
+      take?: number;
+    },
+  ) {
+    return await (db as any).referrerRaw.findMany({
+      where: { reportId },
+      orderBy: { id: "asc" },
+      skip: options?.skip,
+      take: options?.take,
+    });
+  },
+
+  async countByReport(reportId: string) {
+    return await (db as any).referrerRaw.count({
+      where: { reportId },
+    });
+  },
+
+  async countByReportGroupedType(reportId: string) {
+    return await (db as any).referrerRaw.groupBy({
+      by: ['referrerType'],
+      where: { reportId },
+      _count: {
+        _all: true,
+      },
+    });
+  },
 };
 
 export const logs = {

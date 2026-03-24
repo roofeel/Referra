@@ -227,7 +227,7 @@ export default function Landing() {
     <div className="min-h-screen bg-[#f7f9fb] text-slate-900">
       <div className="fixed inset-x-0 top-0 z-50 border-b border-white/40 bg-white/85 backdrop-blur-md">
         <nav className="relative mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="text-xl font-black tracking-[-0.04em] text-slate-900">Referrer AI</div>
+          <div className="text-xl font-black tracking-[-0.04em] text-slate-900">Referra</div>
           <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
             {navigationItems.map((item, index) => (
               <a
@@ -265,7 +265,7 @@ export default function Landing() {
                 Master the Architecture of Data Attribution
               </h1>
               <p className="mt-8 max-w-xl text-lg leading-8 text-slate-600">
-                Referrer AI provides a unified ledger for URL rules, AI-driven parameter extraction, and
+                Referra provides a unified ledger for URL rules, AI-driven parameter extraction, and
                 high-fidelity event mapping.
               </p>
               {!googleClientId ? (
@@ -413,7 +413,7 @@ export default function Landing() {
 
       <footer className="border-t border-slate-200 bg-white/80">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-10 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-          <div className="font-semibold text-slate-700">Referrer AI</div>
+          <div className="font-semibold text-slate-700">Referra</div>
           <div>Unified attribution infrastructure for campaign routing and AI mapping.</div>
         </div>
       </footer>

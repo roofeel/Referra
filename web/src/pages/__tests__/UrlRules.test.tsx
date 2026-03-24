@@ -29,13 +29,13 @@ vi.mock('../../components/ToastProvider', () => ({
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'user-1', name: 'RoFeel', email: 'roofeel@example.com', avatar: null },
+    user: { id: 'user-1', name: 'rf', email: 'rf@example.com', avatar: null },
     isAuthenticated: true,
     loginWithGoogleCredential: vi.fn(),
     logout: vi.fn(),
   }),
   useOptionalAuth: () => ({
-    user: { id: 'user-1', name: 'RoFeel', email: 'roofeel@example.com', avatar: null },
+    user: { id: 'user-1', name: 'rf', email: 'rf@example.com', avatar: null },
     isAuthenticated: true,
     loginWithGoogleCredential: vi.fn(),
     logout: vi.fn(),
@@ -70,8 +70,7 @@ describe('UrlRules', () => {
     const user = userEvent.setup();
     const nav = screen.getByRole('navigation', { name: 'URL Rules Navigation' });
     expect(nav).toBeInTheDocument();
-    expect(screen.getByText('Referrer AI')).toBeInTheDocument();
-    expect(screen.getByText('Feedmob')).toBeInTheDocument();
+    expect(screen.getByText('Referra')).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
     expect(screen.getByRole('button', { name: 'Create Rule' })).toBeInTheDocument();

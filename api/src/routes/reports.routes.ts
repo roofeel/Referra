@@ -14,4 +14,7 @@ export const reportsRoutes = {
   '/api/reports/:id/logs': {
     GET: reportsController.listLogs,
   },
+  '/api/reports/:id/detail': {
+    GET: reportsController.detail,
+  },
 };

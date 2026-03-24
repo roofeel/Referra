@@ -29,7 +29,7 @@ vi.mock('../../components/ToastProvider', () => ({
 
 vi.mock('../../auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'user-1', name: 'RoFeel', email: 'roofeel@example.com', avatar: null },
+    user: { id: 'user-1', name: 'RoFeel', email: 'rf@example.com', avatar: null },
     isAuthenticated: true,
     loginWithGoogleCredential: vi.fn(),
     logout: vi.fn(),

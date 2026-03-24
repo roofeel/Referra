@@ -1,12 +1,16 @@
 import type { EventDetail } from './dashboardData';
 
 type DashboardDetailDrawerProps = {
-  detail: EventDetail;
+  detail: EventDetail | null;
   isOpen: boolean;
   onClose: () => void;
 };
 
 export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDetailDrawerProps) {
+  if (!detail) {
+    return null;
+  }
+
   return (
     <>
       <div
@@ -22,7 +26,7 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
         aria-modal="true"
         aria-labelledby="event-detail-title"
         aria-hidden={!isOpen}
-        className={`fixed bottom-0 right-0 top-16 z-50 w-96 overflow-y-auto border-l border-slate-200/30 bg-white shadow-2xl transition-transform duration-300 ${
+        className={`fixed bottom-0 right-0 top-0 z-50 w-96 overflow-y-auto border-l border-slate-200/30 bg-white shadow-2xl transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -65,10 +69,6 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500">Matched Rule ID</span>
                   <span className="rounded bg-slate-100 px-1.5 font-mono">{detail.matchedRuleId}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Confidence Score</span>
-                  <span className="font-bold text-emerald-600">{detail.confidenceScore}</span>
                 </div>
               </div>
             </div>

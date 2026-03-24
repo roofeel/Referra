@@ -34,8 +34,8 @@ export function AppSidebar({ activeItem, ariaLabel }: AppSidebarProps) {
             <span className="material-symbols-outlined text-xl text-white">account_tree</span>
           </div>
           <div>
-            <div className="font-semibold leading-tight text-white">Referrer AI</div>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Feedmob</div>
+            <div className="font-semibold leading-tight text-white">Referra</div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Analysis Referrer</div>
           </div>
         </div>
       </div>

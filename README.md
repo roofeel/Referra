@@ -25,7 +25,7 @@ Start the local database:
 docker compose up -d postgres
 ```
 
-The default local connection is already configured in [`packages/db/.env`](/Users/roofeel/Documents/feedmob/widea/packages/db/.env):
+The default local connection is already configured in `packages/db/.env`:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5434/ai_referrer?schema=public"

@@ -40,8 +40,8 @@ describe('AuthContext', () => {
     mockUsersLoginWithGoogle.mockResolvedValueOnce({
       user: {
         id: 'user-1',
-        email: 'roofeel@example.com',
-        name: 'roofeel',
+        email: 'rf@example.com',
+        name: 'rf',
         avatar: null,
       },
     });
