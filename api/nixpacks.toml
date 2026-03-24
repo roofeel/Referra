@@ -1,5 +1,6 @@
 [phases.setup]
 nixPkgs = ["bun", "openssl"]
+aptPkgs = ["libssl3", "openssl"]
 
 [phases.install]
 cmds = ["bun install"]
