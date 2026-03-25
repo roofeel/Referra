@@ -35,7 +35,7 @@ export function AppSidebar({ activeItem, ariaLabel }: AppSidebarProps) {
           </div>
           <div>
             <div className="font-semibold leading-tight text-white">Referra</div>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Analysis Referrer</div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Solid Attribution</div>
           </div>
         </div>
       </div>
