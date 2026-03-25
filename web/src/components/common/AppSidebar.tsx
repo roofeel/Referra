@@ -12,7 +12,7 @@ type SidebarItem = {
 
 const sidebarItems: SidebarItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', to: '/dashboard' },
-  { key: 'reports', label: 'Reports', icon: 'analytics', to: '/reports' },
+  { key: 'reports', label: 'Category Attributed', icon: 'analytics', to: '/reports' },
   { key: 'url-rules', label: 'Url Rules', icon: 'terminal', to: '/url-rules' },
 ];
 
