@@ -87,13 +87,18 @@ describe('ReportsDetail', () => {
     const nav = screen.getByRole('navigation', { name: 'Reports Detail Navigation' });
     expect(nav).toBeInTheDocument();
     expect(screen.getByText('Report #KTX-8821')).toBeInTheDocument();
-    expect(await screen.findByText('Client: Global Retail Corp')).toBeInTheDocument();
+    expect(await screen.findByText('Global Retail Corp')).toBeInTheDocument();
     expect(await screen.findByText('Referrer Type Bar Chart')).toBeInTheDocument();
     expect(screen.getByText('Referrer Type Donut Chart')).toBeInTheDocument();
     expect(screen.getByText('REGISTRATION')).toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: /Reports/i })).toHaveAttribute('href', '/reports');
+    expect(within(nav).getByRole('link', { name: /Category Attributed/i })).toHaveAttribute('href', '/reports');
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
-    expect(mockReportsDetail).toHaveBeenCalledWith('KTX-8821', { page: 1, pageSize: 50, windowHours: 24 });
+    expect(mockReportsDetail).toHaveBeenCalledWith('KTX-8821', {
+      page: 1,
+      pageSize: 50,
+      cohortMode: 'non-cohort',
+      windowHours: 24,
+    });
     expect(screen.queryByRole('dialog', { name: 'Event Detail' })).not.toBeInTheDocument();
   });
 
@@ -219,7 +224,12 @@ describe('ReportsDetail', () => {
     await screen.findAllByText('u_001');
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await screen.findAllByText('u_002');
-    expect(mockReportsDetail).toHaveBeenCalledWith('KTX-8821', { page: 2, pageSize: 50, windowHours: 24 });
+    expect(mockReportsDetail).toHaveBeenCalledWith('KTX-8821', {
+      page: 2,
+      pageSize: 50,
+      cohortMode: 'non-cohort',
+      windowHours: 24,
+    });
   });
 
   it('applies date range filters when clicking apply', async () => {
@@ -243,6 +253,34 @@ describe('ReportsDetail', () => {
       pageSize: 50,
       startDate: '2026-03-01',
       endDate: '2026-03-24',
+      cohortMode: 'non-cohort',
+      windowHours: 24,
+    });
+  });
+
+  it('uses source_time date range when cohort mode is selected', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={['/reports/KTX-8821']}>
+        <Routes>
+          <Route path="/reports/:reportId" element={<ReportsDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findAllByText('u_001');
+    await user.selectOptions(screen.getByLabelText('Cohort Mode'), 'cohort');
+    await user.type(screen.getByLabelText('Start Date'), '2026-03-10');
+    await user.type(screen.getByLabelText('End Date'), '2026-03-24');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(mockReportsDetail).toHaveBeenLastCalledWith('KTX-8821', {
+      page: 1,
+      pageSize: 50,
+      startDate: '2026-03-10',
+      endDate: '2026-03-24',
+      cohortMode: 'cohort',
       windowHours: 24,
     });
   });

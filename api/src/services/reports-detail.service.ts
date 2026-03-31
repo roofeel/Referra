@@ -1,4 +1,5 @@
 import { referrerRaws, reports, urlRules } from '../../../packages/db/index.js';
+import { normalizeAttributionLogicMapping } from '../config/attribution.config.js';
 import { parseTimestampToMs, parseUrl } from '../lib/reports-url.lib.js';
 
 type ReportRecord = Awaited<ReturnType<typeof reports.findById>>;
@@ -187,10 +188,24 @@ function toReferrerTypeStatsFromRows(rows: ReferrerRawRecord[]) {
     .sort((a, b) => b.count - a.count);
 }
 
-function rawRowEventTimeMs(item: ReferrerRawRecord) {
+function withPrimaryCandidate(primary: string | null, fallback: string[]) {
+  const first = typeof primary === 'string' ? primary.trim() : '';
+  const combined = first ? [first, ...fallback] : [...fallback];
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const key of combined) {
+    const normalized = normalizeKey(key);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    deduped.push(key);
+  }
+  return deduped;
+}
+
+function parseTimeMsByCandidates(item: ReferrerRawRecord, candidates: string[]) {
   const json = asJsonRecord(item.json);
-  const eventTimeRaw = getJsonValue(json, ['event_time', 'registration_time', 'page_load_time', 'timestamp', 'ts']);
-  return parseTimestampToMs(eventTimeRaw);
+  const rawValue = getJsonValue(json, candidates);
+  return parseTimestampToMs(rawValue);
 }
 
 function startOfDayMs(dateInput: string) {
@@ -341,21 +356,47 @@ function buildDetailPayload(
 
 export async function getReportDetailPayload(
   report: NonNullable<ReportRecord>,
-  options: { page: number; pageSize: number; startDate?: string; endDate?: string; windowHours?: number },
+  options: {
+    page: number;
+    pageSize: number;
+    startDate?: string;
+    endDate?: string;
+    cohortMode?: 'non-cohort' | 'cohort';
+    windowHours?: number;
+  },
 ) {
+  const attributionLogic = normalizeAttributionLogicMapping(report.attributionLogic);
+  const eventTimeCandidates = withPrimaryCandidate(attributionLogic?.event_time || null, [
+    'event_time',
+    'registration_time',
+    'page_load_time',
+    'timestamp',
+    'ts',
+  ]);
+  const sourceTimeCandidates = withPrimaryCandidate(attributionLogic?.source_time || null, [
+    'source_time',
+    'impression_time',
+  ]);
   const startMs = options.startDate ? startOfDayMs(options.startDate) : null;
   const endMs = options.endDate ? endOfDayMs(options.endDate) : null;
   const windowHours = [12, 24, 48, 72].includes(options.windowHours || 0) ? (options.windowHours as number) : null;
+  const cohortMode = options.cohortMode === 'cohort' ? 'cohort' : 'non-cohort';
   const rule = await urlRules.findById(report.ruleId);
   const shouldFilter = startMs !== null || endMs !== null || windowHours !== null;
 
   if (shouldFilter) {
     const allRows = (await referrerRaws.listByReport(report.id)) as ReferrerRawRecord[];
     const filteredRows = allRows.filter((item) => {
-      const eventMs = rawRowEventTimeMs(item);
-      if (eventMs === null && (startMs !== null || endMs !== null)) return false;
-      if (startMs !== null && eventMs < startMs) return false;
-      if (endMs !== null && eventMs > endMs) return false;
+      const filterTimeMs =
+        cohortMode === 'cohort'
+          ? parseTimeMsByCandidates(item, sourceTimeCandidates)
+          : parseTimeMsByCandidates(item, eventTimeCandidates);
+      if (filterTimeMs === null) {
+        if (startMs !== null || endMs !== null) return false;
+      } else {
+        if (startMs !== null && filterTimeMs < startMs) return false;
+        if (endMs !== null && filterTimeMs > endMs) return false;
+      }
       if (!inDurationWindow(item.duration, windowHours)) return false;
       return true;
     });

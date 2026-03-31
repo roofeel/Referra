@@ -20,9 +20,11 @@ export default function ReportsDetail() {
   const [page, setPage] = useState(1);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftEndDate, setDraftEndDate] = useState('');
+  const [draftCohortMode, setDraftCohortMode] = useState<'non-cohort' | 'cohort'>('non-cohort');
   const [draftWindowHours, setDraftWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
+  const [appliedCohortMode, setAppliedCohortMode] = useState<'non-cohort' | 'cohort'>('non-cohort');
   const [appliedWindowHours, setAppliedWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
   const pageSize = 50;
 
@@ -30,9 +32,11 @@ export default function ReportsDetail() {
     setPage(1);
     setDraftStartDate('');
     setDraftEndDate('');
+    setDraftCohortMode('non-cohort');
     setDraftWindowHours('24');
     setAppliedStartDate('');
     setAppliedEndDate('');
+    setAppliedCohortMode('non-cohort');
     setAppliedWindowHours('24');
   }, [reportId]);
 
@@ -52,6 +56,7 @@ export default function ReportsDetail() {
         const options: Parameters<typeof api.reports.detail>[1] = { page, pageSize };
         if (appliedStartDate) options.startDate = appliedStartDate;
         if (appliedEndDate) options.endDate = appliedEndDate;
+        options.cohortMode = appliedCohortMode;
         options.windowHours = Number(appliedWindowHours);
 
         const data = await api.reports.detail(reportId, options);
@@ -72,7 +77,7 @@ export default function ReportsDetail() {
     return () => {
       alive = false;
     };
-  }, [appliedEndDate, appliedStartDate, appliedWindowHours, page, pageSize, reportId]);
+  }, [appliedCohortMode, appliedEndDate, appliedStartDate, appliedWindowHours, page, pageSize, reportId]);
 
   const selectedDetail = selectedRow ? payload?.eventDetails[selectedRow.eventId] || null : null;
 
@@ -122,22 +127,27 @@ export default function ReportsDetail() {
                 clientName={payload.clientName}
                 startDate={draftStartDate}
                 endDate={draftEndDate}
+                cohortMode={draftCohortMode}
                 windowHours={draftWindowHours}
                 onStartDateChange={setDraftStartDate}
                 onEndDateChange={setDraftEndDate}
+                onCohortModeChange={setDraftCohortMode}
                 onWindowHoursChange={setDraftWindowHours}
                 onApply={() => {
                   setAppliedStartDate(draftStartDate);
                   setAppliedEndDate(draftEndDate);
+                  setAppliedCohortMode(draftCohortMode);
                   setAppliedWindowHours(draftWindowHours);
                   setPage(1);
                 }}
                 onReset={() => {
                   setDraftStartDate('');
                   setDraftEndDate('');
+                  setDraftCohortMode('non-cohort');
                   setDraftWindowHours('24');
                   setAppliedStartDate('');
                   setAppliedEndDate('');
+                  setAppliedCohortMode('non-cohort');
                   setAppliedWindowHours('24');
                   setPage(1);
                 }}

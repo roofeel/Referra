@@ -159,13 +159,21 @@ export const reportsApi = {
 
   detail: async (
     id: string,
-    options?: { page?: number; pageSize?: number; startDate?: string; endDate?: string; windowHours?: number },
+    options?: {
+      page?: number;
+      pageSize?: number;
+      startDate?: string;
+      endDate?: string;
+      cohortMode?: 'non-cohort' | 'cohort';
+      windowHours?: number;
+    },
   ): Promise<ReportDetailResponse> => {
     const params = new URLSearchParams();
     if (options?.page) params.set('page', String(options.page));
     if (options?.pageSize) params.set('pageSize', String(options.pageSize));
     if (options?.startDate) params.set('startDate', options.startDate);
     if (options?.endDate) params.set('endDate', options.endDate);
+    if (options?.cohortMode) params.set('cohortMode', options.cohortMode);
     if (options?.windowHours) params.set('windowHours', String(options.windowHours));
     const query = params.toString();
     const response = await fetch(buildApiUrl(`/api/reports/${id}/detail${query ? `?${query}` : ''}`));

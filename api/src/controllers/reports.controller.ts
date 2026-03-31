@@ -378,6 +378,8 @@ export const reportsController = {
     const windowHoursRaw = Number(url.searchParams.get('windowHours') || '');
     const startDate = url.searchParams.get('startDate')?.trim() || '';
     const endDate = url.searchParams.get('endDate')?.trim() || '';
+    const cohortModeRaw = url.searchParams.get('cohortMode')?.trim().toLowerCase();
+    const cohortMode = cohortModeRaw === 'cohort' ? 'cohort' : 'non-cohort';
     const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
     const pageSize =
       Number.isFinite(pageSizeRaw) && pageSizeRaw > 0 ? Math.min(200, Math.floor(pageSizeRaw)) : 50;
@@ -393,6 +395,7 @@ export const reportsController = {
       windowHours: windowHoursRaw,
       startDate: startDate || undefined,
       endDate: endDate || undefined,
+      cohortMode,
     });
     return Response.json(payload);
   },
