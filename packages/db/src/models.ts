@@ -141,7 +141,7 @@ export interface Report {
   progress: number;
   progressLabel: string;
   attribution: string;
-  attributionLogic: unknown;
+  reportType: string;
   fieldMappings: unknown;
   createdAt: Date;
   updatedAt: Date;
@@ -385,7 +385,7 @@ export const reports = {
     progress?: number;
     progressLabel?: string;
     attribution?: string;
-    attributionLogic: unknown;
+    reportType?: string;
     fieldMappings: unknown;
   }) {
     return await (db as any).report.create({
@@ -399,7 +399,7 @@ export const reports = {
         progress: data.progress ?? 0,
         progressLabel: data.progressLabel || "0% Processed",
         attribution: data.attribution || "--",
-        attributionLogic: data.attributionLogic,
+        reportType: data.reportType || "registration",
         fieldMappings: data.fieldMappings,
       },
       include: {

@@ -4,6 +4,7 @@ import {
   isAttributionMode,
   normalizeAttributionLogicMapping,
   type AttributionLogicMapping,
+  type ReportType,
 } from '../config/attribution.config.js';
 import { findColumnName, parseCsvRows } from '../lib/reports-csv.lib.js';
 import {
@@ -118,6 +119,12 @@ function resolveAttributionLogicFromBody(body: {
   return fallback;
 }
 
+function resolveReportTypeFromBody(body: { reportType?: unknown; attributionLogic?: unknown }): ReportType {
+  if (isAttributionMode(body.reportType)) return body.reportType;
+  if (isAttributionMode(body.attributionLogic)) return body.attributionLogic;
+  return 'registration';
+}
+
 function buildUrlRuleExecutor(logicSource: string | null | undefined): UrlRuleExecutor {
   const source = logicSource?.trim();
   if (!source) {
@@ -228,6 +235,7 @@ export const reportsController = {
       client?: string;
       source?: string;
       sourceIcon?: string;
+      reportType?: ReportType;
       attributionLogic?: AttributionLogicMapping | 'registration' | 'pageload';
       fieldMappings?: Record<string, string>;
       fileName?: string;
@@ -261,6 +269,7 @@ export const reportsController = {
     }
 
     const attributionLogic = resolveAttributionLogicFromBody(body);
+    const reportType = resolveReportTypeFromBody(body);
     if (!attributionLogic) {
       return Response.json(
         { error: 'attributionLogic is invalid. Expect {event_url,event_time,source_url,source_time}' },
@@ -315,7 +324,7 @@ export const reportsController = {
       progress: 0,
       progressLabel: '0% Processed',
       attribution: '--',
-      attributionLogic,
+      reportType,
       fieldMappings: body.fieldMappings,
     });
     const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
@@ -451,9 +460,9 @@ export const reportsController = {
       return Response.json({ error: 'ruleId is invalid' }, { status: 400 });
     }
 
-    const attributionLogic = normalizeAttributionLogicMapping(current.attributionLogic);
-    if (!attributionLogic) {
-      return Response.json({ error: 'Stored attributionLogic is invalid' }, { status: 400 });
+    const storedFieldMappings = normalizeAttributionLogicMapping(current.fieldMappings);
+    if (!storedFieldMappings) {
+      return Response.json({ error: 'Stored fieldMappings is invalid' }, { status: 400 });
     }
 
     const existingRows = await referrerRaws.listByReport(current.id);
@@ -478,9 +487,9 @@ export const reportsController = {
               ? (row.json as Record<string, unknown>)
               : {};
           return {
-            eventUrl: String(rowJson[attributionLogic.event_url] ?? ''),
-            eventTime: String(rowJson[attributionLogic.event_time] ?? ''),
-            sourceTime: String(rowJson[attributionLogic.source_time] ?? ''),
+            eventUrl: String(rowJson[storedFieldMappings.event_url] ?? ''),
+            eventTime: String(rowJson[storedFieldMappings.event_time] ?? ''),
+            sourceTime: String(rowJson[storedFieldMappings.source_time] ?? ''),
             json: row.json,
           };
         }),

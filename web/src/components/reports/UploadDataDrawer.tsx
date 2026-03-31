@@ -233,6 +233,7 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
       const payload: CreateReportTaskPayload = {
         taskName: taskName.trim(),
         client: selectedClient,
+        reportType: attributionLogic,
         attributionLogic: {
           event_url: currentMappings.event_url || '',
           event_time: currentMappings.event_time || '',

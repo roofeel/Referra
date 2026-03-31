@@ -62,7 +62,7 @@ model Report {
   progress          Int      @default(0)
   progressLabel     String   @default("0% Processed")
   attribution       String   @default("--")
-  attributionLogic  Json
+  reportType        String   @default("registration")
   fieldMappings     Json
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

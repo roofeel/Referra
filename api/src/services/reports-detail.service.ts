@@ -1,6 +1,6 @@
 import { referrerRaws, reports, urlRules } from '../../../packages/db/index.js';
 import {
-  detectReportTypeFromAttributionLogic,
+  isAttributionMode,
   normalizeAttributionLogicMapping,
   type ReportType,
 } from '../config/attribution.config.js';
@@ -323,7 +323,7 @@ function buildDetailPayload(
 
   return {
     clientName: report.client?.name || 'Unknown Client',
-    reportType: detectReportTypeFromAttributionLogic(report.attributionLogic),
+    reportType: isAttributionMode(report.reportType) ? report.reportType : 'registration',
     referrerTypeStats,
     metrics: [
       {
@@ -371,7 +371,7 @@ export async function getReportDetailPayload(
     windowHours?: number;
   },
 ) {
-  const attributionLogic = normalizeAttributionLogicMapping(report.attributionLogic);
+  const attributionLogic = normalizeAttributionLogicMapping(report.fieldMappings);
   const eventTimeCandidates = withPrimaryCandidate(attributionLogic?.event_time || null, [
     'event_time',
     'registration_time',

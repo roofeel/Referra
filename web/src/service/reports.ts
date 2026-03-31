@@ -66,6 +66,7 @@ export type CreateReportTaskPayload = {
   client: string;
   source?: string;
   sourceIcon?: string;
+  reportType?: ReportType;
   attributionLogic: {
     source_url: string;
     source_time: string;
