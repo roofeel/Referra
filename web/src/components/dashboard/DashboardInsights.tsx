@@ -62,11 +62,12 @@ function DonutChart({ stats }: { stats: ReferrerTypeStat[] }) {
 
 export function DashboardInsights({ referrerTypeStats }: DashboardInsightsProps) {
   const topStats = referrerTypeStats.slice(0, 6);
-  const barData = referrerTypeStats.map((item, index) => ({
+  const barData = referrerTypeStats.slice(0, 8).map((item, index) => ({
     referrerType: item.referrerType || 'unknown',
     count: item.count,
     color: chartColors[index % chartColors.length],
   }));
+  const barChartHeight = Math.max(220, barData.length * 36);
 
   return (
     <section className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -78,23 +79,28 @@ export function DashboardInsights({ referrerTypeStats }: DashboardInsightsProps)
           </span>
         </div>
 
-        <div className="mb-6 h-44">
+        <div className="mb-6" style={{ height: `${barChartHeight}px` }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={barData} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+            <BarChart data={barData} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
               <XAxis
-                dataKey="referrerType"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 10, fill: '#334155', fontWeight: 600 }}
-                interval={0}
-              />
-              <YAxis
+                type="number"
                 axisLine={false}
                 tickLine={false}
                 tick={{ fontSize: 10, fill: '#64748b' }}
                 allowDecimals={false}
-                width={30}
+              />
+              <YAxis
+                type="category"
+                dataKey="referrerType"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 11, fill: '#334155', fontWeight: 600 }}
+                width={120}
+                tickFormatter={(value: string) => {
+                  const text = String(value ?? '');
+                  return text.length > 16 ? `${text.slice(0, 16)}...` : text;
+                }}
               />
               <Tooltip
                 cursor={{ fill: 'rgba(148, 163, 184, 0.14)' }}
@@ -104,7 +110,7 @@ export function DashboardInsights({ referrerTypeStats }: DashboardInsightsProps)
                 ]}
                 labelFormatter={(label) => `Referrer Type: ${String(label ?? '')}`}
               />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={16}>
                 {barData.map((entry) => (
                   <Cell key={entry.referrerType} fill={entry.color} />
                 ))}
