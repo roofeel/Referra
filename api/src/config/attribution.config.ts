@@ -1,4 +1,5 @@
 export type AttributionMode = 'registration' | 'pageload';
+export type ReportType = AttributionMode | 'custom';
 export type CanonicalAttributionField = 'source_url' | 'source_time' | 'event_url' | 'event_time';
 export type AttributionLogicMapping = Record<CanonicalAttributionField, string>;
 
@@ -50,4 +51,38 @@ export function normalizeAttributionLogicMapping(input: unknown): AttributionLog
     source_time: sourceTime,
     event_time: eventTime,
   };
+}
+
+function normalizeFieldName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+export function detectReportTypeFromAttributionLogic(input: unknown): ReportType {
+  const mapping = normalizeAttributionLogicMapping(input);
+  if (!mapping) return 'custom';
+
+  const sourceUrl = normalizeFieldName(mapping.source_url);
+  const eventUrl = normalizeFieldName(mapping.event_url);
+  const sourceTime = normalizeFieldName(mapping.source_time);
+  const eventTime = normalizeFieldName(mapping.event_time);
+
+  for (const mode of Object.keys(ATTRIBUTION_ALIAS_CONFIG) as AttributionMode[]) {
+    const aliases = ATTRIBUTION_ALIAS_CONFIG[mode];
+    if (
+      sourceUrl === normalizeFieldName(aliases.source_url) &&
+      eventUrl === normalizeFieldName(aliases.event_url) &&
+      sourceTime === normalizeFieldName(aliases.source_time) &&
+      eventTime === normalizeFieldName(aliases.event_time)
+    ) {
+      return mode;
+    }
+  }
+
+  return 'custom';
 }

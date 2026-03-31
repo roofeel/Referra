@@ -125,6 +125,7 @@ export default function ReportsDetail() {
             <>
               <DashboardFilters
                 clientName={payload.clientName}
+                reportType={payload.reportType}
                 startDate={draftStartDate}
                 endDate={draftEndDate}
                 cohortMode={draftCohortMode}
@@ -155,6 +156,7 @@ export default function ReportsDetail() {
               <DashboardMetrics metrics={payload.metrics} />
               <DashboardInsights referrerTypeStats={payload.referrerTypeStats} />
               <DashboardTable
+                reportType={payload.reportType}
                 rows={payload.rows}
                 selectedRow={selectedRow}
                 page={payload.pagination.page}

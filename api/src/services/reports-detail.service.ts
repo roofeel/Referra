@@ -1,5 +1,9 @@
 import { referrerRaws, reports, urlRules } from '../../../packages/db/index.js';
-import { normalizeAttributionLogicMapping } from '../config/attribution.config.js';
+import {
+  detectReportTypeFromAttributionLogic,
+  normalizeAttributionLogicMapping,
+  type ReportType,
+} from '../config/attribution.config.js';
 import { parseTimestampToMs, parseUrl } from '../lib/reports-url.lib.js';
 
 type ReportRecord = Awaited<ReturnType<typeof reports.findById>>;
@@ -44,6 +48,7 @@ type ReportDetailEventDetail = {
 
 export type ReportDetailPayload = {
   clientName: string;
+  reportType: ReportType;
   referrerTypeStats: Array<{
     referrerType: string;
     count: number;
@@ -318,6 +323,7 @@ function buildDetailPayload(
 
   return {
     clientName: report.client?.name || 'Unknown Client',
+    reportType: detectReportTypeFromAttributionLogic(report.attributionLogic),
     referrerTypeStats,
     metrics: [
       {

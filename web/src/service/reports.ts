@@ -7,6 +7,7 @@ import type {
   ReferrerTypeStat,
   TableRow,
 } from '../components/dashboard/dashboardData';
+import type { ReportType } from '../components/reports/attributionConfig';
 
 export type ReportTaskStatus = 'Running' | 'Completed' | 'Failed' | 'Paused';
 
@@ -45,6 +46,7 @@ export interface ReportsResponse {
 
 export interface ReportDetailResponse {
   clientName: string;
+  reportType: ReportType;
   referrerTypeStats: ReferrerTypeStat[];
   metrics: Metric[];
   distribution: DistributionItem[];

@@ -1,5 +1,8 @@
+import { getReportTypeLabel, type ReportType } from '../reports/attributionConfig';
+
 type DashboardFiltersProps = {
   clientName: string;
+  reportType: ReportType;
   startDate: string;
   endDate: string;
   cohortMode: 'non-cohort' | 'cohort';
@@ -14,6 +17,7 @@ type DashboardFiltersProps = {
 
 export function DashboardFilters({
   clientName,
+  reportType,
   startDate,
   endDate,
   cohortMode,
@@ -25,6 +29,8 @@ export function DashboardFilters({
   onApply,
   onReset,
 }: DashboardFiltersProps) {
+  const reportTypeLabel = getReportTypeLabel(reportType);
+
   return (
     <section className="mb-8 rounded-xl border border-slate-200/15 bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-end gap-6">
@@ -66,8 +72,13 @@ export function DashboardFilters({
             <option value="cohort">cohort</option>
           </select>
         </div>
-        <div className="w-32">
-          <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Window</label>
+        <div className="w-56">
+          <label
+            className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500"
+            title={reportTypeLabel}
+          >
+            {`Window · ${reportTypeLabel}`}
+          </label>
           <select
             value={windowHours}
             onChange={(event) => onWindowHoursChange(event.target.value as '12' | '24' | '48' | '72')}

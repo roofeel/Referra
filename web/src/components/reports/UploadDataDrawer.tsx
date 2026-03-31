@@ -2,6 +2,8 @@ import { useEffect, useId, useMemo, useState, type ChangeEvent } from 'react';
 import type { CreateReportTaskPayload } from '../../service/reports';
 import {
   ATTRIBUTION_ALIAS_CONFIG,
+  ATTRIBUTION_MODE_OPTIONS,
+  getReportTypeLabel,
   CANONICAL_FIELD_ALIASES,
   REQUIRED_CANONICAL_FIELDS,
   type AttributionLogicMapping,
@@ -379,32 +381,24 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
                     <div className="space-y-2 sm:col-span-2">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Attribution Logic</p>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-slate-100 p-3 transition-colors hover:bg-blue-50">
-                          <input
-                            type="radio"
-                            name="attribution_logic"
-                            checked={attributionLogic === 'registration'}
-                            onChange={() => setAttributionLogic('registration')}
-                            className="mt-1"
-                          />
-                          <span>
-                            <span className="block text-sm font-bold text-slate-900">Impression → Registration</span>
-                            <span className="text-[11px] text-slate-500">Maps first touch to user creation event</span>
-                          </span>
-                        </label>
-                        <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-slate-100 p-3 transition-colors hover:bg-blue-50">
-                          <input
-                            type="radio"
-                            name="attribution_logic"
-                            checked={attributionLogic === 'pageload'}
-                            onChange={() => setAttributionLogic('pageload')}
-                            className="mt-1"
-                          />
-                          <span>
-                            <span className="block text-sm font-bold text-slate-900">Impression → Earliest Pageload</span>
-                            <span className="text-[11px] text-slate-500">Links view to first verified URL hit</span>
-                          </span>
-                        </label>
+                        {ATTRIBUTION_MODE_OPTIONS.map((option) => (
+                          <label
+                            key={option.mode}
+                            className="flex cursor-pointer items-start gap-3 rounded-lg bg-slate-100 p-3 transition-colors hover:bg-blue-50"
+                          >
+                            <input
+                              type="radio"
+                              name="attribution_logic"
+                              checked={attributionLogic === option.mode}
+                              onChange={() => setAttributionLogic(option.mode)}
+                              className="mt-1"
+                            />
+                            <span>
+                              <span className="block text-sm font-bold text-slate-900">{option.label}</span>
+                              <span className="text-[11px] text-slate-500">{option.description}</span>
+                            </span>
+                          </label>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -450,11 +444,7 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
                   </h3>
                   <p className="mb-3 text-xs text-slate-300">
                     Required fields for{' '}
-                    <span className="font-semibold text-white">
-                      {attributionLogic === 'registration'
-                        ? 'Impression → Registration'
-                        : 'Impression → Earliest Pageload'}
-                    </span>
+                    <span className="font-semibold text-white">{getReportTypeLabel(attributionLogic)}</span>
                   </p>
                   <div className="mb-3 flex items-center justify-between rounded border border-white/10 bg-white/5 px-3 py-2">
                     <span className="text-xs text-slate-300">Mapped</span>

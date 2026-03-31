@@ -1,4 +1,5 @@
 export type AttributionMode = 'registration' | 'pageload';
+export type ReportType = AttributionMode | 'custom';
 
 export type CanonicalAttributionField = 'source_url' | 'source_time' | 'event_url' | 'event_time';
 
@@ -35,3 +36,44 @@ export const CANONICAL_FIELD_ALIASES: Record<CanonicalAttributionField, string[]
   source_time: ['source_time', 'impression_time', 'impression_timestamp', 'impression_ts'],
   event_time: ['event_time', 'registration_time', 'page_load_time', 'registration_ts', 'page_load_ts'],
 };
+
+export const ATTRIBUTION_MODE_META: Record<AttributionMode, { label: string; description: string }> = {
+  registration: {
+    label: 'Impression -> Registration',
+    description: 'Maps first touch to user creation event',
+  },
+  pageload: {
+    label: 'Impression -> Earliest Pageload',
+    description: 'Links view to first verified URL hit',
+  },
+};
+
+export const ATTRIBUTION_MODE_OPTIONS: Array<{ mode: AttributionMode; label: string; description: string }> = [
+  {
+    mode: 'registration',
+    label: ATTRIBUTION_MODE_META.registration.label,
+    description: ATTRIBUTION_MODE_META.registration.description,
+  },
+  {
+    mode: 'pageload',
+    label: ATTRIBUTION_MODE_META.pageload.label,
+    description: ATTRIBUTION_MODE_META.pageload.description,
+  },
+];
+
+export function getReportTypeLabel(reportType: ReportType) {
+  if (reportType === 'registration' || reportType === 'pageload') {
+    return ATTRIBUTION_MODE_META[reportType].label;
+  }
+  return 'Custom Attribution';
+}
+
+export function getTimeHeaderByReportType(
+  reportType: ReportType,
+  field: 'event_time' | 'source_time',
+) {
+  if (reportType === 'registration' || reportType === 'pageload') {
+    return ATTRIBUTION_ALIAS_CONFIG[reportType].find((item) => item.canonical === field)?.alias || field;
+  }
+  return field;
+}

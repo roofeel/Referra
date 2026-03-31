@@ -1,7 +1,9 @@
 import type { TableRow } from './dashboardData';
 import { TablePagination } from '../common/TablePagination';
+import { getTimeHeaderByReportType, type ReportType } from '../reports/attributionConfig';
 
 type DashboardTableProps = {
+  reportType: ReportType;
   rows: TableRow[];
   selectedRow: TableRow | null;
   page: number;
@@ -13,6 +15,7 @@ type DashboardTableProps = {
 };
 
 export function DashboardTable({
+  reportType,
   rows,
   selectedRow,
   page,
@@ -24,6 +27,15 @@ export function DashboardTable({
 }: DashboardTableProps) {
   const start = totalRows === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = totalRows === 0 ? 0 : Math.min(page * pageSize, totalRows);
+  const headers = [
+    'uid',
+    'event_name',
+    getTimeHeaderByReportType(reportType, 'event_time'),
+    getTimeHeaderByReportType(reportType, 'source_time'),
+    'referrer_type',
+    'referrer_desc',
+    'duration',
+  ];
 
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200/15 bg-white">
@@ -31,13 +43,11 @@ export function DashboardTable({
         <table className="w-full text-left">
           <thead>
             <tr className="bg-slate-50">
-              {['uid', 'event_name', 'event_time', 'source_time', 'referrer_type', 'referrer_desc', 'duration'].map(
-                (header) => (
-                  <th key={header} className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    {header}
-                  </th>
-                ),
-              )}
+              {headers.map((header) => (
+                <th key={header} className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  {header}
+                </th>
+              ))}
               <th className="w-10 px-4 py-3" />
             </tr>
           </thead>
