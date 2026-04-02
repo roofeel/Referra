@@ -20,7 +20,7 @@ type UploadDataDrawerProps = {
 };
 
 type FieldMappingState = Record<AttributionMode, Partial<AttributionLogicMapping>>;
-const REQUIRED_NON_ATTRIBUTED_FIELDS: CanonicalAttributionField[] = ['event_url'];
+const REQUIRED_NON_ATTRIBUTED_FIELDS: CanonicalAttributionField[] = ['event_url', 'event_time'];
 const NON_ATTRIBUTED_MODE_LABELS: Record<AttributionMode, string> = {
   registration: 'Registration',
   pageload: 'Pageload',

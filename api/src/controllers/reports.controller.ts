@@ -163,12 +163,32 @@ function toReportLog(item: { id: string; level: string; message: string; created
   };
 }
 
+function startOfDay(dateInput: string) {
+  const value = dateInput.trim();
+  if (!value) return null;
+  const parsed = Date.parse(`${value}T00:00:00`);
+  if (Number.isNaN(parsed)) return null;
+  return new Date(parsed);
+}
+
+function endOfDay(dateInput: string) {
+  const value = dateInput.trim();
+  if (!value) return null;
+  const parsed = Date.parse(`${value}T23:59:59.999`);
+  if (Number.isNaN(parsed)) return null;
+  return new Date(parsed);
+}
+
 export const reportsController = {
   async list(req: Request) {
     const url = new URL(req.url);
     const status = normalizeReportTaskStatus(url.searchParams.get('status'));
     const client = url.searchParams.get('client')?.trim();
     const search = url.searchParams.get('search')?.trim();
+    const startDateRaw = url.searchParams.get('startDate')?.trim() || '';
+    const endDateRaw = url.searchParams.get('endDate')?.trim() || '';
+    const startDate = startOfDay(startDateRaw);
+    const endDate = endOfDay(endDateRaw);
 
     let taskRows: any[] = [];
     let clientNames: string[] = [];
@@ -182,6 +202,8 @@ export const reportsController = {
           status,
           client: client || undefined,
           search: search || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
         }),
         clients.list(),
         urlRules.list(),

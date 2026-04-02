@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { DayPicker, type DateRange } from 'react-day-picker';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
 import { AttributedUploadDataDrawer } from '../components/reports/AttributedUploadDataDrawer';
@@ -54,8 +55,12 @@ export default function Reports() {
     search: '',
     status: '',
     client: '',
+    startDate: '',
+    endDate: '',
   });
   const [draftFilters, setDraftFilters] = useState(filters);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const datePickerRef = useRef<HTMLDivElement | null>(null);
   const [payload, setPayload] = useState<ReportsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +80,8 @@ export default function Reports() {
       search: filters.search || undefined,
       status: filters.status || undefined,
       client: filters.client || undefined,
+      startDate: filters.startDate || undefined,
+      endDate: filters.endDate || undefined,
     });
     setPayload(data);
   }, [filters]);
@@ -97,6 +104,30 @@ export default function Reports() {
       alive = false;
     };
   }, [loadReports]);
+
+  useEffect(() => {
+    if (!isDatePickerOpen) return undefined;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!datePickerRef.current) return;
+      if (event.target instanceof Node && !datePickerRef.current.contains(event.target)) {
+        setIsDatePickerOpen(false);
+      }
+    };
+
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsDatePickerOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [isDatePickerOpen]);
 
   const stats = useMemo(
     () => [
@@ -129,9 +160,33 @@ export default function Reports() {
   }
 
   function resetFilters() {
-    const empty = { search: '', status: '', client: '' };
+    const empty = { search: '', status: '', client: '', startDate: '', endDate: '' };
     setDraftFilters(empty);
     setFilters(empty);
+  }
+
+  const dateRange = useMemo<DateRange | undefined>(() => {
+    return {
+      from: parseDateInput(draftFilters.startDate),
+      to: parseDateInput(draftFilters.endDate),
+    };
+  }, [draftFilters.endDate, draftFilters.startDate]);
+
+  const dateRangeLabel = useMemo(() => {
+    const from = parseDateInput(draftFilters.startDate);
+    const to = parseDateInput(draftFilters.endDate);
+    if (from && to) return `${formatHumanDate(from)} - ${formatHumanDate(to)}`;
+    if (from) return `${formatHumanDate(from)} - End`;
+    if (to) return `Start - ${formatHumanDate(to)}`;
+    return 'Select date range';
+  }, [draftFilters.endDate, draftFilters.startDate]);
+
+  function handleDateRangeSelect(range: DateRange | undefined) {
+    setDraftFilters((prev) => ({
+      ...prev,
+      startDate: range?.from ? formatDateInput(range.from) : '',
+      endDate: range?.to ? formatDateInput(range.to) : '',
+    }));
   }
 
   async function refreshReportsWithHandling() {
@@ -276,14 +331,23 @@ export default function Reports() {
 
               <label className="min-w-[220px] text-[10px] font-bold uppercase tracking-widest text-slate-500">
                 Date Range
-                <div className="mt-1 flex h-10 items-center rounded-lg bg-slate-100 px-3">
-                  <span className="material-symbols-outlined mr-2 text-sm text-slate-500">calendar_today</span>
-                  <input
-                    type="text"
-                    readOnly
-                    value="Oct 1, 2023 - Oct 31, 2023"
-                    className="w-full border-none bg-transparent p-0 text-sm font-medium text-slate-700 outline-none"
-                  />
+                <div className="relative mt-1" ref={datePickerRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsDatePickerOpen((prev) => !prev)}
+                    className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800 outline-none transition-colors hover:border-slate-300"
+                  >
+                    <span className="material-symbols-outlined text-sm text-slate-500">calendar_today</span>
+                    <span className="flex-1 truncate text-left">{dateRangeLabel}</span>
+                    <span className="material-symbols-outlined text-base text-slate-500">
+                      {isDatePickerOpen ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </button>
+                  {isDatePickerOpen ? (
+                    <div className="absolute left-0 top-12 z-30 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+                      <DayPicker mode="range" numberOfMonths={2} selected={dateRange} onSelect={handleDateRangeSelect} />
+                    </div>
+                  ) : null}
                 </div>
               </label>
 
@@ -501,4 +565,24 @@ export default function Reports() {
       </main>
     </div>
   );
+}
+
+function parseDateInput(value: string) {
+  if (!value) return undefined;
+  const parts = value.split('-').map(Number);
+  if (parts.length !== 3) return undefined;
+  const [year, month, day] = parts;
+  if (!year || !month || !day) return undefined;
+  return new Date(year, month - 1, day);
+}
+
+function formatDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatHumanDate(date: Date) {
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(date);
 }

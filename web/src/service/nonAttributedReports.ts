@@ -26,11 +26,15 @@ export const nonAttributedReportsApi = {
     status?: string;
     client?: string;
     search?: string;
+    startDate?: string;
+    endDate?: string;
   }): Promise<NonAttributedReportsResponse> => {
     const params = new URLSearchParams();
     if (options?.status) params.set('status', options.status);
     if (options?.client) params.set('client', options.client);
     if (options?.search) params.set('search', options.search);
+    if (options?.startDate) params.set('startDate', options.startDate);
+    if (options?.endDate) params.set('endDate', options.endDate);
 
     const query = params.toString();
     const response = await fetch(buildApiUrl(`/api/non-attributed-reports${query ? `?${query}` : ''}`));

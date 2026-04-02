@@ -64,10 +64,10 @@ describe('NonAttributedReports', () => {
     expect(screen.queryByText('impression_url')).not.toBeInTheDocument();
     expect(screen.queryByText('impression_time')).not.toBeInTheDocument();
     expect(screen.getByText('registration_url')).toBeInTheDocument();
-    expect(screen.queryByText('registration_time')).not.toBeInTheDocument();
+    expect(screen.getByText('registration_time')).toBeInTheDocument();
   });
 
-  it('can start non-attributed analysis with csv that only has registration columns', async () => {
+  it('can start non-attributed analysis with csv that has registration_url and registration_time', async () => {
     mockNonAttributedReportsList.mockResolvedValue(basePayload);
     mockNonAttributedReportsCreate.mockResolvedValue({
       id: 'NA-1',
@@ -93,7 +93,7 @@ describe('NonAttributedReports', () => {
     fireEvent.change(screen.getByLabelText('Analysis Task Name'), { target: { value: 'Non attributed report task' } });
 
     const csvFile = new File(
-      ['registration_url,other_column\n/a,1'],
+      ['registration_url,registration_time,other_column\n/a,2026-03-24 10:00:00,1'],
       'non-attributed.csv',
       { type: 'text/csv' },
     );
@@ -113,8 +113,8 @@ describe('NonAttributedReports', () => {
     const payload = mockNonAttributedReportsCreate.mock.calls[0][0];
     expect(payload.fieldMappings).toMatchObject({
       event_url: 'registration_url',
+      event_time: 'registration_time',
     });
-    expect(payload.fieldMappings.event_time).toBeUndefined();
     expect(payload.fieldMappings.source_url).toBeUndefined();
     expect(payload.fieldMappings.source_time).toBeUndefined();
   });

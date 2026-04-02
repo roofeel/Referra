@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DayPicker, type DateRange } from 'react-day-picker';
-import 'react-day-picker/style.css';
 import { getReportTypeLabel, type ReportType } from '../reports/attributionConfig';
 
 type DashboardFiltersProps = {

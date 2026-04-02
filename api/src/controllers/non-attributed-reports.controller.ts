@@ -265,6 +265,22 @@ function extractUidFromUrlByParam(rawUrl: string, uidParamName: string) {
   return '';
 }
 
+function startOfDay(dateInput: string) {
+  const value = dateInput.trim();
+  if (!value) return null;
+  const parsed = Date.parse(`${value}T00:00:00`);
+  if (Number.isNaN(parsed)) return null;
+  return new Date(parsed);
+}
+
+function endOfDay(dateInput: string) {
+  const value = dateInput.trim();
+  if (!value) return null;
+  const parsed = Date.parse(`${value}T23:59:59.999`);
+  if (Number.isNaN(parsed)) return null;
+  return new Date(parsed);
+}
+
 async function collectAttributedUidSet(
   attributedReportId: string,
   uidParamName: string,
@@ -300,6 +316,10 @@ export const nonAttributedReportsController = {
     const status = normalizeReportTaskStatus(url.searchParams.get('status'));
     const client = url.searchParams.get('client')?.trim();
     const search = url.searchParams.get('search')?.trim();
+    const startDateRaw = url.searchParams.get('startDate')?.trim() || '';
+    const endDateRaw = url.searchParams.get('endDate')?.trim() || '';
+    const startDate = startOfDay(startDateRaw);
+    const endDate = endOfDay(endDateRaw);
 
     let taskRows: any[] = [];
     let clientNames: string[] = [];
@@ -314,6 +334,8 @@ export const nonAttributedReportsController = {
           status,
           client: client || undefined,
           search: search || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
         }),
         clients.list(),
         urlRules.list(),
@@ -441,7 +463,7 @@ export const nonAttributedReportsController = {
     const reportType = resolveReportTypeFromBody(body);
     if (!attributionLogic) {
       return Response.json(
-        { error: 'attributionLogic is invalid. Expect {event_url} with optional {event_time,source_url,source_time}' },
+        { error: 'attributionLogic is invalid. Expect {event_url,event_time} with optional {source_url,source_time}' },
         { status: 400 },
       );
     }
@@ -475,10 +497,10 @@ export const nonAttributedReportsController = {
       findColumnName(parsedCsv.headers, fieldMappings, ['source_time', 'impression_time']) ||
       eventTimeColumn;
 
-    if (!eventUrlColumn) {
+    if (!eventUrlColumn || !eventTimeColumn) {
       return Response.json(
         {
-          error: 'CSV headers must match attributionLogic mapping for event_url',
+          error: 'CSV headers must match attributionLogic mapping for event_url and event_time',
         },
         { status: 400 },
       );

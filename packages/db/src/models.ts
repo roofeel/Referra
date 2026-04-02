@@ -459,10 +459,19 @@ export const reports = {
     });
   },
 
-  async list(options?: { status?: string; client?: string; search?: string }) {
+  async list(options?: { status?: string; client?: string; search?: string; startDate?: Date; endDate?: Date }) {
     const where: any = {};
     if (options?.status) {
       where.status = options.status;
+    }
+    if (options?.startDate || options?.endDate) {
+      where.createdAt = {};
+      if (options?.startDate) {
+        where.createdAt.gte = options.startDate;
+      }
+      if (options?.endDate) {
+        where.createdAt.lte = options.endDate;
+      }
     }
     if (options?.client) {
       where.client = {
@@ -594,10 +603,19 @@ export const nonAttributedReports = {
     });
   },
 
-  async list(options?: { status?: string; client?: string; search?: string }) {
+  async list(options?: { status?: string; client?: string; search?: string; startDate?: Date; endDate?: Date }) {
     const where: any = {};
     if (options?.status) {
       where.status = options.status;
+    }
+    if (options?.startDate || options?.endDate) {
+      where.createdAt = {};
+      if (options?.startDate) {
+        where.createdAt.gte = options.startDate;
+      }
+      if (options?.endDate) {
+        where.createdAt.lte = options.endDate;
+      }
     }
     if (options?.client) {
       where.client = {
