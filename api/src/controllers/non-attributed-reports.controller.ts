@@ -1,7 +1,8 @@
-import { clients, nonAttributedLogs, nonAttributedRaws, nonAttributedReports, reports, urlRules } from '../../../packages/db/index.js';
+import { clients, nonAttributedLogs, nonAttributedRaws, nonAttributedReports, referrerRaws, reports, urlRules } from '../../../packages/db/index.js';
 import {
   ATTRIBUTION_ALIAS_CONFIG,
   isAttributionMode,
+  normalizeAttributionLogicMapping,
   type AttributionLogicMapping,
   type ReportType,
 } from '../config/attribution.config.js';
@@ -59,6 +60,12 @@ type RequestWithParams<T extends Record<string, string>> = Request & { params: T
 
 type NonAttributedReportRecord = Awaited<ReturnType<typeof nonAttributedReports.findById>>;
 type UrlRuleRecord = Awaited<ReturnType<typeof urlRules.findById>>;
+type NonAttributedExecutionRow = {
+  eventUrl: string;
+  eventTime: string;
+  sourceTime: string;
+  json: Record<string, string>;
+};
 
 function toTask(item: NonNullable<NonAttributedReportRecord>): NonAttributedReportTask {
   return {
@@ -191,37 +198,100 @@ function toLog(item: { id: string; level: string; message: string; createdAt: Da
   };
 }
 
-function stripParamFromEventUrl(rawUrl: string, paramName: string) {
-  const normalizedParamName = paramName.trim().toLowerCase();
-  if (!normalizedParamName) return rawUrl;
+function normalizeKey(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
 
+function asJsonRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function withPrimaryCandidate(primary: string | null, fallback: string[]) {
+  const first = typeof primary === 'string' ? primary.trim() : '';
+  const combined = first ? [first, ...fallback] : [...fallback];
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+  for (const key of combined) {
+    const normalized = normalizeKey(key);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    deduped.push(key);
+  }
+  return deduped;
+}
+
+function getJsonValue(record: Record<string, unknown>, candidates: string[]): string {
+  if (!record || candidates.length === 0) return '';
+
+  for (const key of candidates) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  }
+
+  const normalizedMap = new Map<string, unknown>();
+  for (const [key, value] of Object.entries(record)) {
+    normalizedMap.set(normalizeKey(key), value);
+  }
+
+  for (const key of candidates) {
+    const value = normalizedMap.get(normalizeKey(key));
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  }
+
+  return '';
+}
+
+function extractUidFromUrlByParam(rawUrl: string, uidParamName: string) {
   const parsed = parseUrl(rawUrl);
-  if (!parsed) return rawUrl;
+  if (!parsed) return '';
 
-  const keys = Array.from(new Set<string>(Array.from(parsed.searchParams.keys())));
-  for (const key of keys) {
-    if (key.toLowerCase() === normalizedParamName) {
-      parsed.searchParams.delete(key);
+  const target = uidParamName.trim().toLowerCase();
+  if (!target) return '';
+
+  for (const [key, value] of parsed.searchParams.entries()) {
+    if (key.trim().toLowerCase() !== target) continue;
+    const uid = value.trim();
+    if (uid) return uid;
+  }
+
+  return '';
+}
+
+async function collectAttributedUidSet(
+  attributedReportId: string,
+  uidParamName: string,
+  attributedEventUrlColumn: string | null,
+) {
+  const rows = await referrerRaws.listByReport(attributedReportId);
+  const uidSet = new Set<string>();
+  const eventUrlCandidates = withPrimaryCandidate(attributedEventUrlColumn, [
+    'event_url',
+    'registration_url',
+    'page_load_url',
+    'url',
+    'ourl',
+  ]);
+
+  for (const row of rows as Array<{ json: unknown }>) {
+    const json = asJsonRecord(row.json);
+    const eventUrl = getJsonValue(json, eventUrlCandidates);
+    if (!eventUrl) continue;
+
+    const uid = extractUidFromUrlByParam(eventUrl, uidParamName);
+    if (uid) {
+      uidSet.add(uid);
     }
   }
 
-  return parsed.toString();
-}
-
-function withPatchedEventUrl(
-  row: Record<string, string>,
-  eventUrlColumn: string,
-  uidParamName: string,
-): { eventUrl: string; rowJson: Record<string, string> } {
-  const rawEventUrl = String(row[eventUrlColumn] ?? '');
-  const eventUrl = stripParamFromEventUrl(rawEventUrl, uidParamName);
-  return {
-    eventUrl,
-    rowJson: {
-      ...row,
-      [eventUrlColumn]: eventUrl,
-    },
-  };
+  return uidSet;
 }
 
 export const nonAttributedReportsController = {
@@ -354,6 +424,9 @@ export const nonAttributedReportsController = {
     if (!existingAttributedReport) {
       return Response.json({ error: 'attributedReportId is invalid' }, { status: 400 });
     }
+    const attributedEventUrlColumn =
+      normalizeAttributionLogicMapping(existingAttributedReport.fieldMappings)?.event_url || null;
+    const attributedUidSet = await collectAttributedUidSet(attributedReportId, uidParamName, attributedEventUrlColumn);
 
     const existingRule = await urlRules.findById(ruleId);
     if (!existingRule) {
@@ -434,17 +507,25 @@ export const nonAttributedReportsController = {
     const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
 
     try {
-      const updated = await executeNonAttributedReportRows({
-        reportId: created.id,
-        rows: parsedCsv.rows.map((row) => {
-          const { eventUrl, rowJson } = withPatchedEventUrl(row, resolvedEventUrlColumn, uidParamName);
+      const executionRows: NonAttributedExecutionRow[] = parsedCsv.rows
+        .map((row) => {
+          const rowJson = { ...row };
+          const eventUrl = String(row[resolvedEventUrlColumn] ?? '');
           return {
             eventUrl,
             eventTime: resolvedEventTimeColumn ? String(row[resolvedEventTimeColumn] ?? '') : '',
             sourceTime: resolvedSourceTimeColumn ? String(row[resolvedSourceTimeColumn] ?? '') : '',
             json: rowJson,
           };
-        }),
+        })
+        .filter((row: NonAttributedExecutionRow) => {
+          const uid = extractUidFromUrlByParam(row.eventUrl, uidParamName);
+          if (!uid) return true;
+          return !attributedUidSet.has(uid);
+        });
+      const updated = await executeNonAttributedReportRows({
+        reportId: created.id,
+        rows: executionRows,
         executeRule,
         persistRows: async (rows) => {
           await nonAttributedRaws.createMany(
@@ -461,6 +542,7 @@ export const nonAttributedReportsController = {
         beforeLoopMessages: [
           `Linked attributed report=${attributedReportId}; uidParamName=${uidParamName}`,
           `Columns mapped: event_url=${resolvedEventUrlColumn}, source_url=${resolvedSourceUrlColumn}, event_time=${resolvedEventTimeColumn}, source_time=${resolvedSourceTimeColumn}`,
+          `Skipped rows by matched uid: ${parsedCsv.rows.length - executionRows.length}`,
         ],
         finishMessagePrefix: 'Non-attributed report finished.',
         runtimeErrorPrefix: 'create',
@@ -567,6 +649,17 @@ export const nonAttributedReportsController = {
     if (!existingRule) {
       return Response.json({ error: 'ruleId is invalid' }, { status: 400 });
     }
+    const linkedAttributedReport = await reports.findById(current.attributedReportId);
+    if (!linkedAttributedReport) {
+      return Response.json({ error: 'attributedReportId is invalid' }, { status: 400 });
+    }
+    const linkedAttributedEventUrlColumn =
+      normalizeAttributionLogicMapping(linkedAttributedReport.fieldMappings)?.event_url || null;
+    const linkedAttributedUidSet = await collectAttributedUidSet(
+      current.attributedReportId,
+      current.uidParamName || 'uid',
+      linkedAttributedEventUrlColumn,
+    );
 
     const storedFieldMappings = normalizeNonAttributedAttributionLogicMapping(current.fieldMappings);
     if (!storedFieldMappings) {
@@ -587,31 +680,37 @@ export const nonAttributedReportsController = {
     const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
 
     try {
-      const updated = await executeNonAttributedReportRows({
-        reportId: current.id,
-        rows: existingRows.map((row: { json: unknown }) => {
+      const executionRows: NonAttributedExecutionRow[] = existingRows
+        .map((row: { json: unknown }) => {
           const rowJson =
             row.json && typeof row.json === 'object' && !Array.isArray(row.json)
               ? ({ ...(row.json as Record<string, string>) } as Record<string, string>)
               : {};
           const rawEventUrl = String(rowJson[storedFieldMappings.event_url] ?? '');
-          const eventUrl = stripParamFromEventUrl(rawEventUrl, current.uidParamName || 'uid');
-          rowJson[storedFieldMappings.event_url] = eventUrl;
           const eventTimeKey = storedFieldMappings.event_time?.trim() || '';
           const sourceTimeKey = storedFieldMappings.source_time?.trim() || eventTimeKey;
 
           return {
-            eventUrl,
+            eventUrl: rawEventUrl,
             eventTime: eventTimeKey ? String(rowJson[eventTimeKey] ?? '') : '',
             sourceTime: sourceTimeKey ? String(rowJson[sourceTimeKey] ?? '') : '',
             json: rowJson,
           };
-        }),
+        })
+        .filter((row: NonAttributedExecutionRow) => {
+          const uid = extractUidFromUrlByParam(row.eventUrl, current.uidParamName || 'uid');
+          if (!uid) return true;
+          return !linkedAttributedUidSet.has(uid);
+        });
+      const updated = await executeNonAttributedReportRows({
+        reportId: current.id,
+        rows: executionRows,
         executeRule,
         persistRows: async (rows) => {
           await nonAttributedRaws.replaceByReport(current.id, rows);
         },
         startMessage: `Rerun started. nonAttributedReportId=${current.id} rows=${existingRows.length}`,
+        beforeLoopMessages: [`Skipped rows by matched uid: ${existingRows.length - executionRows.length}`],
         finishMessagePrefix: 'Rerun finished.',
         runtimeErrorPrefix: 'rerun',
         failureLogPrefix: 'rerun_failed',
