@@ -60,8 +60,7 @@ describe('ReportsDetail', () => {
       eventDetails: {
         ev_1: {
           url: 'https://example.com?utm_source=google&uid=u_001',
-          ruleVersion: 'v2.4.1',
-          matchedRuleId: 'rule-1',
+          ruleName: 'Checkout Rule',
           confidenceScore: '95.0%',
           aiResult: 'matched',
           extractedParameters: [['utm_source', 'google']],
@@ -116,7 +115,7 @@ describe('ReportsDetail', () => {
     await user.click(await screen.findByText('u_001'));
 
     expect(screen.getByRole('dialog', { name: 'Event Detail' })).toBeInTheDocument();
-    expect(screen.getByText('rule-1')).toBeInTheDocument();
+    expect(screen.getByText('Checkout Rule')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Close Event Detail' }));
 
@@ -160,8 +159,7 @@ describe('ReportsDetail', () => {
         eventDetails: {
           ev_1: {
             url: 'https://example.com?uid=u_001',
-            ruleVersion: 'v2.4.1',
-            matchedRuleId: 'rule-1',
+            ruleName: 'Checkout Rule',
             confidenceScore: '95.0%',
             aiResult: 'matched',
             extractedParameters: [['uid', 'u_001']],
@@ -203,8 +201,7 @@ describe('ReportsDetail', () => {
         eventDetails: {
           ev_2: {
             url: 'https://example.com?uid=u_002',
-            ruleVersion: 'v2.4.1',
-            matchedRuleId: 'rule-1',
+            ruleName: 'Checkout Rule',
             confidenceScore: '95.0%',
             aiResult: 'matched',
             extractedParameters: [['uid', 'u_002']],

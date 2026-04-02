@@ -43,8 +43,7 @@ export type TableRow = {
 
 export type EventDetail = {
   url: string;
-  ruleVersion: string;
-  matchedRuleId: string;
+  ruleName: string;
   confidenceScore: string;
   aiResult: string;
   extractedParameters: Array<[string, string]>;

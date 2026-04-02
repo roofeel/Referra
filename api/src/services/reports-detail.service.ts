@@ -38,8 +38,7 @@ type ReportDetailTableRow = {
 
 type ReportDetailEventDetail = {
   url: string;
-  ruleVersion: string;
-  matchedRuleId: string;
+  ruleName: string;
   confidenceScore: string;
   aiResult: string;
   extractedParameters: Array<[string, string]>;
@@ -300,8 +299,7 @@ function buildDetailPayload(
     const params = parseQueryParams(urlValue);
     eventDetails[item.id] = {
       url: urlValue,
-      ruleVersion: rule?.activeVersion || 'N/A',
-      matchedRuleId: report.ruleId || 'N/A',
+      ruleName: rule?.name?.trim() || 'N/A',
       confidenceScore: `${(isMatchedRow(item) ? 95 : 60).toFixed(1)}%`,
       aiResult: item.referrerDesc || 'No description',
       extractedParameters: params.length > 0 ? params : [['referrer_type', item.referrerType || 'unknown']],

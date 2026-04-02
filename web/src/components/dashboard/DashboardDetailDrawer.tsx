@@ -63,12 +63,8 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
               </h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Rule Version</span>
-                  <span className="font-bold">{detail.ruleVersion}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-500">Matched Rule ID</span>
-                  <span className="rounded bg-slate-100 px-1.5 font-mono">{detail.matchedRuleId}</span>
+                  <span className="text-slate-500">Rule Name</span>
+                  <span className="font-bold">{detail.ruleName}</span>
                 </div>
               </div>
             </div>
