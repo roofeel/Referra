@@ -838,6 +838,22 @@ export const nonAttributedRaws = {
       take: options?.take,
     });
   },
+
+  async countByReport(nonAttributedReportId: string) {
+    return await (db as any).nonAttributedRaw.count({
+      where: { nonAttributedReportId },
+    });
+  },
+
+  async countByReportGroupedType(nonAttributedReportId: string) {
+    return await (db as any).nonAttributedRaw.groupBy({
+      by: ['referrerType'],
+      where: { nonAttributedReportId },
+      _count: {
+        _all: true,
+      },
+    });
+  },
 };
 
 export const logs = {

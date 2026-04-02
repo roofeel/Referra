@@ -3,6 +3,7 @@ import { getReportTypeLabel, type ReportType } from '../reports/attributionConfi
 type DashboardFiltersProps = {
   clientName: string;
   reportType: ReportType;
+  showCohortWindowFilters?: boolean;
   startDate: string;
   endDate: string;
   cohortMode: 'non-cohort' | 'cohort';
@@ -18,6 +19,7 @@ type DashboardFiltersProps = {
 export function DashboardFilters({
   clientName,
   reportType,
+  showCohortWindowFilters = true,
   startDate,
   endDate,
   cohortMode,
@@ -60,36 +62,40 @@ export function DashboardFilters({
             />
           </div>
         </div>
-        <div className="w-40">
-          <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Cohort</label>
-          <select
-            aria-label="Cohort Mode"
-            value={cohortMode}
-            onChange={(event) => onCohortModeChange(event.target.value as 'non-cohort' | 'cohort')}
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
-          >
-            <option value="non-cohort">non-cohort</option>
-            <option value="cohort">cohort</option>
-          </select>
-        </div>
-        <div className="w-56">
-          <label
-            className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500"
-            title={reportTypeLabel}
-          >
-            {`Window · ${reportTypeLabel}`}
-          </label>
-          <select
-            value={windowHours}
-            onChange={(event) => onWindowHoursChange(event.target.value as '12' | '24' | '48' | '72')}
-            className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
-          >
-            <option value="12">12h</option>
-            <option value="24">24h</option>
-            <option value="48">48h</option>
-            <option value="72">72h</option>
-          </select>
-        </div>
+        {showCohortWindowFilters ? (
+          <>
+            <div className="w-40">
+              <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Cohort</label>
+              <select
+                aria-label="Cohort Mode"
+                value={cohortMode}
+                onChange={(event) => onCohortModeChange(event.target.value as 'non-cohort' | 'cohort')}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
+              >
+                <option value="non-cohort">non-cohort</option>
+                <option value="cohort">cohort</option>
+              </select>
+            </div>
+            <div className="w-56">
+              <label
+                className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500"
+                title={reportTypeLabel}
+              >
+                {`Window · ${reportTypeLabel}`}
+              </label>
+              <select
+                value={windowHours}
+                onChange={(event) => onWindowHoursChange(event.target.value as '12' | '24' | '48' | '72')}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
+              >
+                <option value="12">12h</option>
+                <option value="24">24h</option>
+                <option value="48">48h</option>
+                <option value="72">72h</option>
+              </select>
+            </div>
+          </>
+        ) : null}
         <div className="ml-auto flex items-center gap-2">
           <button
             type="button"

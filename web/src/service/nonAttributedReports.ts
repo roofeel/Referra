@@ -1,5 +1,5 @@
 import { buildApiUrl, throwApiError } from './http';
-import type { CreateReportTaskPayload, ReportLog, ReportTask, ReportTaskStatus } from './reports';
+import type { CreateReportTaskPayload, ReportDetailResponse, ReportLog, ReportTask, ReportTaskStatus } from './reports';
 
 export interface NonAttributedReportsResponse {
   metrics: {
@@ -97,6 +97,41 @@ export const nonAttributedReportsApi = {
 
     if (!response.ok) {
       await throwApiError(response, 'Failed to fetch non-attributed report logs');
+    }
+
+    return response.json();
+  },
+
+  detail: async (
+    id: string,
+    options?: {
+      page?: number;
+      pageSize?: number;
+      startDate?: string;
+      endDate?: string;
+      cohortMode?: 'non-cohort' | 'cohort';
+      windowHours?: number;
+    },
+  ): Promise<ReportDetailResponse> => {
+    const params = new URLSearchParams();
+    if (typeof options?.page === 'number' && Number.isFinite(options.page)) {
+      params.set('page', String(Math.max(1, Math.floor(options.page))));
+    }
+    if (typeof options?.pageSize === 'number' && Number.isFinite(options.pageSize)) {
+      params.set('pageSize', String(Math.max(1, Math.floor(options.pageSize))));
+    }
+    if (options?.startDate) params.set('startDate', options.startDate);
+    if (options?.endDate) params.set('endDate', options.endDate);
+    if (options?.cohortMode) params.set('cohortMode', options.cohortMode);
+    if (typeof options?.windowHours === 'number' && Number.isFinite(options.windowHours)) {
+      params.set('windowHours', String(Math.floor(options.windowHours)));
+    }
+
+    const query = params.toString();
+    const response = await fetch(buildApiUrl(`/api/non-attributed-reports/${id}/detail${query ? `?${query}` : ''}`));
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to fetch non-attributed report detail');
     }
 
     return response.json();

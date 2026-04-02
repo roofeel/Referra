@@ -4,6 +4,8 @@ import { getTimeHeaderByReportType, type ReportType } from '../reports/attributi
 
 type DashboardTableProps = {
   reportType: ReportType;
+  showTimeColumns?: boolean;
+  showDurationColumn?: boolean;
   rows: TableRow[];
   selectedRow: TableRow | null;
   page: number;
@@ -16,6 +18,8 @@ type DashboardTableProps = {
 
 export function DashboardTable({
   reportType,
+  showTimeColumns = true,
+  showDurationColumn = true,
   rows,
   selectedRow,
   page,
@@ -30,11 +34,12 @@ export function DashboardTable({
   const headers = [
     'uid',
     'event_name',
-    getTimeHeaderByReportType(reportType, 'event_time'),
-    getTimeHeaderByReportType(reportType, 'source_time'),
+    ...(showTimeColumns
+      ? [getTimeHeaderByReportType(reportType, 'event_time'), getTimeHeaderByReportType(reportType, 'source_time')]
+      : []),
     'referrer_type',
     'referrer_desc',
-    'duration',
+    ...(showDurationColumn ? ['duration'] : []),
   ];
 
   return (
@@ -66,13 +71,15 @@ export function DashboardTable({
                     {row.eventName}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs text-slate-500">{row.ts}</td>
-                <td className="px-4 py-3 text-xs text-slate-500">{row.sourceTs}</td>
+                {showTimeColumns ? <td className="px-4 py-3 text-xs text-slate-500">{row.ts}</td> : null}
+                {showTimeColumns ? <td className="px-4 py-3 text-xs text-slate-500">{row.sourceTs}</td> : null}
                 <td className="px-4 py-3 text-xs text-slate-700">{row.category}</td>
                 <td className="max-w-[280px] truncate px-4 py-3 text-xs text-slate-700" title={row.type}>
                   {row.type}
                 </td>
-                <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">{row.duration}</td>
+                {showDurationColumn ? (
+                  <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">{row.duration}</td>
+                ) : null}
                 <td className="px-4 py-3">
                   <span className="material-symbols-outlined text-slate-300 transition-colors group-hover:text-blue-600">
                     chevron_right

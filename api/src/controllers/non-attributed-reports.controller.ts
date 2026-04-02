@@ -15,6 +15,7 @@ import {
   type ReportTaskStatus,
 } from '../lib/reports-presentation.lib.js';
 import { parseUrl } from '../lib/reports-url.lib.js';
+import { getNonAttributedReportDetailPayload } from '../services/non-attributed-reports-detail.service.js';
 import { executeNonAttributedReportRows, type UrlRuleExecutor } from '../services/non-attributed-reports-execution.service.js';
 
 type NonAttributedReportTask = {
@@ -484,6 +485,36 @@ export const nonAttributedReportsController = {
 
     const items = await nonAttributedLogs.listByReport(request.params.id);
     return Response.json(items.map((item: any) => toLog(item)));
+  },
+
+  async detail(req: Request) {
+    const request = req as RequestWithParams<{ id: string }>;
+    const url = new URL(req.url);
+    const pageRaw = Number(url.searchParams.get('page') || '1');
+    const pageSizeRaw = Number(url.searchParams.get('pageSize') || '50');
+    const windowHoursRaw = Number(url.searchParams.get('windowHours') || '');
+    const startDate = url.searchParams.get('startDate')?.trim() || '';
+    const endDate = url.searchParams.get('endDate')?.trim() || '';
+    const cohortModeRaw = url.searchParams.get('cohortMode')?.trim().toLowerCase();
+    const cohortMode = cohortModeRaw === 'cohort' ? 'cohort' : 'non-cohort';
+    const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
+    const pageSize =
+      Number.isFinite(pageSizeRaw) && pageSizeRaw > 0 ? Math.min(200, Math.floor(pageSizeRaw)) : 50;
+    const current = await nonAttributedReports.findById(request.params.id);
+
+    if (!current) {
+      return Response.json({ error: 'Non-attributed report task not found' }, { status: 404 });
+    }
+
+    const payload = await getNonAttributedReportDetailPayload(current, {
+      page,
+      pageSize,
+      windowHours: windowHoursRaw,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      cohortMode,
+    });
+    return Response.json(payload);
   },
 
   async updateStatus(req: Request) {

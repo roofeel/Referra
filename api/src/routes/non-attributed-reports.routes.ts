@@ -17,4 +17,7 @@ export const nonAttributedReportsRoutes = {
   '/api/non-attributed-reports/:id/logs': {
     GET: nonAttributedReportsController.listLogs,
   },
+  '/api/non-attributed-reports/:id/detail': {
+    GET: nonAttributedReportsController.detail,
+  },
 };

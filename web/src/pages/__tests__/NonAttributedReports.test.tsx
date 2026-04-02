@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import NonAttributedReports from '../NonAttributedReports';
 
@@ -117,5 +117,41 @@ describe('NonAttributedReports', () => {
     expect(payload.fieldMappings.event_time).toBeUndefined();
     expect(payload.fieldMappings.source_url).toBeUndefined();
     expect(payload.fieldMappings.source_time).toBeUndefined();
+  });
+
+  it('navigates to non-attributed report detail page from view action', async () => {
+    mockNonAttributedReportsList.mockResolvedValueOnce({
+      ...basePayload,
+      tasks: [
+        {
+          id: 'NA-1001',
+          taskName: 'NA Task',
+          client: 'Global Retail Corp',
+          source: 'CSV Import',
+          sourceIcon: 'description',
+          status: 'Completed',
+          progress: 100,
+          progressLabel: 'Completed',
+          attribution: 'registration',
+          createdAt: '2026-04-02T00:00:00.000Z',
+          attributedReportId: 'KTX-1001',
+          attributedReportTaskName: 'Attributed Task 1',
+          uidParamName: 'uid',
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/non-attributed-reports']}>
+        <Routes>
+          <Route path="/non-attributed-reports" element={<NonAttributedReports />} />
+          <Route path="/non-attributed-reports/:reportId" element={<div>Report detail page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'View task detail' }));
+
+    expect(await screen.findByText('Report detail page')).toBeInTheDocument();
   });
 });

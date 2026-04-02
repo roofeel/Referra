@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
 import { NonAttributedUploadDataDrawer } from '../components/reports/NonAttributedUploadDataDrawer';
@@ -51,6 +52,7 @@ function statusStyles(status: ReportTaskStatus) {
 type NonAttributedTask = NonAttributedReportsResponse['tasks'][number];
 
 export default function NonAttributedReports() {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -336,8 +338,26 @@ export default function NonAttributedReports() {
                       {tasks.map((task) => {
                         const styles = statusStyles(task.status);
 
+                        const canViewDetail = Boolean(task.id);
+
                         return (
-                          <tr key={task.id} className="group transition-colors hover:bg-slate-50">
+                          <tr
+                            key={task.id}
+                            role={canViewDetail ? 'button' : undefined}
+                            tabIndex={canViewDetail ? 0 : undefined}
+                            onClick={() => {
+                              if (!canViewDetail) return;
+                              navigate(`/non-attributed-reports/${task.id}`);
+                            }}
+                            onKeyDown={(event) => {
+                              if (!canViewDetail) return;
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                navigate(`/non-attributed-reports/${task.id}`);
+                              }
+                            }}
+                            className={`group transition-colors hover:bg-slate-50 ${canViewDetail ? 'cursor-pointer' : ''}`}
+                          >
                             <td className="px-6 py-4">
                               <p className="text-sm font-bold text-slate-900">{task.taskName}</p>
                               <p className="text-[10px] uppercase tracking-wider text-slate-500">ID: #{task.id}</p>
@@ -384,7 +404,23 @@ export default function NonAttributedReports() {
                             <td className="px-6 py-4 text-right text-sm font-medium text-slate-700">{task.attribution}</td>
                             <td className="px-6 py-4 text-right text-xs text-slate-500">{task.createdAt}</td>
                             <td className="px-6 py-4">
-                              <div className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                              <div
+                                className="flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                                onClick={(event) => event.stopPropagation()}
+                                onKeyDown={(event) => event.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!canViewDetail) return;
+                                    navigate(`/non-attributed-reports/${task.id}`);
+                                  }}
+                                  className="rounded p-1.5 text-blue-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                                  aria-label="View task detail"
+                                  disabled={!canViewDetail}
+                                >
+                                  <span className="material-symbols-outlined text-lg">visibility</span>
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => void handleViewLogs(task)}
