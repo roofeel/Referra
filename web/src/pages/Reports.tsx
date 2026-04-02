@@ -4,6 +4,7 @@ import { DayPicker, type DateRange } from 'react-day-picker';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
 import { AttributedUploadDataDrawer } from '../components/reports/AttributedUploadDataDrawer';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
 import type { ReportLog, ReportTask, ReportTaskStatus, ReportsResponse } from '../service/reports';
@@ -59,6 +60,7 @@ export default function Reports() {
     endDate: '',
   });
   const [draftFilters, setDraftFilters] = useState(filters);
+  const debouncedSearch = useDebouncedValue(draftFilters.search, 250);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const datePickerRef = useRef<HTMLDivElement | null>(null);
   const [payload, setPayload] = useState<ReportsResponse | null>(null);
@@ -128,6 +130,13 @@ export default function Reports() {
       document.removeEventListener('keydown', handleEsc);
     };
   }, [isDatePickerOpen]);
+
+  useEffect(() => {
+    setFilters((prev) => {
+      if (prev.search === debouncedSearch) return prev;
+      return { ...prev, search: debouncedSearch };
+    });
+  }, [debouncedSearch]);
 
   const stats = useMemo(
     () => [
@@ -269,7 +278,7 @@ export default function Reports() {
               type="text"
               value={draftFilters.search}
               onChange={(event) => setDraftFilters((prev) => ({ ...prev, search: event.target.value }))}
-              placeholder="Search tasks, clients, or IDs..."
+              placeholder="Search reports, clients..."
               className="h-10 w-full rounded-lg border-none bg-slate-100 py-2 pl-10 pr-4 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
             />
           </div>

@@ -1,8 +1,10 @@
 type UrlRulesHeaderProps = {
   onCreateRule: () => void;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
 };
 
-export function UrlRulesHeader({ onCreateRule }: UrlRulesHeaderProps) {
+export function UrlRulesHeader({ onCreateRule, searchValue, onSearchChange }: UrlRulesHeaderProps) {
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-100 bg-white px-8">
       <div className="flex items-center gap-8">
@@ -10,6 +12,8 @@ export function UrlRulesHeader({ onCreateRule }: UrlRulesHeaderProps) {
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">search</span>
           <input
             type="text"
+            value={searchValue}
+            onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Search clients or functions..."
             className="w-64 rounded border-none bg-slate-100 py-1.5 pl-10 pr-4 text-sm focus:ring-1 focus:ring-blue-700"
           />

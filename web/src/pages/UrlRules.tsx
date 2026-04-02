@@ -5,6 +5,7 @@ import { CreateRuleDrawer } from '../components/url_rules/CreateRuleDrawer';
 import { LogicDrawer } from '../components/url_rules/LogicDrawer';
 import { useToast } from '../components/ToastProvider';
 import { UrlRulesHeader } from '../components/url_rules/UrlRulesHeader';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import type { ClientRow } from '../components/url_rules/urlRulesData';
 import { api } from '../service';
 import type { UrlRule } from '../service/urlRules';
@@ -34,6 +35,8 @@ function normalizeStatus(status: string): 'Active' | 'Draft' {
 
 export default function UrlRules() {
   const [rules, setRules] = useState<UrlRule[]>([]);
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 250);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
@@ -45,14 +48,12 @@ export default function UrlRules() {
 
   useEffect(() => {
     let alive = true;
-
-    async function loadRules() {
+    void (async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const items = await api.urlRules.list();
+        const items = await api.urlRules.list({ search: debouncedSearch.trim() || undefined });
         if (!alive) return;
-
         setRules(items);
       } catch (loadError) {
         if (!alive) return;
@@ -62,13 +63,12 @@ export default function UrlRules() {
           setIsLoading(false);
         }
       }
-    }
+    })();
 
-    void loadRules();
     return () => {
       alive = false;
     };
-  }, []);
+  }, [debouncedSearch]);
 
   const tableRows = useMemo<ClientRow[]>(
     () =>
@@ -163,7 +163,7 @@ export default function UrlRules() {
       <AppSidebar activeItem="url-rules" ariaLabel="URL Rules Navigation" />
 
       <main className="relative ml-64 flex min-h-screen flex-col">
-        <UrlRulesHeader onCreateRule={handleOpenCreateDrawer} />
+        <UrlRulesHeader onCreateRule={handleOpenCreateDrawer} searchValue={search} onSearchChange={setSearch} />
 
         <div className="flex-1 space-y-8 p-8">
           <ClientLogicDirectory
