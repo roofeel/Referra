@@ -20,24 +20,16 @@ export default function NonAttributedReportsDetail() {
   const [page, setPage] = useState(1);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftEndDate, setDraftEndDate] = useState('');
-  const [draftCohortMode, setDraftCohortMode] = useState<'non-cohort' | 'cohort'>('non-cohort');
-  const [draftWindowHours, setDraftWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
-  const [appliedCohortMode, setAppliedCohortMode] = useState<'non-cohort' | 'cohort'>('non-cohort');
-  const [appliedWindowHours, setAppliedWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
   const pageSize = 50;
 
   useEffect(() => {
     setPage(1);
     setDraftStartDate('');
     setDraftEndDate('');
-    setDraftCohortMode('non-cohort');
-    setDraftWindowHours('24');
     setAppliedStartDate('');
     setAppliedEndDate('');
-    setAppliedCohortMode('non-cohort');
-    setAppliedWindowHours('24');
   }, [reportId]);
 
   useEffect(() => {
@@ -56,8 +48,6 @@ export default function NonAttributedReportsDetail() {
         const options: Parameters<typeof api.nonAttributedReports.detail>[1] = { page, pageSize };
         if (appliedStartDate) options.startDate = appliedStartDate;
         if (appliedEndDate) options.endDate = appliedEndDate;
-        options.cohortMode = appliedCohortMode;
-        options.windowHours = Number(appliedWindowHours);
 
         const data = await api.nonAttributedReports.detail(reportId, options);
         if (!alive) return;
@@ -77,7 +67,7 @@ export default function NonAttributedReportsDetail() {
     return () => {
       alive = false;
     };
-  }, [appliedCohortMode, appliedEndDate, appliedStartDate, appliedWindowHours, page, pageSize, reportId]);
+  }, [appliedEndDate, appliedStartDate, page, pageSize, reportId]);
 
   const selectedDetail = selectedRow ? payload?.eventDetails[selectedRow.eventId] || null : null;
 
@@ -126,30 +116,25 @@ export default function NonAttributedReportsDetail() {
               <DashboardFilters
                 clientName={payload.clientName}
                 reportType={payload.reportType}
+                showCohortWindowFilters={false}
                 startDate={draftStartDate}
                 endDate={draftEndDate}
-                cohortMode={draftCohortMode}
-                windowHours={draftWindowHours}
+                cohortMode="non-cohort"
+                windowHours="24"
                 onStartDateChange={setDraftStartDate}
                 onEndDateChange={setDraftEndDate}
-                onCohortModeChange={setDraftCohortMode}
-                onWindowHoursChange={setDraftWindowHours}
+                onCohortModeChange={() => undefined}
+                onWindowHoursChange={() => undefined}
                 onApply={() => {
                   setAppliedStartDate(draftStartDate);
                   setAppliedEndDate(draftEndDate);
-                  setAppliedCohortMode(draftCohortMode);
-                  setAppliedWindowHours(draftWindowHours);
                   setPage(1);
                 }}
                 onReset={() => {
                   setDraftStartDate('');
                   setDraftEndDate('');
-                  setDraftCohortMode('non-cohort');
-                  setDraftWindowHours('24');
                   setAppliedStartDate('');
                   setAppliedEndDate('');
-                  setAppliedCohortMode('non-cohort');
-                  setAppliedWindowHours('24');
                   setPage(1);
                 }}
               />

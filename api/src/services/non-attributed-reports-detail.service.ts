@@ -191,9 +191,10 @@ function extractUidFromEventUrl(urlValue: string, uidParamName: string) {
 function extractEventNameFromEventUrl(urlValue: string) {
   const parsed = parseUrl(urlValue);
   if (!parsed) return '';
+  const urlCandidates = new Set(['action', 'ev', 'eventname', 'event-name', 'evt_name']);
   for (const [key, value] of parsed.searchParams.entries()) {
     if (!value || !value.trim()) continue;
-    if (key.trim().toLowerCase() === 'action') return value.trim();
+    if (urlCandidates.has(key.trim().toLowerCase())) return value.trim();
   }
   return '';
 }
@@ -292,7 +293,7 @@ function buildDetailPayload(
           : null;
     const eventName =
       (extractEventNameFromEventUrl(eventUrl) ||
-        getJsonValue(json, ['action', 'event_name', 'event', 'event_type']))
+        getJsonValue(json, ['action', 'event_name', 'event', 'event_type', 'ev', 'eventName', 'event-name', 'evt_name']))
         .toUpperCase() || 'EVENT';
 
     return {

@@ -438,7 +438,7 @@ export function NonAttributedUploadDataDrawer({
                     </label>
 
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:col-span-2">
-                      UID Param Name In Event URL
+                      KEY NAME FOR MATCHING ATTRIBUTED RECORD
                       <input
                         type="text"
                         value={uidParamName}

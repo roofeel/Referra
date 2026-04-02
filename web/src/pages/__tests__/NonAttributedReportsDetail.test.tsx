@@ -77,6 +77,8 @@ describe('NonAttributedReportsDetail', () => {
     expect(nav).toBeInTheDocument();
     expect(screen.getByText('Report #NA-8821')).toBeInTheDocument();
     expect(await screen.findByText('Global Retail Corp')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Cohort Mode')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Window/i)).not.toBeInTheDocument();
     expect(screen.queryByText('registration_time')).not.toBeInTheDocument();
     expect(screen.queryByText('impression_time')).not.toBeInTheDocument();
     expect(screen.queryByText('duration')).not.toBeInTheDocument();
@@ -88,8 +90,6 @@ describe('NonAttributedReportsDetail', () => {
     expect(mockNonAttributedReportsDetail).toHaveBeenCalledWith('NA-8821', {
       page: 1,
       pageSize: 50,
-      cohortMode: 'non-cohort',
-      windowHours: 24,
     });
   });
 });
