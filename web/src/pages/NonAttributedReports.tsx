@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
-import { UploadDataDrawer } from '../components/reports/UploadDataDrawer';
+import { NonAttributedUploadDataDrawer } from '../components/reports/NonAttributedUploadDataDrawer';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
 import type { NonAttributedReportsResponse } from '../service/nonAttributedReports';
@@ -225,7 +225,7 @@ export default function NonAttributedReports() {
             className="flex items-center gap-2 rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-800"
           >
             <span className="material-symbols-outlined text-base">upload</span>
-            Upload Data
+            Upload Non Attributed Data
           </button>
         </header>
 
@@ -427,12 +427,11 @@ export default function NonAttributedReports() {
             )}
           </section>
         </div>
-        <UploadDataDrawer
+        <NonAttributedUploadDataDrawer
           isOpen={isUploadDrawerOpen}
           clients={payload?.clients || []}
           rules={payload?.rules || []}
           attributedReports={payload?.attributedReports || []}
-          mode="non-attributed"
           onClose={() => setIsUploadDrawerOpen(false)}
           onSubmit={handleCreateTask}
         />

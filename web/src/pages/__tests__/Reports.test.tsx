@@ -107,10 +107,10 @@ describe('Reports', () => {
       </MemoryRouter>,
     );
 
-    const uploadButton = await screen.findByRole('button', { name: /Upload Data/i });
+    const uploadButton = await screen.findByRole('button', { name: /Upload Attributed Data/i });
     fireEvent.click(uploadButton);
 
-    expect(screen.getByRole('heading', { name: 'Upload Data' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Upload Attributed Data' })).toBeInTheDocument();
     expect(screen.getByText('Report Information')).toBeInTheDocument();
     expect(screen.getByText('Data Source')).toBeInTheDocument();
   });
@@ -135,7 +135,7 @@ describe('Reports', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Upload Data/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Upload Attributed Data/i }));
 
     expect(screen.getByText('registration_url')).toBeInTheDocument();
     expect(screen.queryByText('page_load_url')).not.toBeInTheDocument();
@@ -180,7 +180,7 @@ describe('Reports', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Upload Data/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Upload Attributed Data/i }));
     const startButton = screen.getByRole('button', { name: /Start Analysis/i });
     expect(startButton).toBeDisabled();
 

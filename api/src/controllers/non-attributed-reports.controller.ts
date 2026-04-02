@@ -2,7 +2,6 @@ import { clients, nonAttributedLogs, nonAttributedRaws, nonAttributedReports, re
 import {
   ATTRIBUTION_ALIAS_CONFIG,
   isAttributionMode,
-  normalizeAttributionLogicMapping,
   type AttributionLogicMapping,
   type ReportType,
 } from '../config/attribution.config.js';
@@ -105,7 +104,7 @@ function resolveAttributionLogicFromBody(body: {
   attributionLogic?: unknown;
   fieldMappings?: Record<string, string>;
 }) {
-  const mapped = normalizeAttributionLogicMapping(body.attributionLogic);
+  const mapped = normalizeNonAttributedAttributionLogicMapping(body.attributionLogic);
   if (mapped) return mapped;
 
   if (!isAttributionMode(body.attributionLogic) || !body.fieldMappings) {
@@ -118,12 +117,33 @@ function resolveAttributionLogicFromBody(body: {
   const sourceTime = body.fieldMappings[aliasConfig.source_time] || body.fieldMappings.source_time || '';
   const eventTime = body.fieldMappings[aliasConfig.event_time] || body.fieldMappings.event_time || '';
 
-  return normalizeAttributionLogicMapping({
+  return normalizeNonAttributedAttributionLogicMapping({
     source_url: sourceUrl,
     event_url: eventUrl,
     source_time: sourceTime,
     event_time: eventTime,
   });
+}
+
+function normalizeNonAttributedAttributionLogicMapping(input: unknown): AttributionLogicMapping | null {
+  if (!input || typeof input !== 'object') return null;
+
+  const item = input as Record<string, unknown>;
+  const eventUrl = typeof item.event_url === 'string' ? item.event_url.trim() : '';
+  const eventTime = typeof item.event_time === 'string' ? item.event_time.trim() : '';
+  const sourceUrlRaw = typeof item.source_url === 'string' ? item.source_url.trim() : '';
+  const sourceTimeRaw = typeof item.source_time === 'string' ? item.source_time.trim() : '';
+
+  if (!eventUrl || !eventTime) {
+    return null;
+  }
+
+  return {
+    source_url: sourceUrlRaw || eventUrl,
+    event_url: eventUrl,
+    source_time: sourceTimeRaw || eventTime,
+    event_time: eventTime,
+  };
 }
 
 function resolveReportTypeFromBody(body: { reportType?: unknown; attributionLogic?: unknown }): ReportType {
@@ -177,7 +197,7 @@ function stripParamFromEventUrl(rawUrl: string, paramName: string) {
   const parsed = parseUrl(rawUrl);
   if (!parsed) return rawUrl;
 
-  const keys = Array.from(new Set(Array.from(parsed.searchParams.keys())));
+  const keys = Array.from(new Set<string>(Array.from(parsed.searchParams.keys())));
   for (const key of keys) {
     if (key.toLowerCase() === normalizedParamName) {
       parsed.searchParams.delete(key);
@@ -347,7 +367,7 @@ export const nonAttributedReportsController = {
     const reportType = resolveReportTypeFromBody(body);
     if (!attributionLogic) {
       return Response.json(
-        { error: 'attributionLogic is invalid. Expect {event_url,event_time,source_url,source_time}' },
+        { error: 'attributionLogic is invalid. Expect {event_url,event_time} with optional {source_url,source_time}' },
         { status: 400 },
       );
     }
@@ -372,21 +392,27 @@ export const nonAttributedReportsController = {
       (attributionLogic.source_url && parsedCsv.headers.includes(attributionLogic.source_url)
         ? attributionLogic.source_url
         : undefined) ||
-      findColumnName(parsedCsv.headers, fieldMappings, ['source_url', 'impression_url']);
+      findColumnName(parsedCsv.headers, fieldMappings, ['source_url', 'impression_url']) ||
+      eventUrlColumn;
     const sourceTimeColumn =
       (attributionLogic.source_time && parsedCsv.headers.includes(attributionLogic.source_time)
         ? attributionLogic.source_time
         : undefined) ||
-      findColumnName(parsedCsv.headers, fieldMappings, ['source_time', 'impression_time']);
+      findColumnName(parsedCsv.headers, fieldMappings, ['source_time', 'impression_time']) ||
+      eventTimeColumn;
 
-    if (!eventUrlColumn || !eventTimeColumn || !sourceUrlColumn || !sourceTimeColumn) {
+    if (!eventUrlColumn || !eventTimeColumn) {
       return Response.json(
         {
-          error: 'CSV headers must match attributionLogic mapping for event_url/event_time/source_url/source_time',
+          error: 'CSV headers must match attributionLogic mapping for event_url/event_time',
         },
         { status: 400 },
       );
     }
+    const resolvedEventUrlColumn = eventUrlColumn;
+    const resolvedEventTimeColumn = eventTimeColumn;
+    const resolvedSourceUrlColumn = sourceUrlColumn || resolvedEventUrlColumn;
+    const resolvedSourceTimeColumn = sourceTimeColumn || resolvedEventTimeColumn;
 
     const existingClient = await clients.getOrCreateByName(clientName);
     const created = await nonAttributedReports.create({
@@ -410,11 +436,11 @@ export const nonAttributedReportsController = {
       const updated = await executeNonAttributedReportRows({
         reportId: created.id,
         rows: parsedCsv.rows.map((row) => {
-          const { eventUrl, rowJson } = withPatchedEventUrl(row, eventUrlColumn, uidParamName);
+          const { eventUrl, rowJson } = withPatchedEventUrl(row, resolvedEventUrlColumn, uidParamName);
           return {
             eventUrl,
-            eventTime: String(row[eventTimeColumn] ?? ''),
-            sourceTime: String(row[sourceTimeColumn] ?? ''),
+            eventTime: String(row[resolvedEventTimeColumn] ?? ''),
+            sourceTime: String(row[resolvedSourceTimeColumn] ?? ''),
             json: rowJson,
           };
         }),
@@ -433,7 +459,7 @@ export const nonAttributedReportsController = {
         startMessage: `Start non-attributed report processing. rows=${parsedCsv.rows.length}`,
         beforeLoopMessages: [
           `Linked attributed report=${attributedReportId}; uidParamName=${uidParamName}`,
-          `Columns mapped: event_url=${eventUrlColumn}, source_url=${sourceUrlColumn}, event_time=${eventTimeColumn}, source_time=${sourceTimeColumn}`,
+          `Columns mapped: event_url=${resolvedEventUrlColumn}, source_url=${resolvedSourceUrlColumn}, event_time=${resolvedEventTimeColumn}, source_time=${resolvedSourceTimeColumn}`,
         ],
         finishMessagePrefix: 'Non-attributed report finished.',
         runtimeErrorPrefix: 'create',
@@ -511,7 +537,7 @@ export const nonAttributedReportsController = {
       return Response.json({ error: 'ruleId is invalid' }, { status: 400 });
     }
 
-    const storedFieldMappings = normalizeAttributionLogicMapping(current.fieldMappings);
+    const storedFieldMappings = normalizeNonAttributedAttributionLogicMapping(current.fieldMappings);
     if (!storedFieldMappings) {
       return Response.json({ error: 'Stored fieldMappings is invalid' }, { status: 400 });
     }

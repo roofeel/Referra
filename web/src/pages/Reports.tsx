@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
-import { UploadDataDrawer } from '../components/reports/UploadDataDrawer';
+import { AttributedUploadDataDrawer } from '../components/reports/AttributedUploadDataDrawer';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
 import type { ReportLog, ReportTask, ReportTaskStatus, ReportsResponse } from '../service/reports';
@@ -224,7 +224,7 @@ export default function Reports() {
             className="flex items-center gap-2 rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-800"
           >
             <span className="material-symbols-outlined text-base">upload</span>
-            Upload Data
+            Upload Attributed Data
           </button>
         </header>
 
@@ -440,7 +440,7 @@ export default function Reports() {
             )}
           </section>
         </div>
-        <UploadDataDrawer
+        <AttributedUploadDataDrawer
           isOpen={isUploadDrawerOpen}
           clients={payload?.clients || []}
           rules={payload?.rules || []}

@@ -5,7 +5,6 @@ import {
   ATTRIBUTION_MODE_OPTIONS,
   getReportTypeLabel,
   CANONICAL_FIELD_ALIASES,
-  REQUIRED_CANONICAL_FIELDS,
   type AttributionLogicMapping,
   type AttributionMode,
   type CanonicalAttributionField,
@@ -15,13 +14,14 @@ type UploadDataDrawerProps = {
   isOpen: boolean;
   clients: string[];
   rules: Array<{ id: string; name: string }>;
-  attributedReports?: Array<{ id: string; taskName: string; clientName?: string }>;
-  mode?: 'attributed' | 'non-attributed';
   onClose: () => void;
-  onSubmit: (payload: CreateReportTaskPayload & { attributedReportId?: string; uidParamName?: string }) => Promise<void>;
+  onSubmit: (payload: CreateReportTaskPayload) => Promise<void>;
 };
 
 type FieldMappingState = Record<AttributionMode, Partial<AttributionLogicMapping>>;
+function getRequiredCanonicalFields(): CanonicalAttributionField[] {
+  return ['source_url', 'event_url', 'source_time', 'event_time'];
+}
 
 function normalizeHeaderKey(value: string) {
   return value
@@ -122,12 +122,10 @@ function autoMatchRequiredFields(
   return next;
 }
 
-export function UploadDataDrawer({
+export function AttributedUploadDataDrawer({
   isOpen,
   clients,
   rules,
-  attributedReports = [],
-  mode = 'attributed',
   onClose,
   onSubmit,
 }: UploadDataDrawerProps) {
@@ -138,8 +136,6 @@ export function UploadDataDrawer({
   const [taskName, setTaskName] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedRuleId, setSelectedRuleId] = useState('');
-  const [selectedAttributedReportId, setSelectedAttributedReportId] = useState('');
-  const [uidParamName, setUidParamName] = useState('uid');
   const [attributionLogic, setAttributionLogic] = useState<AttributionMode>('registration');
   const [selectedFileName, setSelectedFileName] = useState('');
   const [selectedFileContent, setSelectedFileContent] = useState('');
@@ -151,6 +147,7 @@ export function UploadDataDrawer({
     registration: {},
     pageload: {},
   });
+  const requiredCanonicalFields = useMemo(() => getRequiredCanonicalFields(), []);
 
   const clientOptions = useMemo(() => clients, [clients]);
 
@@ -181,24 +178,11 @@ export function UploadDataDrawer({
   }, [isOpen, rules]);
 
   useEffect(() => {
-    if (!isOpen || mode !== 'non-attributed') {
-      return;
-    }
-
-    setSelectedAttributedReportId((prev) => {
-      if (prev && attributedReports.some((report) => report.id === prev)) {
-        return prev;
-      }
-      return attributedReports[0]?.id || '';
-    });
-  }, [attributedReports, isOpen, mode]);
-
-  useEffect(() => {
     setFieldMappings((prev) => ({
-      registration: autoMatchRequiredFields(REQUIRED_CANONICAL_FIELDS, csvHeaders, prev.registration),
-      pageload: autoMatchRequiredFields(REQUIRED_CANONICAL_FIELDS, csvHeaders, prev.pageload),
+      registration: autoMatchRequiredFields(requiredCanonicalFields, csvHeaders, prev.registration),
+      pageload: autoMatchRequiredFields(requiredCanonicalFields, csvHeaders, prev.pageload),
     }));
-  }, [csvHeaders]);
+  }, [csvHeaders, requiredCanonicalFields]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -276,11 +260,6 @@ export function UploadDataDrawer({
         fileContent: selectedFileContent,
         ruleId: selectedRuleId,
       };
-      if (mode === 'non-attributed') {
-        payload.attributedReportId = selectedAttributedReportId;
-        payload.uidParamName = uidParamName.trim();
-      }
-
       await onSubmit(payload);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : '创建分析任务失败，请稍后重试。');
@@ -289,7 +268,9 @@ export function UploadDataDrawer({
     }
   }
 
-  const mappingRows = ATTRIBUTION_ALIAS_CONFIG[attributionLogic];
+  const mappingRows = ATTRIBUTION_ALIAS_CONFIG[attributionLogic].filter((item) =>
+    requiredCanonicalFields.includes(item.canonical),
+  );
   const requiredFields = mappingRows.map((item) => item.canonical);
   const currentMappings = fieldMappings[attributionLogic];
   const mappingValues = Object.values(currentMappings).filter((value): value is string => Boolean(value));
@@ -298,8 +279,6 @@ export function UploadDataDrawer({
     Boolean(selectedClient) &&
     Boolean(taskName.trim()) &&
     Boolean(selectedRuleId) &&
-    (mode === 'attributed' || Boolean(selectedAttributedReportId)) &&
-    (mode === 'attributed' || Boolean(uidParamName.trim())) &&
     Boolean(selectedFileName) &&
     Boolean(selectedFileContent) &&
     mappingRows.every((field) => Boolean(currentMappings[field.canonical]));
@@ -328,7 +307,7 @@ export function UploadDataDrawer({
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Reports</p>
               <h2 id="upload-data-title" className="text-xl font-extrabold tracking-tight text-slate-900">
-                Upload Data
+                Upload Attributed Data
               </h2>
             </div>
             <button
@@ -409,44 +388,6 @@ export function UploadDataDrawer({
                         )}
                       </select>
                     </label>
-
-                    {mode === 'non-attributed' ? (
-                      <>
-                        <label
-                          className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:col-span-2"
-                        >
-                          Attributed Report
-                          <select
-                            value={selectedAttributedReportId}
-                            onChange={(event) => setSelectedAttributedReportId(event.target.value)}
-                            disabled={attributedReports.length === 0}
-                            className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                          >
-                            {attributedReports.length === 0 ? (
-                              <option value="">No attributed reports available</option>
-                            ) : (
-                              attributedReports.map((report) => (
-                                <option key={report.id} value={report.id}>
-                                  {report.taskName}
-                                  {report.clientName ? ` (${report.clientName})` : ''}
-                                </option>
-                              ))
-                            )}
-                          </select>
-                        </label>
-
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:col-span-2">
-                          UID Param Name In Event URL
-                          <input
-                            type="text"
-                            value={uidParamName}
-                            onChange={(event) => setUidParamName(event.target.value)}
-                            placeholder="e.g. uid"
-                            className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                          />
-                        </label>
-                      </>
-                    ) : null}
 
                     <div className="space-y-2 sm:col-span-2">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Attribution Logic</p>
