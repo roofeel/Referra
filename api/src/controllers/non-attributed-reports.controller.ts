@@ -134,14 +134,14 @@ function normalizeNonAttributedAttributionLogicMapping(input: unknown): Attribut
   const sourceUrlRaw = typeof item.source_url === 'string' ? item.source_url.trim() : '';
   const sourceTimeRaw = typeof item.source_time === 'string' ? item.source_time.trim() : '';
 
-  if (!eventUrl || !eventTime) {
+  if (!eventUrl) {
     return null;
   }
 
   return {
     source_url: sourceUrlRaw || eventUrl,
     event_url: eventUrl,
-    source_time: sourceTimeRaw || eventTime,
+    source_time: sourceTimeRaw || eventTime || '',
     event_time: eventTime,
   };
 }
@@ -367,7 +367,7 @@ export const nonAttributedReportsController = {
     const reportType = resolveReportTypeFromBody(body);
     if (!attributionLogic) {
       return Response.json(
-        { error: 'attributionLogic is invalid. Expect {event_url,event_time} with optional {source_url,source_time}' },
+        { error: 'attributionLogic is invalid. Expect {event_url} with optional {event_time,source_url,source_time}' },
         { status: 400 },
       );
     }
@@ -401,18 +401,18 @@ export const nonAttributedReportsController = {
       findColumnName(parsedCsv.headers, fieldMappings, ['source_time', 'impression_time']) ||
       eventTimeColumn;
 
-    if (!eventUrlColumn || !eventTimeColumn) {
+    if (!eventUrlColumn) {
       return Response.json(
         {
-          error: 'CSV headers must match attributionLogic mapping for event_url/event_time',
+          error: 'CSV headers must match attributionLogic mapping for event_url',
         },
         { status: 400 },
       );
     }
     const resolvedEventUrlColumn = eventUrlColumn;
-    const resolvedEventTimeColumn = eventTimeColumn;
+    const resolvedEventTimeColumn = eventTimeColumn || '';
     const resolvedSourceUrlColumn = sourceUrlColumn || resolvedEventUrlColumn;
-    const resolvedSourceTimeColumn = sourceTimeColumn || resolvedEventTimeColumn;
+    const resolvedSourceTimeColumn = sourceTimeColumn || '';
 
     const existingClient = await clients.getOrCreateByName(clientName);
     const created = await nonAttributedReports.create({
@@ -439,8 +439,8 @@ export const nonAttributedReportsController = {
           const { eventUrl, rowJson } = withPatchedEventUrl(row, resolvedEventUrlColumn, uidParamName);
           return {
             eventUrl,
-            eventTime: String(row[resolvedEventTimeColumn] ?? ''),
-            sourceTime: String(row[resolvedSourceTimeColumn] ?? ''),
+            eventTime: resolvedEventTimeColumn ? String(row[resolvedEventTimeColumn] ?? '') : '',
+            sourceTime: resolvedSourceTimeColumn ? String(row[resolvedSourceTimeColumn] ?? '') : '',
             json: rowJson,
           };
         }),
@@ -566,11 +566,13 @@ export const nonAttributedReportsController = {
           const rawEventUrl = String(rowJson[storedFieldMappings.event_url] ?? '');
           const eventUrl = stripParamFromEventUrl(rawEventUrl, current.uidParamName || 'uid');
           rowJson[storedFieldMappings.event_url] = eventUrl;
+          const eventTimeKey = storedFieldMappings.event_time?.trim() || '';
+          const sourceTimeKey = storedFieldMappings.source_time?.trim() || eventTimeKey;
 
           return {
             eventUrl,
-            eventTime: String(rowJson[storedFieldMappings.event_time] ?? ''),
-            sourceTime: String(rowJson[storedFieldMappings.source_time] ?? ''),
+            eventTime: eventTimeKey ? String(rowJson[eventTimeKey] ?? '') : '',
+            sourceTime: sourceTimeKey ? String(rowJson[sourceTimeKey] ?? '') : '',
             json: rowJson,
           };
         }),

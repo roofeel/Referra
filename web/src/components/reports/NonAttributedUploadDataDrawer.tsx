@@ -20,7 +20,11 @@ type UploadDataDrawerProps = {
 };
 
 type FieldMappingState = Record<AttributionMode, Partial<AttributionLogicMapping>>;
-const REQUIRED_NON_ATTRIBUTED_FIELDS: CanonicalAttributionField[] = ['event_url', 'event_time'];
+const REQUIRED_NON_ATTRIBUTED_FIELDS: CanonicalAttributionField[] = ['event_url'];
+const NON_ATTRIBUTED_MODE_LABELS: Record<AttributionMode, string> = {
+  registration: 'Registration',
+  pageload: 'Pageload',
+};
 
 function getRequiredCanonicalFields(): CanonicalAttributionField[] {
   return REQUIRED_NON_ATTRIBUTED_FIELDS;
@@ -460,7 +464,9 @@ export function NonAttributedUploadDataDrawer({
                               className="mt-1"
                             />
                             <span>
-                              <span className="block text-sm font-bold text-slate-900">{option.label}</span>
+                              <span className="block text-sm font-bold text-slate-900">
+                                {NON_ATTRIBUTED_MODE_LABELS[option.mode]}
+                              </span>
                               <span className="text-[11px] text-slate-500">{option.description}</span>
                             </span>
                           </label>

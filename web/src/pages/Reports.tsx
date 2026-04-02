@@ -435,7 +435,7 @@ export default function Reports() {
                   </table>
                 </div>
 
-                <TablePagination summary={`Showing 1-${tasks.length} of ${tasks.length} tasks`} />
+                <TablePagination summary={`Showing 1-${tasks.length} of ${tasks.length} reports`} />
               </>
             )}
           </section>
