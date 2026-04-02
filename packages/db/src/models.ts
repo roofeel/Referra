@@ -147,6 +147,27 @@ export interface Report {
   updatedAt: Date;
 }
 
+export interface NonAttributedReport {
+  id: string;
+  clientId?: string | null;
+  client?: Pick<Client, "id" | "name"> | null;
+  attributedReportId: string;
+  attributedReport?: Pick<Report, "id" | "taskName"> | null;
+  taskName: string;
+  ruleId: string;
+  source: string;
+  sourceIcon: string;
+  status: string;
+  progress: number;
+  progressLabel: string;
+  attribution: string;
+  reportType: string;
+  uidParamName: string;
+  fieldMappings: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface ReferrerRaw {
   id: string;
   reportId: string;
@@ -156,9 +177,26 @@ export interface ReferrerRaw {
   json: unknown;
 }
 
+export interface NonAttributedRaw {
+  id: string;
+  nonAttributedReportId: string;
+  referrerType: string;
+  referrerDesc: string;
+  duration: number;
+  json: unknown;
+}
+
 export interface Log {
   id: string;
   reportId: string;
+  level: string;
+  message: string;
+  createdAt: Date;
+}
+
+export interface NonAttributedLog {
+  id: string;
+  nonAttributedReportId: string;
   level: string;
   message: string;
   createdAt: Date;
@@ -499,6 +537,149 @@ export const reports = {
   },
 };
 
+export const nonAttributedReports = {
+  async create(data: {
+    clientId?: string;
+    attributedReportId: string;
+    taskName: string;
+    ruleId: string;
+    source?: string;
+    sourceIcon?: string;
+    status?: string;
+    progress?: number;
+    progressLabel?: string;
+    attribution?: string;
+    reportType?: string;
+    uidParamName?: string;
+    fieldMappings: unknown;
+  }) {
+    return await (db as any).nonAttributedReport.create({
+      data: {
+        clientId: data.clientId || null,
+        attributedReportId: data.attributedReportId,
+        taskName: data.taskName,
+        ruleId: data.ruleId,
+        source: data.source || "CSV Import",
+        sourceIcon: data.sourceIcon || "description",
+        status: data.status || "Running",
+        progress: data.progress ?? 0,
+        progressLabel: data.progressLabel || "0% Processed",
+        attribution: data.attribution || "--",
+        reportType: data.reportType || "registration",
+        uidParamName: data.uidParamName || "uid",
+        fieldMappings: data.fieldMappings,
+      },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+        attributedReport: {
+          select: { id: true, taskName: true },
+        },
+      },
+    });
+  },
+
+  async findById(id: string) {
+    return await (db as any).nonAttributedReport.findUnique({
+      where: { id },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+        attributedReport: {
+          select: { id: true, taskName: true },
+        },
+      },
+    });
+  },
+
+  async list(options?: { status?: string; client?: string; search?: string }) {
+    const where: any = {};
+    if (options?.status) {
+      where.status = options.status;
+    }
+    if (options?.client) {
+      where.client = {
+        is: {
+          name: {
+            equals: options.client,
+            mode: "insensitive",
+          },
+        },
+      };
+    }
+    if (options?.search) {
+      const searchFilter = [
+        { taskName: { contains: options.search, mode: "insensitive" } },
+        { ruleId: { contains: options.search, mode: "insensitive" } },
+        { id: { contains: options.search, mode: "insensitive" } },
+        { client: { is: { name: { contains: options.search, mode: "insensitive" } } } },
+        { attributedReport: { is: { taskName: { contains: options.search, mode: "insensitive" } } } },
+      ];
+
+      if (where.client) {
+        where.AND = [{ client: where.client }, { OR: searchFilter }];
+        delete where.client;
+      } else {
+        where.OR = searchFilter;
+      }
+    }
+
+    return await (db as any).nonAttributedReport.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+        attributedReport: {
+          select: { id: true, taskName: true },
+        },
+      },
+    });
+  },
+
+  async listUpdatedAfter(since: Date) {
+    return await (db as any).nonAttributedReport.findMany({
+      where: {
+        updatedAt: {
+          gte: since,
+        },
+      },
+      select: { id: true },
+    });
+  },
+
+  async update(id: string, data: Partial<NonAttributedReport>) {
+    const updateData: any = { ...data };
+    delete updateData.id;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+    delete updateData.client;
+    delete updateData.attributedReport;
+
+    return await (db as any).nonAttributedReport.update({
+      where: { id },
+      data: updateData,
+      include: {
+        client: {
+          select: { id: true, name: true },
+        },
+        attributedReport: {
+          select: { id: true, taskName: true },
+        },
+      },
+    });
+  },
+
+  async delete(id: string) {
+    await (db as any).nonAttributedReport.delete({
+      where: { id },
+    });
+  },
+};
+
 export const referrerRaws = {
   async createMany(data: Array<{
     reportId: string;
@@ -590,6 +771,75 @@ export const referrerRaws = {
   },
 };
 
+export const nonAttributedRaws = {
+  async createMany(data: Array<{
+    nonAttributedReportId: string;
+    referrerType: string;
+    referrerDesc: string;
+    duration: number;
+    json: unknown;
+  }>) {
+    if (data.length === 0) {
+      return { count: 0 };
+    }
+
+    return await (db as any).nonAttributedRaw.createMany({
+      data: data.map((item) => ({
+        nonAttributedReportId: item.nonAttributedReportId,
+        referrerType: item.referrerType,
+        referrerDesc: item.referrerDesc,
+        duration: item.duration,
+        json: item.json,
+      })),
+    });
+  },
+
+  async replaceByReport(
+    nonAttributedReportId: string,
+    data: Array<{
+      referrerType: string;
+      referrerDesc: string;
+      duration: number;
+      json: unknown;
+    }>,
+  ) {
+    return await (db as any).$transaction(async (tx: any) => {
+      await tx.nonAttributedRaw.deleteMany({
+        where: { nonAttributedReportId },
+      });
+
+      if (data.length === 0) {
+        return { count: 0 };
+      }
+
+      return await tx.nonAttributedRaw.createMany({
+        data: data.map((item) => ({
+          nonAttributedReportId,
+          referrerType: item.referrerType,
+          referrerDesc: item.referrerDesc,
+          duration: item.duration,
+          json: item.json,
+        })),
+      });
+    });
+  },
+
+  async listByReport(
+    nonAttributedReportId: string,
+    options?: {
+      skip?: number;
+      take?: number;
+    },
+  ) {
+    return await (db as any).nonAttributedRaw.findMany({
+      where: { nonAttributedReportId },
+      orderBy: { id: "asc" },
+      skip: options?.skip,
+      take: options?.take,
+    });
+  },
+};
+
 export const logs = {
   async createMany(
     data: Array<{
@@ -614,6 +864,35 @@ export const logs = {
   async listByReport(reportId: string) {
     return await (db as any).log.findMany({
       where: { reportId },
+      orderBy: { createdAt: "asc" },
+    });
+  },
+};
+
+export const nonAttributedLogs = {
+  async createMany(
+    data: Array<{
+      nonAttributedReportId: string;
+      level: string;
+      message: string;
+    }>,
+  ) {
+    if (data.length === 0) {
+      return { count: 0 };
+    }
+
+    return await (db as any).nonAttributedLog.createMany({
+      data: data.map((item) => ({
+        nonAttributedReportId: item.nonAttributedReportId,
+        level: item.level,
+        message: item.message,
+      })),
+    });
+  },
+
+  async listByReport(nonAttributedReportId: string) {
+    return await (db as any).nonAttributedLog.findMany({
+      where: { nonAttributedReportId },
       orderBy: { createdAt: "asc" },
     });
   },

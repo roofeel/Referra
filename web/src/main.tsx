@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import UrlRules from './pages/UrlRules'
 import UrlCreateRule from './pages/UrlCreateRule'
 import Reports from './pages/Reports'
+import NonAttributedReports from './pages/NonAttributedReports'
 import ReportsDetail from './pages/ReportsDetail'
 import { AuthProvider } from './auth/AuthContext'
 import RequireAuth from './components/RequireAuth'
@@ -24,6 +25,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/url-rules" element={<UrlRules />} />
               <Route path="/url-rules/create" element={<UrlCreateRule />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/non-attributed-reports" element={<NonAttributedReports />} />
               <Route path="/reports/:reportId" element={<ReportsDetail />} />
             </Route>
           </Routes>

@@ -111,7 +111,7 @@ describe('Reports', () => {
     fireEvent.click(uploadButton);
 
     expect(screen.getByRole('heading', { name: 'Upload Data' })).toBeInTheDocument();
-    expect(screen.getByText('Task Information')).toBeInTheDocument();
+    expect(screen.getByText('Report Information')).toBeInTheDocument();
     expect(screen.getByText('Data Source')).toBeInTheDocument();
   });
 

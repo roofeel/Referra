@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useOptionalAuth } from '../../auth/AuthContext';
 
-type SidebarItemKey = 'dashboard' | 'url-rules' | 'reports';
+type SidebarItemKey = 'dashboard' | 'url-rules' | 'reports' | 'non-attributed-reports';
 
 type SidebarItem = {
   key: SidebarItemKey;
@@ -13,6 +13,7 @@ type SidebarItem = {
 const sidebarItems: SidebarItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', to: '/dashboard' },
   { key: 'reports', label: 'Category Attributed', icon: 'analytics', to: '/reports' },
+  { key: 'non-attributed-reports', label: 'Category NonAttributed', icon: 'dataset', to: '/non-attributed-reports' },
   { key: 'url-rules', label: 'Url Rules', icon: 'terminal', to: '/url-rules' },
 ];
 

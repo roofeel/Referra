@@ -77,6 +77,8 @@ export type CreateReportTaskPayload = {
   fileName: string;
   fileContent: string;
   ruleId: string;
+  attributedReportId?: string;
+  uidParamName?: string;
 };
 
 export const reportsApi = {

@@ -15,8 +15,10 @@ type UploadDataDrawerProps = {
   isOpen: boolean;
   clients: string[];
   rules: Array<{ id: string; name: string }>;
+  attributedReports?: Array<{ id: string; taskName: string; clientName?: string }>;
+  mode?: 'attributed' | 'non-attributed';
   onClose: () => void;
-  onSubmit: (payload: CreateReportTaskPayload) => Promise<void>;
+  onSubmit: (payload: CreateReportTaskPayload & { attributedReportId?: string; uidParamName?: string }) => Promise<void>;
 };
 
 type FieldMappingState = Record<AttributionMode, Partial<AttributionLogicMapping>>;
@@ -120,7 +122,15 @@ function autoMatchRequiredFields(
   return next;
 }
 
-export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: UploadDataDrawerProps) {
+export function UploadDataDrawer({
+  isOpen,
+  clients,
+  rules,
+  attributedReports = [],
+  mode = 'attributed',
+  onClose,
+  onSubmit,
+}: UploadDataDrawerProps) {
   const taskNameId = useId();
   const clientId = useId();
   const versionId = useId();
@@ -128,6 +138,8 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
   const [taskName, setTaskName] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
   const [selectedRuleId, setSelectedRuleId] = useState('');
+  const [selectedAttributedReportId, setSelectedAttributedReportId] = useState('');
+  const [uidParamName, setUidParamName] = useState('uid');
   const [attributionLogic, setAttributionLogic] = useState<AttributionMode>('registration');
   const [selectedFileName, setSelectedFileName] = useState('');
   const [selectedFileContent, setSelectedFileContent] = useState('');
@@ -167,6 +179,19 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
       return rules[0]?.id || '';
     });
   }, [isOpen, rules]);
+
+  useEffect(() => {
+    if (!isOpen || mode !== 'non-attributed') {
+      return;
+    }
+
+    setSelectedAttributedReportId((prev) => {
+      if (prev && attributedReports.some((report) => report.id === prev)) {
+        return prev;
+      }
+      return attributedReports[0]?.id || '';
+    });
+  }, [attributedReports, isOpen, mode]);
 
   useEffect(() => {
     setFieldMappings((prev) => ({
@@ -251,6 +276,10 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
         fileContent: selectedFileContent,
         ruleId: selectedRuleId,
       };
+      if (mode === 'non-attributed') {
+        payload.attributedReportId = selectedAttributedReportId;
+        payload.uidParamName = uidParamName.trim();
+      }
 
       await onSubmit(payload);
     } catch (error) {
@@ -269,6 +298,8 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
     Boolean(selectedClient) &&
     Boolean(taskName.trim()) &&
     Boolean(selectedRuleId) &&
+    (mode === 'attributed' || Boolean(selectedAttributedReportId)) &&
+    (mode === 'attributed' || Boolean(uidParamName.trim())) &&
     Boolean(selectedFileName) &&
     Boolean(selectedFileContent) &&
     mappingRows.every((field) => Boolean(currentMappings[field.canonical]));
@@ -318,7 +349,7 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
                     <span className="flex h-7 w-7 items-center justify-center rounded bg-slate-900 text-xs font-bold text-white">
                       01
                     </span>
-                    <h3 className="text-base font-extrabold tracking-tight text-slate-900">Task Information</h3>
+                    <h3 className="text-base font-extrabold tracking-tight text-slate-900">Report Information</h3>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -378,6 +409,44 @@ export function UploadDataDrawer({ isOpen, clients, rules, onClose, onSubmit }: 
                         )}
                       </select>
                     </label>
+
+                    {mode === 'non-attributed' ? (
+                      <>
+                        <label
+                          className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:col-span-2"
+                        >
+                          Attributed Report
+                          <select
+                            value={selectedAttributedReportId}
+                            onChange={(event) => setSelectedAttributedReportId(event.target.value)}
+                            disabled={attributedReports.length === 0}
+                            className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                          >
+                            {attributedReports.length === 0 ? (
+                              <option value="">No attributed reports available</option>
+                            ) : (
+                              attributedReports.map((report) => (
+                                <option key={report.id} value={report.id}>
+                                  {report.taskName}
+                                  {report.clientName ? ` (${report.clientName})` : ''}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </label>
+
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:col-span-2">
+                          UID Param Name In Event URL
+                          <input
+                            type="text"
+                            value={uidParamName}
+                            onChange={(event) => setUidParamName(event.target.value)}
+                            placeholder="e.g. uid"
+                            className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                        </label>
+                      </>
+                    ) : null}
 
                     <div className="space-y-2 sm:col-span-2">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Attribution Logic</p>
