@@ -81,7 +81,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             key={toast.id}
             className={`toast-message toast-message--${toast.type}${toast.closing ? ' toast-message--closing' : ''}`}
-            role="status"
+            role={toast.type === 'error' ? 'alert' : 'status'}
           >
             <span className="toast-message__icon" aria-hidden="true">
               {toast.type === 'success' ? '✓' : '!'}

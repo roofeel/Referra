@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useOptionalAuth } from '../auth/AuthContext';
+import { AthenaTableFormDrawer, type AthenaTableFormValues } from '../components/athena_tables/AthenaTableFormDrawer';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
+import { replaceDateTokens } from '../lib/dateTokens';
 import type { AthenaTable } from '../service/athenaTables';
 
 const allTableTypes = '__all_table_types__';
@@ -29,37 +31,11 @@ function formatUpdatedText(iso: string, updatedBy?: string | null) {
   return `${relative} by ${updatedBy || 'System'}`;
 }
 
-const emptyForm = {
+const emptyForm: AthenaTableFormValues = {
   tableType: '',
   tableNamePattern: '',
   ddl: '',
 };
-
-function buildTableNameExample(pattern: string) {
-  const normalized = pattern.trim();
-  if (!normalized) return '';
-
-  const now = new Date();
-  const yyyy = String(now.getFullYear());
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  const yyyyMMdd = `${yyyy}${mm}${dd}`;
-  const yyyy_MM_dd = `${yyyy}-${mm}-${dd}`;
-
-  const replacements: Array<[RegExp, string]> = [
-    [/\{yyyyMMdd\}|\$\{yyyyMMdd\}|\byyyyMMdd\b|\bYYYYMMDD\b/g, yyyyMMdd],
-    [/\{yyyy-MM-dd\}|\$\{yyyy-MM-dd\}|\byyyy-MM-dd\b|\bYYYY-MM-DD\b/g, yyyy_MM_dd],
-    [/\{yyyy\}|\$\{yyyy\}|\byyyy\b|\bYYYY\b/g, yyyy],
-    [/\{MM\}|\$\{MM\}|\bMM\b/g, mm],
-    [/\{dd\}|\$\{dd\}|\bdd\b/g, dd],
-  ];
-
-  let output = normalized;
-  for (const [patternRegex, value] of replacements) {
-    output = output.replace(patternRegex, value);
-  }
-  return output;
-}
 
 export default function AthenaTables() {
   const auth = useOptionalAuth();
@@ -126,7 +102,19 @@ export default function AthenaTables() {
     });
   }, [items, search, tableTypeFilter]);
 
-  const tableNameExample = useMemo(() => buildTableNameExample(form.tableNamePattern), [form.tableNamePattern]);
+
+
+  const tableNameExample = useMemo(() => {
+    return replaceDateTokens(form.tableNamePattern);
+  }, [form.tableNamePattern, replaceDateTokens]);
+
+  const tableNameExamplesById = useMemo(
+    () =>
+      Object.fromEntries(
+        filteredItems.map((item) => [item.id, replaceDateTokens(item.tableNamePattern)]),
+      ),
+    [filteredItems, replaceDateTokens],
+  );
   const hasActiveFilters = search.trim().length > 0 || tableTypeFilter !== allTableTypes;
   const start = filteredItems.length > 0 ? 1 : 0;
   const end = filteredItems.length;
@@ -331,7 +319,7 @@ export default function AthenaTables() {
                           <td className="px-6 py-4 text-sm font-semibold text-slate-800">{item.tableType}</td>
                           <td className="px-6 py-4 font-mono text-xs text-slate-700">{item.tableNamePattern}</td>
                           <td className="px-6 py-4 font-mono text-xs text-slate-700">
-                            {buildTableNameExample(item.tableNamePattern)}
+                            {tableNameExamplesById[item.id] || ''}
                           </td>
                           <td className="px-6 py-4 text-xs text-slate-500">
                             {formatUpdatedText(item.updatedAt, item.updatedBy)}
@@ -373,111 +361,16 @@ export default function AthenaTables() {
         </div>
       </main>
 
-      {isFormOpen ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close Athena table drawer backdrop"
-            onClick={closeFormDrawer}
-            className="fixed inset-0 z-[58] bg-slate-950/20"
-          />
-          <div className="fixed inset-y-0 right-0 z-[60] flex w-full max-w-[680px] flex-col border-l border-slate-200 bg-white shadow-[-10px_0_30px_-5px_rgba(0,0,0,0.1)]">
-            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 p-6">
-              <div>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-widest text-blue-700">Athena Tables</span>
-                  <span className={`h-1.5 w-1.5 rounded-full ${isEditing ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                </div>
-                <h2 className="text-xl font-extrabold tracking-tight text-slate-900">
-                  {isEditing ? 'Edit Athena Table' : 'New Athena Table'}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={closeFormDrawer}
-                aria-label="Close Athena table drawer"
-                className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-slate-200"
-              >
-                <span className="material-symbols-outlined text-slate-500">close</span>
-              </button>
-            </div>
-
-            <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSave}>
-              <div className="flex-1 space-y-6 overflow-y-auto p-6">
-                <div className="rounded-lg border border-slate-200 bg-slate-100 p-4">
-                  <div className="grid grid-cols-1 gap-4">
-                    <label className="space-y-1.5 text-sm text-slate-700">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Table Type</span>
-                      <input
-                        value={form.tableType}
-                        onChange={(event) => setForm((prev) => ({ ...prev, tableType: event.target.value }))}
-                        placeholder="e.g. user_events"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-blue-700"
-                      />
-                    </label>
-
-                    <label className="space-y-1.5 text-sm text-slate-700">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        Table Name Pattern
-                      </span>
-                      <input
-                        value={form.tableNamePattern}
-                        onChange={(event) => setForm((prev) => ({ ...prev, tableNamePattern: event.target.value }))}
-                        placeholder="e.g. user_events_{yyyyMMdd}"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-blue-700"
-                      />
-                      {tableNameExample ? (
-                        <p className="text-xs text-slate-500">
-                          Example table name: <span className="font-mono text-slate-700">{tableNameExample}</span>
-                        </p>
-                      ) : (
-                        <p className="text-xs text-slate-400">Input a pattern to preview generated table name.</p>
-                      )}
-                    </label>
-                  </div>
-                </div>
-
-                <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
-                  <div className="flex items-center gap-2 border-b border-slate-700 bg-slate-800/50 px-4 py-2">
-                    <span className="material-symbols-outlined text-sm text-amber-400">table_chart</span>
-                    <span className="font-mono text-[10px] text-slate-400">ddl.sql</span>
-                  </div>
-                  <div className="p-4">
-                    <label className="block space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">DDL</span>
-                      <textarea
-                        value={form.ddl}
-                        onChange={(event) => setForm((prev) => ({ ...prev, ddl: event.target.value }))}
-                        placeholder="CREATE EXTERNAL TABLE ..."
-                        rows={14}
-                        className="w-full resize-y rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-200 outline-none transition-colors focus:border-blue-500"
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 border-t border-slate-100 bg-white p-6">
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex w-full items-center justify-center gap-2 rounded bg-blue-700 py-3 text-sm font-bold text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <span className="material-symbols-outlined text-lg">save</span>
-                  {isSaving ? 'Saving...' : isEditing ? 'Update Athena Table' : 'Create Athena Table'}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeFormDrawer}
-                  className="w-full rounded border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </>
-      ) : null}
+      <AthenaTableFormDrawer
+        isOpen={isFormOpen}
+        isEditing={isEditing}
+        isSaving={isSaving}
+        form={form}
+        tableNameExample={tableNameExample}
+        onClose={closeFormDrawer}
+        onSubmit={handleSave}
+        onFormChange={setForm}
+      />
     </div>
   );
 }
