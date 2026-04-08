@@ -1,20 +1,24 @@
 import { Link } from 'react-router-dom';
 import { useOptionalAuth } from '../../auth/AuthContext';
 
-type SidebarItemKey = 'dashboard' | 'url-rules' | 'reports' | 'non-attributed-reports';
+type SidebarItemKey = 'dashboard' | 'url-rules' | 'reports' | 'non-attributed-reports' | 'athena-tables';
 
 type SidebarItem = {
   key: SidebarItemKey;
   label: string;
   icon: string;
-  to?: string;
+  to: string;
 };
 
-const sidebarItems: SidebarItem[] = [
+const primarySidebarItems: SidebarItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', to: '/dashboard' },
   { key: 'reports', label: 'Category Attributed', icon: 'analytics', to: '/reports' },
   { key: 'non-attributed-reports', label: 'Category NonAttributed', icon: 'dataset', to: '/non-attributed-reports' },
+];
+
+const settingSidebarItems: SidebarItem[] = [
   { key: 'url-rules', label: 'Url Rules', icon: 'terminal', to: '/url-rules' },
+  { key: 'athena-tables', label: 'Athena Tables', icon: 'table_chart', to: '/athena-tables' },
 ];
 
 type AppSidebarProps = {
@@ -42,36 +46,14 @@ export function AppSidebar({ activeItem, ariaLabel }: AppSidebarProps) {
       </div>
 
       <nav className="flex-1 space-y-1" aria-label={ariaLabel}>
-        {sidebarItems.map((item) => {
+        {primarySidebarItems.map((item) => {
           const isActive = item.key === activeItem;
 
-          if (item.to) {
-            return (
-              <Link
-                key={item.key}
-                to={item.to}
-                className={`flex items-center gap-3 px-6 py-3 transition-all ${
-                  isActive
-                    ? 'border-r-2 border-blue-500 bg-blue-700/20 text-white'
-                    : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                }`}
-              >
-                <span
-                  className={`material-symbols-outlined ${isActive ? 'text-blue-400' : ''}`}
-                  style={isActive ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                >
-                  {item.icon}
-                </span>
-                <span className="text-sm leading-relaxed">{item.label}</span>
-              </Link>
-            );
-          }
-
           return (
-            <button
+            <Link
               key={item.key}
-              type="button"
-              className={`flex w-full items-center gap-3 px-6 py-3 text-left transition-all ${
+              to={item.to}
+              className={`flex items-center gap-3 px-6 py-3 transition-all ${
                 isActive
                   ? 'border-r-2 border-blue-500 bg-blue-700/20 text-white'
                   : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
@@ -84,9 +66,38 @@ export function AppSidebar({ activeItem, ariaLabel }: AppSidebarProps) {
                 {item.icon}
               </span>
               <span className="text-sm leading-relaxed">{item.label}</span>
-            </button>
+            </Link>
           );
         })}
+
+        <div className="pt-2">
+          <p className="px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">Settings</p>
+          <div className="mt-1 space-y-1">
+            {settingSidebarItems.map((item) => {
+              const isActive = item.key === activeItem;
+
+              return (
+                <Link
+                  key={item.key}
+                  to={item.to}
+                  className={`flex items-center gap-3 py-2 pl-12 pr-6 transition-all ${
+                    isActive
+                      ? 'border-r-2 border-blue-500 bg-blue-700/20 text-white'
+                      : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                  }`}
+                >
+                  <span
+                    className={`material-symbols-outlined text-[18px] ${isActive ? 'text-blue-400' : ''}`}
+                    style={isActive ? { fontVariationSettings: "'FILL' 1" } : undefined}
+                  >
+                    {item.icon}
+                  </span>
+                  <span className="text-sm leading-relaxed">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </nav>
 
       <div className="mt-4 border-t border-slate-700/70 px-4 pt-4">

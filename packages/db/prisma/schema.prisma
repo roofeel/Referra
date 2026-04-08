@@ -49,6 +49,19 @@ model UrlRule {
   @@index([clientId])
 }
 
+model AthenaTable {
+  id               String   @id @default(cuid())
+  tableType        String
+  tableNamePattern String
+  ddl              String
+  updatedBy        String?  @default("System")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tableType])
+  @@index([updatedAt])
+}
+
 model Report {
   id                String   @id @default(cuid())
   clientId          String?

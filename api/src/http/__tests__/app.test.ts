@@ -34,6 +34,13 @@ function makeHandler(action: string) {
 }
 
 const mockedControllers = {
+  athenaTablesController: {
+    list: makeHandler("athenaTables.list"),
+    create: makeHandler("athenaTables.create"),
+    getById: makeHandler("athenaTables.getById"),
+    update: makeHandler("athenaTables.update"),
+    delete: makeHandler("athenaTables.delete"),
+  },
   healthController: {
     check: makeHandler("health.check"),
   },
@@ -111,6 +118,26 @@ type RouteCase = {
 
 const routeCases: RouteCase[] = [
   { method: "GET", path: "/api/health", action: "health.check" },
+  { method: "GET", path: "/api/athena-tables", action: "athenaTables.list" },
+  {
+    method: "POST",
+    path: "/api/athena-tables",
+    action: "athenaTables.create",
+    body: {
+      tableType: "events",
+      tableNamePattern: "events_{yyyyMMdd}",
+      ddl: "CREATE TABLE events ...",
+    },
+  },
+  { method: "GET", path: "/api/athena-tables/tb1", action: "athenaTables.getById", params: { id: "tb1" } },
+  {
+    method: "PUT",
+    path: "/api/athena-tables/tb1",
+    action: "athenaTables.update",
+    params: { id: "tb1" },
+    body: { tableType: "events_v2" },
+  },
+  { method: "DELETE", path: "/api/athena-tables/tb1", action: "athenaTables.delete", params: { id: "tb1" } },
   { method: "GET", path: "/api/users", action: "users.list" },
   { method: "POST", path: "/api/users", action: "users.create", body: { email: "x@y.com" } },
   { method: "POST", path: "/api/users/login", action: "users.login", body: { email: "x@y.com" } },

@@ -13,10 +13,11 @@ describe('AppSidebar', () => {
 
     const nav = screen.getByRole('navigation', { name: 'Main Navigation' });
     expect(nav).toBeInTheDocument();
-    expect(screen.getByText('Referrer AI')).toBeInTheDocument();
+    expect(screen.getByText('Referra')).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
-    expect(within(nav).getByRole('link', { name: /Reports/i })).toHaveAttribute('href', '/reports');
+    expect(within(nav).getByRole('link', { name: /Category Attributed/i })).toHaveAttribute('href', '/reports');
+    expect(within(nav).getByRole('link', { name: /Athena Tables/i })).toHaveAttribute('href', '/athena-tables');
     expect(screen.getByText('Guest User')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Logout/i })).toBeDisabled();
   });

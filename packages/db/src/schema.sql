@@ -192,3 +192,18 @@ CREATE INDEX IF NOT EXISTS "idx_url_rule_status" ON "UrlRule"("status");
 CREATE INDEX IF NOT EXISTS "idx_url_rule_updated_at" ON "UrlRule"("updatedAt");
 CREATE INDEX IF NOT EXISTS "idx_url_rule_name" ON "UrlRule"("name");
 CREATE INDEX IF NOT EXISTS "idx_url_rule_client_id" ON "UrlRule"("clientId");
+
+-- AthenaTable table
+CREATE TABLE IF NOT EXISTS "AthenaTable" (
+  "id" TEXT PRIMARY KEY,
+  "tableType" TEXT NOT NULL,
+  "tableNamePattern" TEXT NOT NULL,
+  "ddl" TEXT NOT NULL,
+  "updatedBy" TEXT DEFAULT 'System',
+  "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- AthenaTable indexes
+CREATE INDEX IF NOT EXISTS "idx_athena_table_table_type" ON "AthenaTable"("tableType");
+CREATE INDEX IF NOT EXISTS "idx_athena_table_updated_at" ON "AthenaTable"("updatedAt");

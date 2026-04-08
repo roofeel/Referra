@@ -129,6 +129,16 @@ export interface UrlRule {
   updatedAt: Date;
 }
 
+export interface AthenaTable {
+  id: string;
+  tableType: string;
+  tableNamePattern: string;
+  ddl: string;
+  updatedBy?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Report {
   id: string;
   clientId?: string | null;
@@ -407,6 +417,69 @@ export const urlRules = {
 
   async delete(id: string) {
     await (db as any).urlRule.delete({
+      where: { id },
+    });
+  },
+};
+
+export const athenaTables = {
+  async create(data: {
+    tableType: string;
+    tableNamePattern: string;
+    ddl: string;
+    updatedBy?: string;
+  }) {
+    return await (db as any).athenaTable.create({
+      data: {
+        tableType: data.tableType.trim(),
+        tableNamePattern: data.tableNamePattern.trim(),
+        ddl: data.ddl,
+        updatedBy: data.updatedBy || "System",
+      },
+    });
+  },
+
+  async findById(id: string) {
+    return await (db as any).athenaTable.findUnique({
+      where: { id },
+    });
+  },
+
+  async list(options?: { search?: string; tableType?: string }) {
+    const where: any = {};
+    if (options?.tableType) {
+      where.tableType = {
+        contains: options.tableType,
+        mode: "insensitive",
+      };
+    }
+    if (options?.search) {
+      where.OR = [
+        { tableType: { contains: options.search, mode: "insensitive" } },
+        { tableNamePattern: { contains: options.search, mode: "insensitive" } },
+      ];
+    }
+
+    return await (db as any).athenaTable.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+    });
+  },
+
+  async update(id: string, data: Partial<AthenaTable>) {
+    const updateData: any = { ...data };
+    delete updateData.id;
+    delete updateData.createdAt;
+    delete updateData.updatedAt;
+
+    return await (db as any).athenaTable.update({
+      where: { id },
+      data: updateData,
+    });
+  },
+
+  async delete(id: string) {
+    await (db as any).athenaTable.delete({
       where: { id },
     });
   },

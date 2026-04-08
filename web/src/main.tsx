@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import UrlRules from './pages/UrlRules'
 import UrlCreateRule from './pages/UrlCreateRule'
 import Reports from './pages/Reports'
+import AthenaTables from './pages/AthenaTables'
 import NonAttributedReports from './pages/NonAttributedReports'
 import NonAttributedReportsDetail from './pages/NonAttributedReportsDetail'
 import ReportsDetail from './pages/ReportsDetail'
@@ -26,6 +27,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/url-rules" element={<UrlRules />} />
               <Route path="/url-rules/create" element={<UrlCreateRule />} />
+              <Route path="/athena-tables" element={<AthenaTables />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/non-attributed-reports" element={<NonAttributedReports />} />
               <Route path="/non-attributed-reports/:reportId" element={<NonAttributedReportsDetail />} />
