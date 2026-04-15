@@ -48,6 +48,19 @@ export type EventDetail = {
   aiResult: string;
   extractedParameters: Array<[string, string]>;
   attributionPath: Array<[string, string, string]>;
+  journey?: {
+    sourceWindow: string;
+    eventWindow: string;
+    eventUrlParam: string;
+    athenaUrlParam: string;
+    athenaUrlField: string;
+    athenaTimeField: string;
+    rows: Array<{
+      ts: string;
+      url: string;
+      idValue: string;
+    }>;
+  };
 };
 
 export function statusClasses(status: string) {

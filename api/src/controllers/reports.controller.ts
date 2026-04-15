@@ -1,4 +1,4 @@
-import { clients, logs, referrerRaws, reports, urlRules } from '../../../packages/db/index.js';
+import { athenaTables, clients, logs, referrerRaws, reports, urlRules } from '../../../packages/db/index.js';
 import {
   ATTRIBUTION_ALIAS_CONFIG,
   isAttributionMode,
@@ -47,6 +47,7 @@ type ReportsPayload = {
   };
   clients: string[];
   rules: Array<{ id: string; name: string }>;
+  athenaTables: Array<{ id: string; tableType: string; tableNamePattern: string }>;
   urlParsingVersions: string[];
   tasks: ReportTask[];
 };
@@ -75,6 +76,7 @@ function buildPayload(
   filteredTasks: ReportTask[],
   clientNames: string[],
   rules: Array<{ id: string; name: string }>,
+  athenaTableItems: Array<{ id: string; tableType: string; tableNamePattern: string }>,
   urlParsingVersions: string[],
   dataPoints24h: string,
 ): ReportsPayload {
@@ -87,8 +89,40 @@ function buildPayload(
     },
     clients: clientNames,
     rules,
+    athenaTables: athenaTableItems,
     urlParsingVersions,
     tasks: filteredTasks,
+  };
+}
+
+type JourneyConfig = {
+  athenaTableId: string;
+  athenaTableName: string;
+  eventUrlParam: string;
+  athenaUrlParam: string;
+  athenaUrlField: string;
+  athenaTimeField: string;
+};
+
+function normalizeJourneyConfig(input: unknown): Omit<JourneyConfig, 'athenaTableName'> | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return null;
+  }
+  const item = input as Record<string, unknown>;
+  const athenaTableId = typeof item.athenaTableId === 'string' ? item.athenaTableId.trim() : '';
+  const eventUrlParam = typeof item.eventUrlParam === 'string' ? item.eventUrlParam.trim() : '';
+  const athenaUrlParam = typeof item.athenaUrlParam === 'string' ? item.athenaUrlParam.trim() : '';
+  const athenaUrlField = typeof item.athenaUrlField === 'string' ? item.athenaUrlField.trim() : '';
+  const athenaTimeField = typeof item.athenaTimeField === 'string' ? item.athenaTimeField.trim() : '';
+  if (!athenaTableId || !eventUrlParam || !athenaUrlParam || !athenaUrlField || !athenaTimeField) {
+    return null;
+  }
+  return {
+    athenaTableId,
+    eventUrlParam,
+    athenaUrlParam,
+    athenaUrlField,
+    athenaTimeField,
   };
 }
 
@@ -193,11 +227,12 @@ export const reportsController = {
     let taskRows: any[] = [];
     let clientNames: string[] = [];
     let rulesPayload: Array<{ id: string; name: string }> = [];
+    let athenaTableItems: Array<{ id: string; tableType: string; tableNamePattern: string }> = [];
     let urlParsingVersions: string[] = [];
     let dataPoints24h = '0';
 
     try {
-      const [reportRowsRaw, clientRowsRaw, rulesRaw, updated24hRows] = await Promise.all([
+      const [reportRowsRaw, clientRowsRaw, rulesRaw, athenaTableRowsRaw, updated24hRows] = await Promise.all([
         reports.list({
           status,
           client: client || undefined,
@@ -207,11 +242,17 @@ export const reportsController = {
         }),
         clients.list(),
         urlRules.list(),
+        athenaTables.list(),
         reports.listUpdatedAfter(new Date(Date.now() - 24 * 60 * 60 * 1000)),
       ]);
       const reportRows = reportRowsRaw as Array<{ client?: { name?: string | null } | null }>;
       const clientRows = clientRowsRaw as Array<{ name?: string | null }>;
       const rules = rulesRaw as Array<NonNullable<UrlRuleRecord>>;
+      const athenaTableRows = athenaTableRowsRaw as Array<{
+        id: string;
+        tableType?: string | null;
+        tableNamePattern?: string | null;
+      }>;
 
       taskRows = reportRows;
       clientNames = Array.from(
@@ -233,6 +274,15 @@ export const reportsController = {
         .filter((rule) => Boolean(rule.id) && Boolean(rule.name))
         .sort((a, b) => a.name.localeCompare(b.name));
 
+      athenaTableItems = athenaTableRows
+        .map((item) => ({
+          id: item.id,
+          tableType: item.tableType?.trim() || '',
+          tableNamePattern: item.tableNamePattern?.trim() || '',
+        }))
+        .filter((item) => Boolean(item.id) && Boolean(item.tableType) && Boolean(item.tableNamePattern))
+        .sort((a, b) => `${a.tableType}/${a.tableNamePattern}`.localeCompare(`${b.tableType}/${b.tableNamePattern}`));
+
       urlParsingVersions = Array.from(
         new Set(
           rules
@@ -248,7 +298,7 @@ export const reportsController = {
     }
 
     const tasks = taskRows.map((row) => toReportTask(row));
-    return Response.json(buildPayload(tasks, clientNames, rulesPayload, urlParsingVersions, dataPoints24h));
+    return Response.json(buildPayload(tasks, clientNames, rulesPayload, athenaTableItems, urlParsingVersions, dataPoints24h));
   },
 
   async create(req: Request) {
@@ -263,6 +313,7 @@ export const reportsController = {
       fileName?: string;
       fileContent?: string;
       ruleId?: string;
+      journeyConfig?: unknown;
     };
 
     const taskName = body.taskName?.trim();
@@ -288,6 +339,22 @@ export const reportsController = {
 
     if (!body.fileContent || typeof body.fileContent !== 'string') {
       return Response.json({ error: 'fileContent is required' }, { status: 400 });
+    }
+
+    const normalizedJourneyConfig = normalizeJourneyConfig(body.journeyConfig);
+    let resolvedJourneyConfig: JourneyConfig | null = null;
+    if (body.journeyConfig !== undefined) {
+      if (!normalizedJourneyConfig) {
+        return Response.json({ error: 'journeyConfig is invalid' }, { status: 400 });
+      }
+      const targetAthenaTable = await athenaTables.findById(normalizedJourneyConfig.athenaTableId);
+      if (!targetAthenaTable) {
+        return Response.json({ error: 'journeyConfig.athenaTableId is invalid' }, { status: 400 });
+      }
+      resolvedJourneyConfig = {
+        ...normalizedJourneyConfig,
+        athenaTableName: targetAthenaTable.tableNamePattern || targetAthenaTable.tableType || targetAthenaTable.id,
+      };
     }
 
     const attributionLogic = resolveAttributionLogicFromBody(body);
@@ -336,6 +403,12 @@ export const reportsController = {
     }
 
     const existingClient = await clients.getOrCreateByName(clientName);
+    const reportFieldMappings: Record<string, unknown> = {
+      ...(body.fieldMappings || {}),
+    };
+    if (resolvedJourneyConfig) {
+      reportFieldMappings.__journeyConfig = resolvedJourneyConfig;
+    }
     const created = await reports.create({
       clientId: existingClient?.id,
       taskName,
@@ -347,7 +420,7 @@ export const reportsController = {
       progressLabel: '0% Processed',
       attribution: '--',
       reportType,
-      fieldMappings: body.fieldMappings,
+      fieldMappings: reportFieldMappings,
     });
     const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
 

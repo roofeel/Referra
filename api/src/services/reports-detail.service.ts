@@ -4,7 +4,7 @@ import {
   normalizeAttributionLogicMapping,
   type ReportType,
 } from '../config/attribution.config.js';
-import { parseTimestampToMs, parseUrl } from '../lib/reports-url.lib.js';
+import { getSearchParamIgnoreCase, parseTimestampToMs, parseUrl } from '../lib/reports-url.lib.js';
 
 type ReportRecord = Awaited<ReturnType<typeof reports.findById>>;
 type UrlRuleRecord = Awaited<ReturnType<typeof urlRules.findById>>;
@@ -43,6 +43,19 @@ type ReportDetailEventDetail = {
   aiResult: string;
   extractedParameters: Array<[string, string]>;
   attributionPath: Array<[string, string, string]>;
+  journey?: {
+    sourceWindow: string;
+    eventWindow: string;
+    eventUrlParam: string;
+    athenaUrlParam: string;
+    athenaUrlField: string;
+    athenaTimeField: string;
+    rows: Array<{
+      ts: string;
+      url: string;
+      idValue: string;
+    }>;
+  };
 };
 
 export type ReportDetailPayload = {
@@ -234,11 +247,91 @@ function inDurationWindow(durationSeconds: number, windowHours: number | null) {
   return duration >= 0 && duration <= windowHours * 60 * 60;
 }
 
+type JourneyConfig = {
+  athenaTableId: string;
+  athenaTableName: string;
+  eventUrlParam: string;
+  athenaUrlParam: string;
+  athenaUrlField: string;
+  athenaTimeField: string;
+};
+
+function normalizeJourneyConfigFromFieldMappings(fieldMappings: unknown): JourneyConfig | null {
+  if (!fieldMappings || typeof fieldMappings !== 'object' || Array.isArray(fieldMappings)) return null;
+  const record = fieldMappings as Record<string, unknown>;
+  const raw = record.__journeyConfig;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const item = raw as Record<string, unknown>;
+
+  const athenaTableId = typeof item.athenaTableId === 'string' ? item.athenaTableId.trim() : '';
+  const athenaTableName = typeof item.athenaTableName === 'string' ? item.athenaTableName.trim() : '';
+  const eventUrlParam = typeof item.eventUrlParam === 'string' ? item.eventUrlParam.trim() : '';
+  const athenaUrlParam = typeof item.athenaUrlParam === 'string' ? item.athenaUrlParam.trim() : '';
+  const athenaUrlField = typeof item.athenaUrlField === 'string' ? item.athenaUrlField.trim() : '';
+  const athenaTimeField = typeof item.athenaTimeField === 'string' ? item.athenaTimeField.trim() : '';
+  if (!athenaTableId || !eventUrlParam || !athenaUrlParam || !athenaUrlField || !athenaTimeField) return null;
+
+  return {
+    athenaTableId,
+    athenaTableName,
+    eventUrlParam,
+    athenaUrlParam,
+    athenaUrlField,
+    athenaTimeField,
+  };
+}
+
+type JourneySourceItem = {
+  idValue: string;
+  tsMs: number;
+  tsLabel: string;
+  url: string;
+};
+
+function buildJourneySourceItems(rows: ReferrerRawRecord[], journeyConfig: JourneyConfig): Map<string, JourneySourceItem[]> {
+  const grouped = new Map<string, JourneySourceItem[]>();
+  for (const row of rows) {
+    const json = asJsonRecord(row.json);
+    const urlValue =
+      getJsonValue(json, [journeyConfig.athenaUrlField, 'url', 'event_url', 'registration_url', 'page_load_url']) || '';
+    const parsedUrl = parseUrl(urlValue);
+    if (!parsedUrl) continue;
+    const idValue = getSearchParamIgnoreCase(parsedUrl, journeyConfig.athenaUrlParam).trim();
+    if (!idValue) continue;
+
+    const tsRaw = getJsonValue(json, [journeyConfig.athenaTimeField, 'event_time', 'registration_time', 'page_load_time', 'ts']);
+    const tsMs = parseTimestampToMs(tsRaw);
+    if (tsMs === null) continue;
+    const current = grouped.get(idValue) || [];
+    current.push({
+      idValue,
+      tsMs,
+      tsLabel: formatTimestampFromMs(tsMs),
+      url: parsedUrl.toString(),
+    });
+    grouped.set(idValue, current);
+  }
+
+  grouped.forEach((items, key) => {
+    items.sort((a, b) => a.tsMs - b.tsMs);
+    grouped.set(key, items);
+  });
+
+  return grouped;
+}
+
 function buildDetailPayload(
   report: NonNullable<ReportRecord>,
   rule: UrlRuleRecord,
   rawRows: ReferrerRawRecord[],
-  options: { page: number; pageSize: number; totalRows: number; referrerTypeCounts: Array<{ referrerType: string; count: number }> },
+  options: {
+    page: number;
+    pageSize: number;
+    totalRows: number;
+    referrerTypeCounts: Array<{ referrerType: string; count: number }>;
+    journeyConfig?: JourneyConfig | null;
+    journeySourceRows?: ReferrerRawRecord[];
+  },
 ): ReportDetailPayload {
   const totalRows = options.totalRows;
   const referrerTypeStats = options.referrerTypeCounts
@@ -289,6 +382,10 @@ function buildDetailPayload(
     };
   });
 
+  const journeySourceMap =
+    options.journeyConfig && (options.journeySourceRows || []).length > 0
+      ? buildJourneySourceItems(options.journeySourceRows || [], options.journeyConfig)
+      : null;
   const eventDetails: Record<string, ReportDetailEventDetail> = {};
   rawRows.forEach((item) => {
     const json = asJsonRecord(item.json);
@@ -297,7 +394,7 @@ function buildDetailPayload(
     const sourceTime = getJsonValue(json, ['source_time', 'impression_time']);
     const eventTime = getJsonValue(json, ['event_time', 'registration_time', 'page_load_time', 'timestamp', 'ts']);
     const params = parseQueryParams(urlValue);
-    eventDetails[item.id] = {
+    const detailItem: ReportDetailEventDetail = {
       url: urlValue,
       ruleName: rule?.name?.trim() || 'N/A',
       confidenceScore: `${(isMatchedRow(item) ? 95 : 60).toFixed(1)}%`,
@@ -309,6 +406,34 @@ function buildDetailPayload(
         ['Classification', `${item.referrerType || 'unknown'} • ${isMatchedRow(item) ? 'Matched' : 'Unmatched'}`, 'bg-blue-700'],
       ],
     };
+
+    if (options.journeyConfig && journeySourceMap) {
+      const parsedEventUrl = parseUrl(urlValue);
+      const eventIdValue = parsedEventUrl ? getSearchParamIgnoreCase(parsedEventUrl, options.journeyConfig.eventUrlParam).trim() : '';
+      const sourceMs = parseTimestampToMs(sourceTime);
+      const eventMs = parseTimestampToMs(eventTime);
+      if (eventIdValue) {
+        const candidates = (journeySourceMap.get(eventIdValue) || []).filter((journeyItem) => {
+          if (sourceMs !== null && journeyItem.tsMs < sourceMs) return false;
+          if (eventMs !== null && journeyItem.tsMs > eventMs) return false;
+          return true;
+        });
+        detailItem.journey = {
+          sourceWindow: sourceTime || '--',
+          eventWindow: eventTime || '--',
+          eventUrlParam: options.journeyConfig.eventUrlParam,
+          athenaUrlParam: options.journeyConfig.athenaUrlParam,
+          athenaUrlField: options.journeyConfig.athenaUrlField,
+          athenaTimeField: options.journeyConfig.athenaTimeField,
+          rows: candidates.slice(0, 200).map((journeyItem) => ({
+            ts: journeyItem.tsLabel,
+            url: journeyItem.url,
+            idValue: journeyItem.idValue,
+          })),
+        };
+      }
+    }
+    eventDetails[item.id] = detailItem;
   });
 
   const topTypes = referrerTypeStats.slice(0, 4);
@@ -370,6 +495,7 @@ export async function getReportDetailPayload(
     windowHours?: number;
   },
 ) {
+  const journeyConfig = normalizeJourneyConfigFromFieldMappings(report.fieldMappings);
   const attributionLogic = normalizeAttributionLogicMapping(report.fieldMappings);
   const eventTimeCandidates = withPrimaryCandidate(attributionLogic?.event_time || null, [
     'event_time',
@@ -415,14 +541,17 @@ export async function getReportDetailPayload(
       pageSize: options.pageSize,
       totalRows,
       referrerTypeCounts,
+      journeyConfig,
+      journeySourceRows: filteredRows,
     });
   }
 
   const skip = (options.page - 1) * options.pageSize;
-  const [totalRows, rawRows, groupedByTypeRaw] = await Promise.all([
+  const [totalRows, rawRows, groupedByTypeRaw, journeyRowsRaw] = await Promise.all([
     referrerRaws.countByReport(report.id),
     referrerRaws.listByReport(report.id, { skip, take: options.pageSize }),
     referrerRaws.countByReportGroupedType(report.id),
+    journeyConfig ? referrerRaws.listByReport(report.id) : Promise.resolve([]),
   ]);
   const groupedByType = (groupedByTypeRaw as Array<{ referrerType: string; _count?: { _all?: number } }>).map(
     (item) => ({
@@ -436,5 +565,7 @@ export async function getReportDetailPayload(
     pageSize: options.pageSize,
     totalRows: Number(totalRows) || 0,
     referrerTypeCounts: groupedByType,
+    journeyConfig,
+    journeySourceRows: journeyRowsRaw as ReferrerRawRecord[],
   });
 }
