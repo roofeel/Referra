@@ -54,11 +54,6 @@ export const ATTRIBUTION_MODE_OPTIONS: Array<{ mode: AttributionMode; label: str
     label: ATTRIBUTION_MODE_META.registration.label,
     description: ATTRIBUTION_MODE_META.registration.description,
   },
-  {
-    mode: 'pageload',
-    label: ATTRIBUTION_MODE_META.pageload.label,
-    description: ATTRIBUTION_MODE_META.pageload.description,
-  },
 ];
 
 export function getReportTypeLabel(reportType: ReportType) {

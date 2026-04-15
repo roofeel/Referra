@@ -503,7 +503,7 @@ export function AttributedUploadDataDrawer({
                         Enable Athena table matching for journey detail
                       </span>
                       <span className="text-[11px] text-slate-500">
-                        使用 event_url 参数和 Athena URL 参数进行匹配，并按 source_time 到 event_time 过滤时间窗口。
+                        Match using the event_url parameter and Athena URL parameters, and filter the time window from source_time to event_time.
                       </span>
                     </span>
                   </label>

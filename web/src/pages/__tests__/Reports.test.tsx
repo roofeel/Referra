@@ -115,7 +115,7 @@ describe('Reports', () => {
     expect(screen.getByText('Data Source')).toBeInTheDocument();
   });
 
-  it('switches required mapping fields by attribution logic and auto-matches CSV headers', async () => {
+  it('shows registration mapping fields and auto-matches CSV headers', async () => {
     mockReportsList.mockResolvedValueOnce({
       metrics: {
         totalTasks: 0,
@@ -139,12 +139,6 @@ describe('Reports', () => {
 
     expect(screen.getByText('registration_url')).toBeInTheDocument();
     expect(screen.queryByText('page_load_url')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Impression → Earliest Pageload'));
-    expect(screen.getByText('page_load_url')).toBeInTheDocument();
-    expect(screen.queryByText('registration_url')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('Impression → Registration'));
     const csvFile = new File(
       ['impression_url,registration_url,impression_time,other_column\n/a,/b,2026-03-24,1'],
       'report.csv',
