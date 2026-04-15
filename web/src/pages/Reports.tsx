@@ -517,7 +517,6 @@ export default function Reports() {
           isOpen={isUploadDrawerOpen}
           clients={payload?.clients || []}
           rules={payload?.rules || []}
-          athenaTables={payload?.athenaTables || []}
           onClose={() => setIsUploadDrawerOpen(false)}
           onSubmit={handleCreateTask}
         />

@@ -13,7 +13,6 @@ type UploadDataDrawerProps = {
   isOpen: boolean;
   clients: string[];
   rules: Array<{ id: string; name: string }>;
-  athenaTables?: Array<{ id: string; tableType: string; tableNamePattern: string; columns: string[] }>;
   onClose: () => void;
   onSubmit: (payload: CreateReportTaskPayload) => Promise<void>;
 };
@@ -82,7 +81,6 @@ export function AttributedUploadDataDrawer({
   isOpen,
   clients,
   rules,
-  athenaTables = [],
   onClose,
   onSubmit,
 }: UploadDataDrawerProps) {
@@ -100,22 +98,11 @@ export function AttributedUploadDataDrawer({
   const [fileParseError, setFileParseError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [enableJourneyMatching, setEnableJourneyMatching] = useState(false);
-  const [selectedAthenaTableId, setSelectedAthenaTableId] = useState('');
-  const [eventUrlParam, setEventUrlParam] = useState('uid');
-  const [athenaUrlParam, setAthenaUrlParam] = useState('uid');
-  const [athenaUrlField, setAthenaUrlField] = useState('url');
-  const [athenaTimeField, setAthenaTimeField] = useState('event_time');
   const [fieldMappings, setFieldMappings] = useState<FieldMappingState>({
     registration: {},
     pageload: {},
   });
   const requiredCanonicalFields = useMemo(() => getRequiredCanonicalFields(), []);
-  const selectedAthenaTable = useMemo(
-    () => athenaTables.find((table) => table.id === selectedAthenaTableId) || null,
-    [athenaTables, selectedAthenaTableId],
-  );
-  const athenaFieldOptions = selectedAthenaTable?.columns || [];
 
   const clientOptions = useMemo(() => clients, [clients]);
 
@@ -144,40 +131,6 @@ export function AttributedUploadDataDrawer({
       return rules[0]?.id || '';
     });
   }, [isOpen, rules]);
-
-  useEffect(() => {
-    if (!isOpen || !enableJourneyMatching) {
-      return;
-    }
-    setSelectedAthenaTableId((prev) => {
-      if (prev && athenaTables.some((table) => table.id === prev)) {
-        return prev;
-      }
-      return athenaTables[0]?.id || '';
-    });
-  }, [athenaTables, enableJourneyMatching, isOpen]);
-
-  useEffect(() => {
-    if (!isOpen || !enableJourneyMatching) return;
-    if (!selectedAthenaTable) return;
-
-    const columns = selectedAthenaTable.columns || [];
-    const pickDefaultUrlField = () => columns.find((name) => /^url$/i.test(name)) || columns.find((name) => /url/i.test(name)) || '';
-    const pickDefaultTimeField = () =>
-      columns.find((name) => /^event_time$/i.test(name)) ||
-      columns.find((name) => /^source_time$/i.test(name)) ||
-      columns.find((name) => /(event_?time|source_?time|timestamp|time|ts|date)/i.test(name)) ||
-      '';
-
-    setAthenaUrlField((prev) => {
-      if (columns.includes(prev)) return prev;
-      return pickDefaultUrlField();
-    });
-    setAthenaTimeField((prev) => {
-      if (columns.includes(prev)) return prev;
-      return pickDefaultTimeField();
-    });
-  }, [enableJourneyMatching, isOpen, selectedAthenaTable]);
 
   useEffect(() => {
     setFieldMappings((prev) => ({
@@ -262,15 +215,6 @@ export function AttributedUploadDataDrawer({
         fileContent: selectedFileContent,
         ruleId: selectedRuleId,
       };
-      if (enableJourneyMatching) {
-        payload.journeyConfig = {
-          athenaTableId: selectedAthenaTableId.trim(),
-          eventUrlParam: eventUrlParam.trim(),
-          athenaUrlParam: athenaUrlParam.trim(),
-          athenaUrlField: athenaUrlField.trim(),
-          athenaTimeField: athenaTimeField.trim(),
-        };
-      }
       await onSubmit(payload);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : '创建分析任务失败，请稍后重试。');
@@ -286,20 +230,12 @@ export function AttributedUploadDataDrawer({
   const currentMappings = fieldMappings[attributionLogic];
   const mappingValues = Object.values(currentMappings).filter((value): value is string => Boolean(value));
   const mappedCount = mappingRows.filter((field) => Boolean(currentMappings[field.canonical])).length;
-  const isJourneyConfigComplete =
-    !enableJourneyMatching ||
-    (Boolean(selectedAthenaTableId.trim()) &&
-      Boolean(eventUrlParam.trim()) &&
-      Boolean(athenaUrlParam.trim()) &&
-      Boolean(athenaUrlField.trim()) &&
-      Boolean(athenaTimeField.trim()));
   const isFormComplete =
     Boolean(selectedClient) &&
     Boolean(taskName.trim()) &&
     Boolean(selectedRuleId) &&
     Boolean(selectedFileName) &&
     Boolean(selectedFileContent) &&
-    isJourneyConfigComplete &&
     mappingRows.every((field) => Boolean(currentMappings[field.canonical]));
 
   return (
@@ -465,123 +401,6 @@ export function AttributedUploadDataDrawer({
                   {fileParseError ? <p className="mt-3 text-xs font-semibold text-red-600">{fileParseError}</p> : null}
                 </section>
 
-                <section className="rounded-xl border border-slate-200/70 bg-white p-6">
-                  <div className="mb-5 flex items-center gap-3">
-                    <span className="flex h-7 w-7 items-center justify-center rounded bg-slate-900 text-xs font-bold text-white">
-                      03
-                    </span>
-                    <h3 className="text-base font-extrabold tracking-tight text-slate-900">Journey Matching</h3>
-                  </div>
-
-                  <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-slate-100 p-3">
-                    <input
-                      type="checkbox"
-                      checked={enableJourneyMatching}
-                      onChange={(event) => setEnableJourneyMatching(event.target.checked)}
-                      className="mt-1"
-                    />
-                    <span>
-                      <span className="block text-sm font-bold text-slate-900">
-                        Enable Athena table matching for journey detail
-                      </span>
-                      <span className="text-[11px] text-slate-500">
-                        Match using the event_url parameter and Athena URL parameters, and filter the time window from source_time to event_time.
-                      </span>
-                    </span>
-                  </label>
-
-                  {enableJourneyMatching ? (
-                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 sm:col-span-2">
-                        Athena Table
-                        <select
-                          value={selectedAthenaTableId}
-                          onChange={(event) => setSelectedAthenaTableId(event.target.value)}
-                          className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                          disabled={athenaTables.length === 0}
-                        >
-                          {athenaTables.length === 0 ? (
-                            <option value="">No Athena tables available</option>
-                          ) : (
-                            athenaTables.map((table) => (
-                              <option key={table.id} value={table.id}>
-                                {table.tableType} / {table.tableNamePattern}
-                              </option>
-                            ))
-                          )}
-                        </select>
-                      </label>
-
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        Event URL ID Param
-                        <input
-                          type="text"
-                          value={eventUrlParam}
-                          onChange={(event) => setEventUrlParam(event.target.value)}
-                          placeholder="uid"
-                          className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                        />
-                      </label>
-
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        Athena URL ID Param
-                        <input
-                          type="text"
-                          value={athenaUrlParam}
-                          onChange={(event) => setAthenaUrlParam(event.target.value)}
-                          placeholder="uid"
-                          className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                        />
-                      </label>
-
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        Athena URL Field
-                        <select
-                          value={athenaUrlField}
-                          onChange={(event) => setAthenaUrlField(event.target.value)}
-                          disabled={athenaFieldOptions.length === 0}
-                          className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                        >
-                          {athenaFieldOptions.length === 0 ? (
-                            <option value="">No fields found in Athena DDL</option>
-                          ) : (
-                            <>
-                              <option value="">Select Athena URL field</option>
-                              {athenaFieldOptions.map((field) => (
-                                <option key={`athena-url-field-${field}`} value={field}>
-                                  {field}
-                                </option>
-                              ))}
-                            </>
-                          )}
-                        </select>
-                      </label>
-
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        Athena Time Field
-                        <select
-                          value={athenaTimeField}
-                          onChange={(event) => setAthenaTimeField(event.target.value)}
-                          disabled={athenaFieldOptions.length === 0}
-                          className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                        >
-                          {athenaFieldOptions.length === 0 ? (
-                            <option value="">No fields found in Athena DDL</option>
-                          ) : (
-                            <>
-                              <option value="">Select Athena time field</option>
-                              {athenaFieldOptions.map((field) => (
-                                <option key={`athena-time-field-${field}`} value={field}>
-                                  {field}
-                                </option>
-                              ))}
-                            </>
-                          )}
-                        </select>
-                      </label>
-                    </div>
-                  ) : null}
-                </section>
               </div>
 
               <div className="space-y-6 xl:col-span-4">
