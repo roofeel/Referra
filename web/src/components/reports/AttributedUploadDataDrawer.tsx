@@ -14,7 +14,7 @@ type UploadDataDrawerProps = {
   isOpen: boolean;
   clients: string[];
   rules: Array<{ id: string; name: string }>;
-  athenaTables?: Array<{ id: string; tableType: string; tableNamePattern: string }>;
+  athenaTables?: Array<{ id: string; tableType: string; tableNamePattern: string; columns: string[] }>;
   onClose: () => void;
   onSubmit: (payload: CreateReportTaskPayload) => Promise<void>;
 };
@@ -156,6 +156,11 @@ export function AttributedUploadDataDrawer({
     pageload: {},
   });
   const requiredCanonicalFields = useMemo(() => getRequiredCanonicalFields(), []);
+  const selectedAthenaTable = useMemo(
+    () => athenaTables.find((table) => table.id === selectedAthenaTableId) || null,
+    [athenaTables, selectedAthenaTableId],
+  );
+  const athenaFieldOptions = selectedAthenaTable?.columns || [];
 
   const clientOptions = useMemo(() => clients, [clients]);
 
@@ -196,6 +201,28 @@ export function AttributedUploadDataDrawer({
       return athenaTables[0]?.id || '';
     });
   }, [athenaTables, enableJourneyMatching, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !enableJourneyMatching) return;
+    if (!selectedAthenaTable) return;
+
+    const columns = selectedAthenaTable.columns || [];
+    const pickDefaultUrlField = () => columns.find((name) => /^url$/i.test(name)) || columns.find((name) => /url/i.test(name)) || '';
+    const pickDefaultTimeField = () =>
+      columns.find((name) => /^event_time$/i.test(name)) ||
+      columns.find((name) => /^source_time$/i.test(name)) ||
+      columns.find((name) => /(event_?time|source_?time|timestamp|time|ts|date)/i.test(name)) ||
+      '';
+
+    setAthenaUrlField((prev) => {
+      if (columns.includes(prev)) return prev;
+      return pickDefaultUrlField();
+    });
+    setAthenaTimeField((prev) => {
+      if (columns.includes(prev)) return prev;
+      return pickDefaultTimeField();
+    });
+  }, [enableJourneyMatching, isOpen, selectedAthenaTable]);
 
   useEffect(() => {
     setFieldMappings((prev) => ({
@@ -554,24 +581,48 @@ export function AttributedUploadDataDrawer({
 
                       <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                         Athena URL Field
-                        <input
-                          type="text"
+                        <select
                           value={athenaUrlField}
                           onChange={(event) => setAthenaUrlField(event.target.value)}
-                          placeholder="url"
+                          disabled={athenaFieldOptions.length === 0}
                           className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                        />
+                        >
+                          {athenaFieldOptions.length === 0 ? (
+                            <option value="">No fields found in Athena DDL</option>
+                          ) : (
+                            <>
+                              <option value="">Select Athena URL field</option>
+                              {athenaFieldOptions.map((field) => (
+                                <option key={`athena-url-field-${field}`} value={field}>
+                                  {field}
+                                </option>
+                              ))}
+                            </>
+                          )}
+                        </select>
                       </label>
 
                       <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                         Athena Time Field
-                        <input
-                          type="text"
+                        <select
                           value={athenaTimeField}
                           onChange={(event) => setAthenaTimeField(event.target.value)}
-                          placeholder="event_time"
+                          disabled={athenaFieldOptions.length === 0}
                           className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
-                        />
+                        >
+                          {athenaFieldOptions.length === 0 ? (
+                            <option value="">No fields found in Athena DDL</option>
+                          ) : (
+                            <>
+                              <option value="">Select Athena time field</option>
+                              {athenaFieldOptions.map((field) => (
+                                <option key={`athena-time-field-${field}`} value={field}>
+                                  {field}
+                                </option>
+                              ))}
+                            </>
+                          )}
+                        </select>
                       </label>
                     </div>
                   ) : null}

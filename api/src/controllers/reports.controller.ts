@@ -47,7 +47,7 @@ type ReportsPayload = {
   };
   clients: string[];
   rules: Array<{ id: string; name: string }>;
-  athenaTables: Array<{ id: string; tableType: string; tableNamePattern: string }>;
+  athenaTables: Array<{ id: string; tableType: string; tableNamePattern: string; columns: string[] }>;
   urlParsingVersions: string[];
   tasks: ReportTask[];
 };
@@ -76,7 +76,7 @@ function buildPayload(
   filteredTasks: ReportTask[],
   clientNames: string[],
   rules: Array<{ id: string; name: string }>,
-  athenaTableItems: Array<{ id: string; tableType: string; tableNamePattern: string }>,
+  athenaTableItems: Array<{ id: string; tableType: string; tableNamePattern: string; columns: string[] }>,
   urlParsingVersions: string[],
   dataPoints24h: string,
 ): ReportsPayload {
@@ -93,6 +93,110 @@ function buildPayload(
     urlParsingVersions,
     tasks: filteredTasks,
   };
+}
+
+function splitColumnDefinitions(definition: string): string[] {
+  const items: string[] = [];
+  let current = '';
+  let parenDepth = 0;
+  let angleDepth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inBacktick = false;
+
+  for (let index = 0; index < definition.length; index += 1) {
+    const char = definition[index];
+    const prev = index > 0 ? definition[index - 1] : '';
+
+    if (char === "'" && !inDoubleQuote && !inBacktick && prev !== '\\') {
+      inSingleQuote = !inSingleQuote;
+      current += char;
+      continue;
+    }
+    if (char === '"' && !inSingleQuote && !inBacktick && prev !== '\\') {
+      inDoubleQuote = !inDoubleQuote;
+      current += char;
+      continue;
+    }
+    if (char === '`' && !inSingleQuote && !inDoubleQuote) {
+      inBacktick = !inBacktick;
+      current += char;
+      continue;
+    }
+
+    if (inSingleQuote || inDoubleQuote || inBacktick) {
+      current += char;
+      continue;
+    }
+
+    if (char === '(') parenDepth += 1;
+    if (char === ')') parenDepth = Math.max(0, parenDepth - 1);
+    if (char === '<') angleDepth += 1;
+    if (char === '>') angleDepth = Math.max(0, angleDepth - 1);
+
+    if (char === ',' && parenDepth === 0 && angleDepth === 0) {
+      const token = current.trim();
+      if (token) items.push(token);
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  const lastToken = current.trim();
+  if (lastToken) {
+    items.push(lastToken);
+  }
+  return items;
+}
+
+function pickColumnName(definition: string): string {
+  const trimmed = definition.trim();
+  if (!trimmed) return '';
+  if (/^(primary|unique|foreign|constraint|index|key)\b/i.test(trimmed)) return '';
+
+  const backtick = trimmed.match(/^`([^`]+)`/);
+  if (backtick?.[1]) return backtick[1].trim();
+  const doubleQuoted = trimmed.match(/^"([^"]+)"/);
+  if (doubleQuoted?.[1]) return doubleQuoted[1].trim();
+  const bare = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)/);
+  return bare?.[1] ? bare[1].trim() : '';
+}
+
+function extractAthenaColumnsFromDdl(ddl: string | null | undefined): string[] {
+  const source = typeof ddl === 'string' ? ddl.trim() : '';
+  if (!source) return [];
+
+  const seen = new Set<string>();
+  const columns: string[] = [];
+  const addColumn = (name: string) => {
+    const normalized = name.trim();
+    if (!normalized) return;
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    columns.push(normalized);
+  };
+
+  const mainMatch = source.match(
+    /\(([\s\S]*?)\)\s*(?:PARTITIONED\s+BY|COMMENT|ROW\s+FORMAT|STORED\s+AS|LOCATION|TBLPROPERTIES|WITH|$)/i,
+  );
+  if (mainMatch?.[1]) {
+    splitColumnDefinitions(mainMatch[1]).forEach((definition) => {
+      addColumn(pickColumnName(definition));
+    });
+  }
+
+  const partitionMatch = source.match(
+    /PARTITIONED\s+BY\s*\(([\s\S]*?)\)\s*(?:COMMENT|ROW\s+FORMAT|STORED\s+AS|LOCATION|TBLPROPERTIES|WITH|$)/i,
+  );
+  if (partitionMatch?.[1]) {
+    splitColumnDefinitions(partitionMatch[1]).forEach((definition) => {
+      addColumn(pickColumnName(definition));
+    });
+  }
+
+  return columns;
 }
 
 type JourneyConfig = {
@@ -227,7 +331,7 @@ export const reportsController = {
     let taskRows: any[] = [];
     let clientNames: string[] = [];
     let rulesPayload: Array<{ id: string; name: string }> = [];
-    let athenaTableItems: Array<{ id: string; tableType: string; tableNamePattern: string }> = [];
+    let athenaTableItems: Array<{ id: string; tableType: string; tableNamePattern: string; columns: string[] }> = [];
     let urlParsingVersions: string[] = [];
     let dataPoints24h = '0';
 
@@ -252,6 +356,7 @@ export const reportsController = {
         id: string;
         tableType?: string | null;
         tableNamePattern?: string | null;
+        ddl?: string | null;
       }>;
 
       taskRows = reportRows;
@@ -279,6 +384,7 @@ export const reportsController = {
           id: item.id,
           tableType: item.tableType?.trim() || '',
           tableNamePattern: item.tableNamePattern?.trim() || '',
+          columns: extractAthenaColumnsFromDdl(item.ddl),
         }))
         .filter((item) => Boolean(item.id) && Boolean(item.tableType) && Boolean(item.tableNamePattern))
         .sort((a, b) => `${a.tableType}/${a.tableNamePattern}`.localeCompare(`${b.tableType}/${b.tableNamePattern}`));
