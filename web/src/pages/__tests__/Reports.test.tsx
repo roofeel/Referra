@@ -138,7 +138,6 @@ describe('Reports', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Upload Attributed Data/i }));
 
     expect(screen.getByText('registration_url')).toBeInTheDocument();
-    expect(screen.queryByText('page_load_url')).not.toBeInTheDocument();
     const csvFile = new File(
       ['impression_url,registration_url,impression_time,other_column\n/a,/b,2026-03-24,1'],
       'report.csv',

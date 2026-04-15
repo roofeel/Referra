@@ -7,6 +7,7 @@ import {
   type ReportType,
 } from '../config/attribution.config.js';
 import { findColumnName, parseCsvRows } from '../lib/reports-csv.lib.js';
+import { getSearchParamIgnoreCase, parseTimestampToMs, parseUrl } from '../lib/reports-url.lib.js';
 import {
   computeSuccessRateAvg,
   formatCompactCount,
@@ -329,6 +330,63 @@ function endOfDay(dateInput: string) {
   return new Date(parsed);
 }
 
+function getJsonRecord(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {} as Record<string, unknown>;
+  }
+  return value as Record<string, unknown>;
+}
+
+function getStringField(row: Record<string, unknown>, field: string) {
+  const raw = row[field];
+  if (typeof raw === 'string') return raw.trim();
+  if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw);
+  return '';
+}
+
+function pickTimeField(
+  row: Record<string, unknown>,
+  primaryField: string,
+  fallbackCandidates: string[],
+) {
+  const primary = getStringField(row, primaryField);
+  if (primary) return primary;
+  for (const candidate of fallbackCandidates) {
+    const value = getStringField(row, candidate);
+    if (value) return value;
+  }
+  return '';
+}
+
+function resolveIdValueFromRawRow(row: Record<string, unknown>, idField: string) {
+  const direct = getStringField(row, idField);
+  if (direct) return direct;
+
+  const urlCandidates = [
+    getStringField(row, 'event_url'),
+    getStringField(row, 'registration_url'),
+    getStringField(row, 'url'),
+    getStringField(row, 'ourl'),
+  ].filter(Boolean);
+
+  for (const candidate of urlCandidates) {
+    const parsed = parseUrl(candidate);
+    if (!parsed) continue;
+    const byParam = getSearchParamIgnoreCase(parsed, idField).trim();
+    if (byParam) return byParam;
+  }
+
+  return '';
+}
+
+function formatTimestampFromMs(ms: number) {
+  const date = new Date(ms);
+  const pad = (value: number) => value.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(
+    date.getMinutes(),
+  )}:${pad(date.getSeconds())}`;
+}
+
 export const reportsController = {
   async list(req: Request) {
     const url = new URL(req.url);
@@ -494,12 +552,12 @@ export const reportsController = {
       (attributionLogic.event_url && parsedCsv.headers.includes(attributionLogic.event_url)
         ? attributionLogic.event_url
         : undefined) ||
-      findColumnName(parsedCsv.headers, fieldMappings, ['event_url', 'registration_url', 'page_load_url']);
+      findColumnName(parsedCsv.headers, fieldMappings, ['event_url', 'registration_url']);
     const eventTimeColumn =
       (attributionLogic.event_time && parsedCsv.headers.includes(attributionLogic.event_time)
         ? attributionLogic.event_time
         : undefined) ||
-      findColumnName(parsedCsv.headers, fieldMappings, ['event_time', 'registration_time', 'page_load_time']);
+      findColumnName(parsedCsv.headers, fieldMappings, ['event_time', 'registration_time']);
     const sourceUrlColumn =
       (attributionLogic.source_url && parsedCsv.headers.includes(attributionLogic.source_url)
         ? attributionLogic.source_url
@@ -632,6 +690,144 @@ export const reportsController = {
       cohortMode,
     });
     return Response.json(payload);
+  },
+
+  async attachRelatedEvents(req: Request) {
+    const request = req as RequestWithParams<{ id: string }>;
+    const current = await reports.findById(request.params.id);
+
+    if (!current) {
+      return Response.json({ error: 'Report task not found' }, { status: 404 });
+    }
+
+    const body = (await req.json()) as {
+      fileContent?: unknown;
+      idField?: unknown;
+      timeField?: unknown;
+      eventField?: unknown;
+    };
+    const fileContent = typeof body.fileContent === 'string' ? body.fileContent : '';
+    const idField = typeof body.idField === 'string' ? body.idField.trim() : '';
+    const timeField = typeof body.timeField === 'string' ? body.timeField.trim() : '';
+    const eventField = typeof body.eventField === 'string' ? body.eventField.trim() : '';
+
+    if (!fileContent) {
+      return Response.json({ error: 'fileContent is required' }, { status: 400 });
+    }
+    if (!idField || !timeField || !eventField) {
+      return Response.json({ error: 'idField/timeField/eventField are required' }, { status: 400 });
+    }
+
+    const parsedCsv = parseCsvRows(fileContent);
+    if (parsedCsv.headers.length === 0) {
+      return Response.json({ error: 'CSV header is required' }, { status: 400 });
+    }
+    if (!parsedCsv.headers.includes(idField) || !parsedCsv.headers.includes(timeField) || !parsedCsv.headers.includes(eventField)) {
+      return Response.json({ error: 'Selected fields must exist in CSV headers' }, { status: 400 });
+    }
+
+    const uploadedEventsById = new Map<
+      string,
+      Array<{
+        idValue: string;
+        tsMs: number;
+        ts: string;
+        event: string;
+        row: Record<string, string>;
+      }>
+    >();
+
+    let validUploadEventCount = 0;
+    for (const item of parsedCsv.rows) {
+      const idValue = String(item[idField] ?? '').trim();
+      const timeValue = String(item[timeField] ?? '').trim();
+      if (!idValue || !timeValue) continue;
+
+      const tsMs = parseTimestampToMs(timeValue);
+      if (tsMs === null) continue;
+
+      const eventValue = String(item[eventField] ?? '').trim();
+      const list = uploadedEventsById.get(idValue) || [];
+      list.push({
+        idValue,
+        tsMs,
+        ts: formatTimestampFromMs(tsMs),
+        event: eventValue || '--',
+        row: item,
+      });
+      uploadedEventsById.set(idValue, list);
+      validUploadEventCount += 1;
+    }
+
+    uploadedEventsById.forEach((events, key) => {
+      events.sort((a, b) => a.tsMs - b.tsMs);
+      uploadedEventsById.set(key, events);
+    });
+
+    const storedFieldMappings = normalizeAttributionLogicMapping(current.fieldMappings);
+    const sourceTimeField = storedFieldMappings?.source_time || 'source_time';
+    const eventTimeField = storedFieldMappings?.event_time || 'event_time';
+    const sourceTimeCandidates = ['source_time', 'impression_time'];
+    const eventTimeCandidates = ['event_time', 'registration_time', 'page_load_time', 'timestamp', 'ts'];
+    const rawRows = await referrerRaws.listByReport(current.id);
+
+    let rowsWithMatchedEvents = 0;
+    let totalMatchedEvents = 0;
+    const payloads = rawRows.map((rawRow: { id: string; json: unknown }) => {
+      const json = getJsonRecord(rawRow.json);
+      const idValue = resolveIdValueFromRawRow(json, idField);
+      const sourceTime = pickTimeField(json, sourceTimeField, sourceTimeCandidates);
+      const eventTime = pickTimeField(json, eventTimeField, eventTimeCandidates);
+      const sourceMs = parseTimestampToMs(sourceTime);
+      const eventMs = parseTimestampToMs(eventTime);
+      const candidates = idValue ? uploadedEventsById.get(idValue) || [] : [];
+      const matchedRows = candidates.filter((candidate) => {
+        if (sourceMs !== null && candidate.tsMs < sourceMs) return false;
+        if (eventMs !== null && candidate.tsMs > eventMs) return false;
+        return true;
+      });
+
+      if (matchedRows.length > 0) {
+        rowsWithMatchedEvents += 1;
+        totalMatchedEvents += matchedRows.length;
+      }
+
+      return {
+        id: rawRow.id,
+        journeyLogs: {
+          event_url_param: idField,
+          athena_url_param: idField,
+          athena_url_field: eventField,
+          athena_time_field: timeField,
+          source_time: sourceTime,
+          event_time: eventTime,
+          event_id_value: idValue,
+          rows: matchedRows.slice(0, 200).map((item) => ({
+            ts: item.ts,
+            url: item.event,
+            idValue: item.idValue,
+            row: item.row,
+          })),
+        },
+      };
+    });
+
+    await referrerRaws.updateJourneyLogsMany(payloads);
+    await logs.createMany([
+      {
+        reportId: current.id,
+        level: 'info',
+        message: `attach_related_events completed. rows=${rawRows.length}, upload_events=${validUploadEventCount}, matched_rows=${rowsWithMatchedEvents}, matched_events=${totalMatchedEvents}`,
+      },
+    ]);
+
+    return Response.json({
+      reportId: current.id,
+      rowsUpdated: payloads.length,
+      uploadEvents: validUploadEventCount,
+      matchedRows: rowsWithMatchedEvents,
+      matchedEvents: totalMatchedEvents,
+    });
   },
 
   async updateStatus(req: Request) {

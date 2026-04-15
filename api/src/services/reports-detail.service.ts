@@ -342,7 +342,7 @@ function buildJourneySourceItems(rows: ReferrerRawRecord[], journeyConfig: Journ
   for (const row of rows) {
     const json = asJsonRecord(row.json);
     const urlValue =
-      getJsonValue(json, [journeyConfig.athenaUrlField, 'url', 'event_url', 'registration_url', 'page_load_url']) || '';
+      getJsonValue(json, [journeyConfig.athenaUrlField, 'url', 'event_url', 'registration_url']) || '';
     const parsedUrl = parseUrl(urlValue);
     if (!parsedUrl) continue;
     const idValue = getSearchParamIgnoreCase(parsedUrl, journeyConfig.athenaUrlParam).trim();
@@ -402,8 +402,8 @@ function buildDetailPayload(
 
   const rows: ReportDetailTableRow[] = rawRows.map((item) => {
     const json = asJsonRecord(item.json);
-    const eventUrl = getJsonValue(json, ['event_url', 'registration_url', 'page_load_url', 'url', 'ourl']) || '';
-    const eventTime = getJsonValue(json, ['event_time', 'registration_time', 'page_load_time', 'timestamp', 'ts']);
+    const eventUrl = getJsonValue(json, ['event_url', 'registration_url', 'url', 'ourl']) || '';
+    const eventTime = getJsonValue(json, ['event_time', 'registration_time', 'timestamp', 'ts']);
     const sourceTime = getJsonValue(json, ['source_time', 'impression_time']);
     const eventMs = parseTimestampToMs(eventTime);
     const sourceMsFromRaw = parseTimestampToMs(sourceTime);
@@ -438,10 +438,10 @@ function buildDetailPayload(
   const eventDetails: Record<string, ReportDetailEventDetail> = {};
   rawRows.forEach((item) => {
     const json = asJsonRecord(item.json);
-    const urlValue = getJsonValue(json, ['event_url', 'registration_url', 'page_load_url', 'url', 'ourl']) || 'N/A';
+    const urlValue = getJsonValue(json, ['event_url', 'registration_url', 'url', 'ourl']) || 'N/A';
     const sourceUrl = getJsonValue(json, ['source_url', 'impression_url', 'source']);
     const sourceTime = getJsonValue(json, ['source_time', 'impression_time']);
-    const eventTime = getJsonValue(json, ['event_time', 'registration_time', 'page_load_time', 'timestamp', 'ts']);
+    const eventTime = getJsonValue(json, ['event_time', 'registration_time', 'timestamp', 'ts']);
     const params = parseQueryParams(urlValue);
     const detailItem: ReportDetailEventDetail = {
       url: urlValue,

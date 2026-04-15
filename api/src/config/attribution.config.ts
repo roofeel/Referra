@@ -13,12 +13,6 @@ export const ATTRIBUTION_ALIAS_CONFIG: Record<
     source_time: 'impression_time',
     event_time: 'registration_time',
   },
-  pageload: {
-    source_url: 'impression_url',
-    event_url: 'page_load_url',
-    source_time: 'impression_time',
-    event_time: 'page_load_time',
-  },
 };
 
 export const REQUIRED_CANONICAL_FIELDS: CanonicalAttributionField[] = [

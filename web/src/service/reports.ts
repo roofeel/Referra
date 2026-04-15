@@ -62,6 +62,21 @@ export interface ReportDetailResponse {
   eventDetails: Record<string, EventDetail>;
 }
 
+export interface AttachRelatedEventsPayload {
+  fileContent: string;
+  idField: string;
+  timeField: string;
+  eventField: string;
+}
+
+export interface AttachRelatedEventsResponse {
+  reportId: string;
+  rowsUpdated: number;
+  uploadEvents: number;
+  matchedRows: number;
+  matchedEvents: number;
+}
+
 export type CreateReportTaskPayload = {
   taskName: string;
   client: string;
@@ -197,6 +212,23 @@ export const reportsApi = {
 
     if (!response.ok) {
       await throwApiError(response, 'Failed to fetch report detail');
+    }
+
+    return response.json();
+  },
+
+  attachRelatedEvents: async (
+    id: string,
+    payload: AttachRelatedEventsPayload,
+  ): Promise<AttachRelatedEventsResponse> => {
+    const response = await fetch(buildApiUrl(`/api/reports/${id}/attach-related-events`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to attach related events');
     }
 
     return response.json();

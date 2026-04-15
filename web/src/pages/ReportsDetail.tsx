@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useToast } from '../components/ToastProvider';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { DashboardDetailDrawer } from '../components/dashboard/DashboardDetailDrawer';
 import { DashboardFilters } from '../components/dashboard/DashboardFilters';
 import { DashboardInsights } from '../components/dashboard/DashboardInsights';
 import { DashboardMetrics } from '../components/dashboard/DashboardMetrics';
 import { DashboardTable } from '../components/dashboard/DashboardTable';
+import { AttachRelatedEventsDrawer } from '../components/reports/AttachRelatedEventsDrawer';
 import type { TableRow } from '../components/dashboard/dashboardData';
 import { api } from '../service';
 import type { ReportDetailResponse } from '../service/reports';
@@ -17,6 +19,8 @@ export default function ReportsDetail() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAttachDrawerOpen, setIsAttachDrawerOpen] = useState(false);
+  const [isAttachingRelatedEvents, setIsAttachingRelatedEvents] = useState(false);
   const [page, setPage] = useState(1);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftEndDate, setDraftEndDate] = useState('');
@@ -26,7 +30,9 @@ export default function ReportsDetail() {
   const [appliedEndDate, setAppliedEndDate] = useState('');
   const [appliedCohortMode, setAppliedCohortMode] = useState<'non-cohort' | 'cohort'>('non-cohort');
   const [appliedWindowHours, setAppliedWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
+  const [refreshKey, setRefreshKey] = useState(0);
   const pageSize = 50;
+  const toast = useToast();
 
   useEffect(() => {
     setPage(1);
@@ -77,7 +83,7 @@ export default function ReportsDetail() {
     return () => {
       alive = false;
     };
-  }, [appliedCohortMode, appliedEndDate, appliedStartDate, appliedWindowHours, page, pageSize, reportId]);
+  }, [appliedCohortMode, appliedEndDate, appliedStartDate, appliedWindowHours, page, pageSize, refreshKey, reportId]);
 
   const selectedDetail = selectedRow ? payload?.eventDetails[selectedRow.eventId] || null : null;
 
@@ -106,13 +112,23 @@ export default function ReportsDetail() {
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Report Detail</p>
             <h1 className="text-lg font-bold text-slate-900">{reportId ? `Report #${reportId}` : 'Report Detail'}</h1>
           </div>
-          <Link
-            to="/reports"
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            <span className="material-symbols-outlined text-base">arrow_back</span>
-            Back to Reports
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsAttachDrawerOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+            >
+              <span className="material-symbols-outlined text-base">link</span>
+              Attach Related Events
+            </button>
+            <Link
+              to="/reports"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              <span className="material-symbols-outlined text-base">arrow_back</span>
+              Back to Reports
+            </Link>
+          </div>
         </header>
         <div className="flex-1 overflow-y-auto p-8 [&::-webkit-scrollbar]:hidden">
           {isLoading ? (
@@ -180,6 +196,32 @@ export default function ReportsDetail() {
       </main>
 
       <DashboardDetailDrawer detail={selectedDetail} isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} />
+      <AttachRelatedEventsDrawer
+        isOpen={isAttachDrawerOpen}
+        onClose={() => {
+          if (isAttachingRelatedEvents) return;
+          setIsAttachDrawerOpen(false);
+        }}
+        onSubmit={async (attachPayload) => {
+          if (!reportId) {
+            throw new Error('Missing report id');
+          }
+          try {
+            setIsAttachingRelatedEvents(true);
+            const result = await api.reports.attachRelatedEvents(reportId, attachPayload);
+            toast.success(
+              `Attached ${result.matchedEvents} events to ${result.matchedRows}/${result.rowsUpdated} rows`,
+            );
+            setRefreshKey((prev) => prev + 1);
+          } catch (attachError) {
+            const message = attachError instanceof Error ? attachError.message : 'Attach related events failed';
+            toast.error(message);
+            throw attachError;
+          } finally {
+            setIsAttachingRelatedEvents(false);
+          }
+        }}
+      />
     </div>
   );
 }

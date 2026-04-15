@@ -865,6 +865,35 @@ export const referrerRaws = {
       },
     });
   },
+
+  async updateJourneyLogsMany(
+    data: Array<{
+      id: string;
+      journeyLogs: unknown | null;
+    }>,
+  ) {
+    if (data.length === 0) {
+      return { count: 0 };
+    }
+
+    const CHUNK_SIZE = 200;
+    let updatedCount = 0;
+
+    for (let index = 0; index < data.length; index += CHUNK_SIZE) {
+      const chunk = data.slice(index, index + CHUNK_SIZE);
+      await (db as any).$transaction(
+        chunk.map((item) =>
+          (db as any).referrerRaw.update({
+            where: { id: item.id },
+            data: { journeyLogs: item.journeyLogs },
+          }),
+        ),
+      );
+      updatedCount += chunk.length;
+    }
+
+    return { count: updatedCount };
+  },
 };
 
 export const nonAttributedRaws = {

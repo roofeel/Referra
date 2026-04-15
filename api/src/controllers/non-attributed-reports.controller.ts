@@ -478,12 +478,12 @@ export const nonAttributedReportsController = {
       (attributionLogic.event_url && parsedCsv.headers.includes(attributionLogic.event_url)
         ? attributionLogic.event_url
         : undefined) ||
-      findColumnName(parsedCsv.headers, fieldMappings, ['event_url', 'registration_url', 'page_load_url']);
+      findColumnName(parsedCsv.headers, fieldMappings, ['event_url', 'registration_url']);
     const eventTimeColumn =
       (attributionLogic.event_time && parsedCsv.headers.includes(attributionLogic.event_time)
         ? attributionLogic.event_time
         : undefined) ||
-      findColumnName(parsedCsv.headers, fieldMappings, ['event_time', 'registration_time', 'page_load_time']);
+      findColumnName(parsedCsv.headers, fieldMappings, ['event_time', 'registration_time']);
     const sourceUrlColumn =
       (attributionLogic.source_url && parsedCsv.headers.includes(attributionLogic.source_url)
         ? attributionLogic.source_url

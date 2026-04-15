@@ -20,4 +20,7 @@ export const reportsRoutes = {
   '/api/reports/:id/detail': {
     GET: reportsController.detail,
   },
+  '/api/reports/:id/attach-related-events': {
+    POST: reportsController.attachRelatedEvents,
+  },
 };
