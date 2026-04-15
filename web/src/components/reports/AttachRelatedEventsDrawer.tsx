@@ -49,6 +49,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
   const idFieldId = useId();
   const timeFieldId = useId();
   const eventFieldId = useId();
+  const eventUrlFieldId = useId();
 
   const [selectedFileName, setSelectedFileName] = useState('');
   const [selectedFileContent, setSelectedFileContent] = useState('');
@@ -56,6 +57,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
   const [idField, setIdField] = useState('');
   const [timeField, setTimeField] = useState('');
   const [eventField, setEventField] = useState('');
+  const [eventUrlField, setEventUrlField] = useState('');
   const [fileParseError, setFileParseError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,11 +79,12 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
     setIdField((prev) => (prev && csvHeaders.includes(prev) ? prev : csvHeaders[0] || ''));
     setTimeField((prev) => (prev && csvHeaders.includes(prev) ? prev : csvHeaders[1] || csvHeaders[0] || ''));
     setEventField((prev) => (prev && csvHeaders.includes(prev) ? prev : csvHeaders[2] || csvHeaders[0] || ''));
+    setEventUrlField((prev) => (prev && csvHeaders.includes(prev) ? prev : csvHeaders[3] || csvHeaders[2] || csvHeaders[0] || ''));
   }, [csvHeaders]);
 
   const isFormComplete = useMemo(
-    () => Boolean(selectedFileContent) && Boolean(idField) && Boolean(timeField) && Boolean(eventField),
-    [eventField, idField, selectedFileContent, timeField],
+    () => Boolean(selectedFileContent) && Boolean(idField) && Boolean(timeField) && Boolean(eventUrlField),
+    [eventUrlField, idField, selectedFileContent, timeField],
   );
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -121,6 +124,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
         idField,
         timeField,
         eventField,
+        eventUrlField,
       });
       setSelectedFileName('');
       setSelectedFileContent('');
@@ -128,6 +132,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
       setIdField('');
       setTimeField('');
       setEventField('');
+      setEventUrlField('');
       onClose();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Attach related events failed');
@@ -250,7 +255,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
                 </label>
 
                 <label htmlFor={eventFieldId} className="text-xs font-semibold text-slate-600">
-                  Event Field
+                  Event Field (Optional)
                   <select
                     id={eventFieldId}
                     value={eventField}
@@ -261,6 +266,24 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
                     <option value="">Select header</option>
                     {csvHeaders.map((header) => (
                       <option key={`event-${header}`} value={header}>
+                        {header}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label htmlFor={eventUrlFieldId} className="text-xs font-semibold text-slate-600">
+                  event_url Field
+                  <select
+                    id={eventUrlFieldId}
+                    value={eventUrlField}
+                    onChange={(event) => setEventUrlField(event.target.value)}
+                    className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                    disabled={csvHeaders.length === 0}
+                  >
+                    <option value="">Select header</option>
+                    {csvHeaders.map((header) => (
+                      <option key={`event-url-${header}`} value={header}>
                         {header}
                       </option>
                     ))}

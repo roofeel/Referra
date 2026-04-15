@@ -66,7 +66,8 @@ export interface AttachRelatedEventsPayload {
   fileContent: string;
   idField: string;
   timeField: string;
-  eventField: string;
+  eventField?: string;
+  eventUrlField?: string;
 }
 
 export interface AttachRelatedEventsResponse {

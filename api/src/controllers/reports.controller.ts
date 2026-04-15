@@ -801,24 +801,27 @@ export const reportsController = {
       idField?: unknown;
       timeField?: unknown;
       eventField?: unknown;
+      eventUrlField?: unknown;
     };
     const fileContent = typeof body.fileContent === 'string' ? body.fileContent : '';
     const idField = typeof body.idField === 'string' ? body.idField.trim() : '';
     const timeField = typeof body.timeField === 'string' ? body.timeField.trim() : '';
     const eventField = typeof body.eventField === 'string' ? body.eventField.trim() : '';
+    const eventUrlFieldRaw = typeof body.eventUrlField === 'string' ? body.eventUrlField.trim() : '';
+    const eventUrlField = eventUrlFieldRaw || eventField;
 
     if (!fileContent) {
       return Response.json({ error: 'fileContent is required' }, { status: 400 });
     }
-    if (!idField || !timeField || !eventField) {
-      return Response.json({ error: 'idField/timeField/eventField are required' }, { status: 400 });
+    if (!idField || !timeField || !eventUrlField) {
+      return Response.json({ error: 'idField/timeField/eventUrlField are required' }, { status: 400 });
     }
 
     const parsedCsv = parseCsvRows(fileContent);
     if (parsedCsv.headers.length === 0) {
       return Response.json({ error: 'CSV header is required' }, { status: 400 });
     }
-    if (!parsedCsv.headers.includes(idField) || !parsedCsv.headers.includes(timeField) || !parsedCsv.headers.includes(eventField)) {
+    if (!parsedCsv.headers.includes(idField) || !parsedCsv.headers.includes(timeField) || !parsedCsv.headers.includes(eventUrlField)) {
       return Response.json({ error: 'Selected fields must exist in CSV headers' }, { status: 400 });
     }
 
@@ -842,13 +845,13 @@ export const reportsController = {
       const tsMs = parseTimestampToMs(timeValue);
       if (tsMs === null) continue;
 
-      const eventValue = String(item[eventField] ?? '').trim();
+      const eventUrlValue = String(item[eventUrlField] ?? '').trim();
       const list = uploadedEventsById.get(idValue) || [];
       list.push({
         idValue,
         tsMs,
         ts: formatTimestampFromMs(tsMs),
-        event: eventValue || '--',
+        event: eventUrlValue || '--',
         row: item,
       });
       uploadedEventsById.set(idValue, list);
@@ -867,6 +870,24 @@ export const reportsController = {
     const eventTimeCandidates = ['event_time', 'registration_time', 'page_load_time', 'timestamp', 'ts'];
     const rawRows = await referrerRaws.listByReport(current.id);
 
+    let missingIdCount = 0;
+    let missingSourceTimeCount = 0;
+    let missingEventTimeCount = 0;
+    let noCandidatesByIdCount = 0;
+    let filteredByTimeWindowCount = 0;
+    const debugSamples: Array<{
+      rawRowId: string;
+      idValue: string;
+      sourceTime: string;
+      eventTime: string;
+      sourceMs: number | null;
+      eventMs: number | null;
+      candidateCount: number;
+      firstCandidateTs?: string;
+      lastCandidateTs?: string;
+      matchedCount: number;
+    }> = [];
+
     let rowsWithMatchedEvents = 0;
     let totalMatchedEvents = 0;
     const payloads = rawRows.map((rawRow: { id: string; json: unknown }) => {
@@ -883,9 +904,40 @@ export const reportsController = {
         return true;
       });
 
+      if (!idValue) {
+        missingIdCount += 1;
+      }
+      if (sourceMs === null) {
+        missingSourceTimeCount += 1;
+      }
+      if (eventMs === null) {
+        missingEventTimeCount += 1;
+      }
+      if (idValue && candidates.length === 0) {
+        noCandidatesByIdCount += 1;
+      }
+      if (idValue && candidates.length > 0 && matchedRows.length === 0) {
+        filteredByTimeWindowCount += 1;
+      }
+
       if (matchedRows.length > 0) {
         rowsWithMatchedEvents += 1;
         totalMatchedEvents += matchedRows.length;
+      }
+
+      if (debugSamples.length < 8) {
+        debugSamples.push({
+          rawRowId: rawRow.id,
+          idValue,
+          sourceTime,
+          eventTime,
+          sourceMs,
+          eventMs,
+          candidateCount: candidates.length,
+          firstCandidateTs: candidates[0]?.ts,
+          lastCandidateTs: candidates[candidates.length - 1]?.ts,
+          matchedCount: matchedRows.length,
+        });
       }
 
       return {
@@ -893,7 +945,7 @@ export const reportsController = {
         journeyLogs: {
           event_url_param: idField,
           athena_url_param: idField,
-          athena_url_field: eventField,
+          athena_url_field: eventUrlField,
           athena_time_field: timeField,
           source_time: sourceTime,
           event_time: eventTime,
@@ -907,6 +959,37 @@ export const reportsController = {
         },
       };
     });
+
+    console.info(
+      '[attach_related_events.debug]',
+      JSON.stringify({
+        reportId: current.id,
+        mapping: {
+          idField,
+          timeField,
+          eventUrlField,
+          sourceTimeField,
+          eventTimeField,
+        },
+        csv: {
+          headerCount: parsedCsv.headers.length,
+          rowCount: parsedCsv.rows.length,
+          uploadEvents: validUploadEventCount,
+          distinctIds: uploadedEventsById.size,
+        },
+        raw: {
+          rowCount: rawRows.length,
+          rowsWithMatchedEvents,
+          totalMatchedEvents,
+          missingIdCount,
+          missingSourceTimeCount,
+          missingEventTimeCount,
+          noCandidatesByIdCount,
+          filteredByTimeWindowCount,
+        },
+        samples: debugSamples,
+      }),
+    );
 
     await referrerRaws.updateJourneyLogsMany(payloads);
     await logs.createMany([
