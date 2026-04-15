@@ -10,6 +10,7 @@ import { DashboardTable } from '../components/dashboard/DashboardTable';
 import { AttachRelatedEventsDrawer } from '../components/reports/AttachRelatedEventsDrawer';
 import type { TableRow } from '../components/dashboard/dashboardData';
 import { api } from '../service';
+import { buildApiUrl } from '../service/http';
 import type { ReportDetailResponse } from '../service/reports';
 
 export default function ReportsDetail() {
@@ -86,6 +87,7 @@ export default function ReportsDetail() {
   }, [appliedCohortMode, appliedEndDate, appliedStartDate, appliedWindowHours, page, pageSize, refreshKey, reportId]);
 
   const selectedDetail = selectedRow ? payload?.eventDetails[selectedRow.eventId] || null : null;
+  const uidDownloadHref = reportId ? buildApiUrl(`/api/reports/${reportId}/uid-download`) : '';
 
   useEffect(() => {
     if (!isDetailOpen) {
@@ -116,18 +118,12 @@ export default function ReportsDetail() {
             <button
               type="button"
               onClick={() => setIsAttachDrawerOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
             >
               <span className="material-symbols-outlined text-base">link</span>
               Attach Related Events
             </button>
-            <Link
-              to="/reports"
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              <span className="material-symbols-outlined text-base">arrow_back</span>
-              Back to Reports
-            </Link>
+
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-8 [&::-webkit-scrollbar]:hidden">
@@ -198,6 +194,7 @@ export default function ReportsDetail() {
       <DashboardDetailDrawer detail={selectedDetail} isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} />
       <AttachRelatedEventsDrawer
         isOpen={isAttachDrawerOpen}
+        uidDownloadHref={uidDownloadHref}
         onClose={() => {
           if (isAttachingRelatedEvents) return;
           setIsAttachDrawerOpen(false);

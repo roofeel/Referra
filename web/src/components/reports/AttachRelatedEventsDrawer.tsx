@@ -5,6 +5,7 @@ type AttachRelatedEventsDrawerProps = {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (payload: AttachRelatedEventsPayload) => Promise<void>;
+  uidDownloadHref?: string;
 };
 
 function parseCsvHeaders(csvText: string): string[] {
@@ -43,7 +44,7 @@ function parseCsvHeaders(csvText: string): string[] {
   return headers.filter(Boolean);
 }
 
-export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit }: AttachRelatedEventsDrawerProps) {
+export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownloadHref }: AttachRelatedEventsDrawerProps) {
   const fileInputId = useId();
   const idFieldId = useId();
   const timeFieldId = useId();
@@ -172,10 +173,22 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit }: AttachR
             </button>
           </div>
 
-          <div className="flex-1 space-y-6 overflow-y-auto p-6 md:p-8">
-            <section className="rounded-xl border border-slate-200/70 bg-white p-6">
+          <div className="flex-1 overflow-y-auto">
+            <section className="border border-slate-200/70 bg-white p-6">
               <h3 className="text-sm font-bold text-slate-900">Upload Related Events CSV</h3>
-              <p className="mt-1 text-xs text-slate-500">Select CSV and map ID / time / event fields.</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Find other events with the same UID as attributed events, then upload them as CSV.
+              </p>
+              {uidDownloadHref ? (
+                <p className="mt-2 text-xs text-slate-600">
+                  <a
+                    href={uidDownloadHref}
+                    className="font-semibold text-blue-700 underline decoration-blue-300 underline-offset-2 hover:text-blue-800"
+                  >
+                    Download attributed UIDs (CSV)
+                  </a>
+                </p>
+              ) : null}
 
               <label
                 htmlFor={fileInputId}
@@ -197,7 +210,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit }: AttachR
               {fileParseError ? <p className="mt-2 text-xs font-semibold text-red-600">{fileParseError}</p> : null}
             </section>
 
-            <section className="rounded-xl border border-slate-200/70 bg-white p-6">
+            <section className="border border-slate-200/70 bg-white p-6">
               <h3 className="text-sm font-bold text-slate-900">Field Mapping</h3>
               <div className="mt-4 grid grid-cols-1 gap-4">
                 <label htmlFor={idFieldId} className="text-xs font-semibold text-slate-600">
@@ -256,7 +269,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit }: AttachR
               </div>
             </section>
 
-            <section className="rounded-xl border border-slate-200/70 bg-white p-5">
+            <section className="border border-slate-200/70 bg-white p-5">
               <button
                 type="button"
                 disabled={!isFormComplete || isSubmitting}

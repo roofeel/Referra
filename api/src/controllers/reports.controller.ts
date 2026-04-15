@@ -344,6 +344,43 @@ function getStringField(row: Record<string, unknown>, field: string) {
   return '';
 }
 
+function normalizeKey(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function getJsonValue(record: Record<string, unknown>, candidates: string[]) {
+  if (!record || candidates.length === 0) return '';
+
+  for (const key of candidates) {
+    const normalizedKey = key.trim();
+    if (!normalizedKey) continue;
+    const value = record[normalizedKey];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  }
+
+  const normalizedMap = new Map<string, unknown>();
+  for (const [key, value] of Object.entries(record)) {
+    normalizedMap.set(normalizeKey(key), value);
+  }
+
+  for (const key of candidates) {
+    const normalizedKey = normalizeKey(key);
+    if (!normalizedKey) continue;
+    const value = normalizedMap.get(normalizedKey);
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  }
+
+  return '';
+}
+
 function pickTimeField(
   row: Record<string, unknown>,
   primaryField: string,
@@ -385,6 +422,33 @@ function formatTimestampFromMs(ms: number) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(
     date.getMinutes(),
   )}:${pad(date.getSeconds())}`;
+}
+
+function extractUidFromRawJson(row: Record<string, unknown>) {
+  const directUid = getJsonValue(row, ['uid']);
+  if (directUid) return directUid;
+
+  const urlCandidates = [
+    getStringField(row, 'event_url'),
+    getStringField(row, 'registration_url'),
+    getStringField(row, 'page_load_url'),
+    getStringField(row, 'url'),
+    getStringField(row, 'ourl'),
+  ].filter(Boolean);
+  for (const urlValue of urlCandidates) {
+    const parsed = parseUrl(urlValue);
+    if (!parsed) continue;
+    const uid = getSearchParamIgnoreCase(parsed, 'uid').trim();
+    if (uid) return uid;
+  }
+
+  return '';
+}
+
+function extractUidFromEventUrl(urlValue: string) {
+  const parsed = parseUrl(urlValue);
+  if (!parsed) return '';
+  return getSearchParamIgnoreCase(parsed, 'uid').trim();
 }
 
 export const reportsController = {
@@ -690,6 +754,38 @@ export const reportsController = {
       cohortMode,
     });
     return Response.json(payload);
+  },
+
+  async downloadUids(req: Request) {
+    const request = req as RequestWithParams<{ id: string }>;
+    const current = await reports.findById(request.params.id);
+
+    if (!current) {
+      return Response.json({ error: 'Report task not found' }, { status: 404 });
+    }
+
+    const rawRows = await referrerRaws.listByReport(current.id);
+    const storedFieldMappings = normalizeAttributionLogicMapping(current.fieldMappings);
+    const eventUrlField = storedFieldMappings?.event_url || '';
+    const uidSet = new Set<string>();
+    for (const rawRow of rawRows as Array<{ json: unknown }>) {
+      const json = getJsonRecord(rawRow.json);
+      const eventUrl = getJsonValue(json, [eventUrlField, 'event_url', 'registration_url', 'page_load_url', 'url', 'ourl']);
+      const uidFromUrl = extractUidFromEventUrl(eventUrl);
+      const uid = uidFromUrl || extractUidFromRawJson(json);
+      if (uid) {
+        uidSet.add(uid);
+      }
+    }
+
+    const csv = ['uid', ...Array.from(uidSet).sort((a, b) => a.localeCompare(b))].join('\n');
+    return new Response(csv, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="report-${current.id}-uids.csv"`,
+      },
+    });
   },
 
   async attachRelatedEvents(req: Request) {

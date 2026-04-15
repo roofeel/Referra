@@ -16,6 +16,13 @@ vi.mock('../../service', () => ({
   },
 }));
 
+vi.mock('../../components/ToastProvider', () => ({
+  useToast: () => ({
+    success: vi.fn(),
+    error: vi.fn(),
+  }),
+}));
+
 describe('ReportsDetail', () => {
   beforeEach(() => {
     mockReportsDetail.mockReset();

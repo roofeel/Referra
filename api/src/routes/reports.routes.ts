@@ -20,6 +20,9 @@ export const reportsRoutes = {
   '/api/reports/:id/detail': {
     GET: reportsController.detail,
   },
+  '/api/reports/:id/uid-download': {
+    GET: reportsController.downloadUids,
+  },
   '/api/reports/:id/attach-related-events': {
     POST: reportsController.attachRelatedEvents,
   },
