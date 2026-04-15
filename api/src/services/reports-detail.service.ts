@@ -288,6 +288,55 @@ type JourneySourceItem = {
   url: string;
 };
 
+type StoredJourneyLogs = {
+  eventUrlParam: string;
+  athenaUrlParam: string;
+  athenaUrlField: string;
+  athenaTimeField: string;
+  sourceTime: string;
+  eventTime: string;
+  rows: Array<{
+    ts: string;
+    url: string;
+    idValue: string;
+  }>;
+};
+
+function normalizeStoredJourneyLogs(value: unknown): StoredJourneyLogs | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const rawRows = Array.isArray(record.rows) ? record.rows : [];
+  const rows = rawRows
+    .map((item) => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+      const row = item as Record<string, unknown>;
+      const ts = typeof row.ts === 'string' ? row.ts.trim() : '';
+      const url = typeof row.url === 'string' ? row.url.trim() : '';
+      const idValue = typeof row.idValue === 'string' ? row.idValue.trim() : '';
+      return ts || url || idValue ? { ts: ts || '--', url: url || '--', idValue } : null;
+    })
+    .filter((item): item is { ts: string; url: string; idValue: string } => Boolean(item));
+
+  const eventUrlParamRaw = typeof record.event_url_param === 'string' ? record.event_url_param.trim() : '';
+  const athenaUrlParamRaw = typeof record.athena_url_param === 'string' ? record.athena_url_param.trim() : '';
+  const athenaUrlFieldRaw = typeof record.athena_url_field === 'string' ? record.athena_url_field.trim() : '';
+  const athenaTimeFieldRaw = typeof record.athena_time_field === 'string' ? record.athena_time_field.trim() : '';
+  const sourceTime = typeof record.source_time === 'string' ? record.source_time.trim() : '';
+  const eventTime = typeof record.event_time === 'string' ? record.event_time.trim() : '';
+
+  if (!eventUrlParamRaw || !athenaUrlParamRaw || !athenaUrlFieldRaw || !athenaTimeFieldRaw) return null;
+
+  return {
+    eventUrlParam: eventUrlParamRaw,
+    athenaUrlParam: athenaUrlParamRaw,
+    athenaUrlField: athenaUrlFieldRaw,
+    athenaTimeField: athenaTimeFieldRaw,
+    sourceTime,
+    eventTime,
+    rows,
+  };
+}
+
 function buildJourneySourceItems(rows: ReferrerRawRecord[], journeyConfig: JourneyConfig): Map<string, JourneySourceItem[]> {
   const grouped = new Map<string, JourneySourceItem[]>();
   for (const row of rows) {
@@ -407,7 +456,18 @@ function buildDetailPayload(
       ],
     };
 
-    if (options.journeyConfig && journeySourceMap) {
+    const storedJourneyLogs = normalizeStoredJourneyLogs((item as Record<string, unknown>).journeyLogs);
+    if (storedJourneyLogs) {
+      detailItem.journey = {
+        sourceWindow: storedJourneyLogs.sourceTime || '--',
+        eventWindow: storedJourneyLogs.eventTime || '--',
+        eventUrlParam: storedJourneyLogs.eventUrlParam,
+        athenaUrlParam: storedJourneyLogs.athenaUrlParam,
+        athenaUrlField: storedJourneyLogs.athenaUrlField,
+        athenaTimeField: storedJourneyLogs.athenaTimeField,
+        rows: storedJourneyLogs.rows.slice(0, 200),
+      };
+    } else if (options.journeyConfig && journeySourceMap) {
       const parsedEventUrl = parseUrl(urlValue);
       const eventIdValue = parsedEventUrl ? getSearchParamIgnoreCase(parsedEventUrl, options.journeyConfig.eventUrlParam).trim() : '';
       const sourceMs = parseTimestampToMs(sourceTime);

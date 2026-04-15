@@ -17,6 +17,7 @@ import {
 } from '../lib/reports-presentation.lib.js';
 import { getReportDetailPayload } from '../services/reports-detail.service.js';
 import { executeReportRows, type UrlRuleExecutor } from '../services/reports-execution.service.js';
+import { buildJourneyLogsForRows, type JourneyConfig } from '../services/reports-journey.service.js';
 
 type ReportTask = {
   id: string;
@@ -199,15 +200,6 @@ function extractAthenaColumnsFromDdl(ddl: string | null | undefined): string[] {
   return columns;
 }
 
-type JourneyConfig = {
-  athenaTableId: string;
-  athenaTableName: string;
-  eventUrlParam: string;
-  athenaUrlParam: string;
-  athenaUrlField: string;
-  athenaTimeField: string;
-};
-
 function normalizeJourneyConfig(input: unknown): Omit<JourneyConfig, 'athenaTableName'> | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     return null;
@@ -255,6 +247,26 @@ function resolveAttributionLogicFromBody(body: {
   });
 
   return fallback;
+}
+
+function normalizeJourneyConfigFromFieldMappings(fieldMappings: unknown): JourneyConfig | null {
+  if (!fieldMappings || typeof fieldMappings !== 'object' || Array.isArray(fieldMappings)) {
+    return null;
+  }
+  const record = fieldMappings as Record<string, unknown>;
+  const raw = record.__journeyConfig;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return null;
+  }
+  const normalized = normalizeJourneyConfig(raw);
+  if (!normalized) return null;
+  const item = raw as Record<string, unknown>;
+  const athenaTableName = typeof item.athenaTableName === 'string' ? item.athenaTableName.trim() : '';
+  if (!athenaTableName) return null;
+  return {
+    ...normalized,
+    athenaTableName,
+  };
 }
 
 function resolveReportTypeFromBody(body: { reportType?: unknown; attributionLogic?: unknown }): ReportType {
@@ -529,25 +541,37 @@ export const reportsController = {
       fieldMappings: reportFieldMappings,
     });
     const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
+    const inputRows = parsedCsv.rows.map((row) => ({
+      eventUrl: String(row[eventUrlColumn] ?? ''),
+      eventTime: String(row[eventTimeColumn] ?? ''),
+      sourceTime: String(row[sourceTimeColumn] ?? ''),
+      json: row,
+    }));
+    const journeyLogsByRowIndex = resolvedJourneyConfig
+      ? await buildJourneyLogsForRows({
+          journeyConfig: resolvedJourneyConfig,
+          rows: inputRows.map((item: { eventUrl: string; eventTime: string; sourceTime: string }) => ({
+            eventUrl: item.eventUrl,
+            eventTime: item.eventTime,
+            sourceTime: item.sourceTime,
+          })),
+        })
+      : [];
 
     try {
       const updated = await executeReportRows({
         reportId: created.id,
-        rows: parsedCsv.rows.map((row) => ({
-          eventUrl: String(row[eventUrlColumn] ?? ''),
-          eventTime: String(row[eventTimeColumn] ?? ''),
-          sourceTime: String(row[sourceTimeColumn] ?? ''),
-          json: row,
-        })),
+        rows: inputRows,
         executeRule,
         persistRows: async (rows) => {
           await referrerRaws.createMany(
-            rows.map((item) => ({
+            rows.map((item, index) => ({
               reportId: created.id,
               referrerType: item.referrerType,
               referrerDesc: item.referrerDesc,
               duration: item.duration,
               json: item.json,
+              journeyLogs: journeyLogsByRowIndex[index] || null,
             })),
           );
         },
@@ -678,25 +702,43 @@ export const reportsController = {
     });
 
     const executeRule = buildUrlRuleExecutor(existingRule.logicSource);
+    const storedJourneyConfig = normalizeJourneyConfigFromFieldMappings(current.fieldMappings);
+    const inputRows = existingRows.map((row: { json: unknown }) => {
+      const rowJson =
+        row.json && typeof row.json === 'object' && !Array.isArray(row.json)
+          ? (row.json as Record<string, unknown>)
+          : {};
+      return {
+        eventUrl: String(rowJson[storedFieldMappings.event_url] ?? ''),
+        eventTime: String(rowJson[storedFieldMappings.event_time] ?? ''),
+        sourceTime: String(rowJson[storedFieldMappings.source_time] ?? ''),
+        json: row.json,
+      };
+    });
+    const journeyLogsByRowIndex = storedJourneyConfig
+      ? await buildJourneyLogsForRows({
+          journeyConfig: storedJourneyConfig,
+          rows: inputRows.map((item: { eventUrl: string; eventTime: string; sourceTime: string }) => ({
+            eventUrl: item.eventUrl,
+            eventTime: item.eventTime,
+            sourceTime: item.sourceTime,
+          })),
+        })
+      : [];
 
     try {
       const updated = await executeReportRows({
         reportId: current.id,
-        rows: existingRows.map((row: { json: unknown }) => {
-          const rowJson =
-            row.json && typeof row.json === 'object' && !Array.isArray(row.json)
-              ? (row.json as Record<string, unknown>)
-              : {};
-          return {
-            eventUrl: String(rowJson[storedFieldMappings.event_url] ?? ''),
-            eventTime: String(rowJson[storedFieldMappings.event_time] ?? ''),
-            sourceTime: String(rowJson[storedFieldMappings.source_time] ?? ''),
-            json: row.json,
-          };
-        }),
+        rows: inputRows,
         executeRule,
         persistRows: async (rows) => {
-          await referrerRaws.replaceByReport(current.id, rows);
+          await referrerRaws.replaceByReport(
+            current.id,
+            rows.map((item, index) => ({
+              ...item,
+              journeyLogs: journeyLogsByRowIndex[index] || null,
+            })),
+          );
         },
         startMessage: `Rerun started. reportId=${current.id} rows=${existingRows.length}`,
         finishMessagePrefix: 'Rerun finished.',

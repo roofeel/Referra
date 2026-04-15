@@ -185,6 +185,7 @@ export interface ReferrerRaw {
   referrerDesc: string;
   duration: number;
   json: unknown;
+  journeyLogs?: unknown | null;
 }
 
 export interface NonAttributedRaw {
@@ -778,6 +779,7 @@ export const referrerRaws = {
     referrerDesc: string;
     duration: number;
     json: unknown;
+    journeyLogs?: unknown | null;
   }>) {
     if (data.length === 0) {
       return { count: 0 };
@@ -790,6 +792,7 @@ export const referrerRaws = {
         referrerDesc: item.referrerDesc,
         duration: item.duration,
         json: item.json,
+        journeyLogs: item.journeyLogs ?? null,
       })),
     });
   },
@@ -807,6 +810,7 @@ export const referrerRaws = {
       referrerDesc: string;
       duration: number;
       json: unknown;
+      journeyLogs?: unknown | null;
     }>,
   ) {
     return await (db as any).$transaction(async (tx: any) => {
@@ -825,6 +829,7 @@ export const referrerRaws = {
           referrerDesc: item.referrerDesc,
           duration: item.duration,
           json: item.json,
+          journeyLogs: item.journeyLogs ?? null,
         })),
       });
     });

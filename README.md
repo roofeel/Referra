@@ -100,3 +100,17 @@ Create OAuth 2.0 Web Client credentials in Google Cloud Console, then set:
   - `VITE_GOOGLE_CLIENT_ID=your_google_web_client_id`
 - `api/.env`
   - `GOOGLE_CLIENT_ID=your_google_web_client_id`
+
+## Journey Matching (AWS Athena) Setup
+
+If you enable Journey Matching, configure the following in `api/.env`:
+
+- `AWS_REGION`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+
+You can start from:
+
+```bash
+cp api/.env.example api/.env
+```

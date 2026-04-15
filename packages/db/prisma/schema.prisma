@@ -123,6 +123,7 @@ model ReferrerRaw {
   referrerDesc String @map("referrer_desc")
   duration     Int
   json         Json
+  journeyLogs  Json?  @map("journey_logs")
 
   @@index([reportId])
 }
