@@ -4,7 +4,6 @@ import {
   ATTRIBUTION_ALIAS_CONFIG,
   ATTRIBUTION_MODE_OPTIONS,
   getReportTypeLabel,
-  CANONICAL_FIELD_ALIASES,
   type AttributionLogicMapping,
   type AttributionMode,
   type CanonicalAttributionField,
@@ -22,16 +21,6 @@ type UploadDataDrawerProps = {
 type FieldMappingState = Record<AttributionMode, Partial<AttributionLogicMapping>>;
 function getRequiredCanonicalFields(): CanonicalAttributionField[] {
   return ['source_url', 'event_url', 'source_time', 'event_time'];
-}
-
-function normalizeHeaderKey(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_')
-    .replace(/[^a-z0-9_]/g, '')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
 }
 
 function parseCsvHeaders(csvText: string): string[] {
@@ -70,19 +59,11 @@ function parseCsvHeaders(csvText: string): string[] {
   return headers.filter(Boolean);
 }
 
-function autoMatchRequiredFields(
+function preserveValidRequiredFieldMappings(
   requiredFields: CanonicalAttributionField[],
   headers: string[],
   previous: Partial<AttributionLogicMapping>,
 ) {
-  const normalizedToHeader = new Map<string, string>();
-  headers.forEach((header) => {
-    const key = normalizeHeaderKey(header);
-    if (key && !normalizedToHeader.has(key)) {
-      normalizedToHeader.set(key, header);
-    }
-  });
-
   const next: Partial<AttributionLogicMapping> = {};
   const usedHeaders = new Set<string>();
 
@@ -91,32 +72,6 @@ function autoMatchRequiredFields(
     if (previousHeader && headers.includes(previousHeader) && !usedHeaders.has(previousHeader)) {
       next[field] = previousHeader;
       usedHeaders.add(previousHeader);
-      return;
-    }
-
-    const aliases = [field, ...(CANONICAL_FIELD_ALIASES[field] || [])];
-    let matchedHeader = '';
-    for (const alias of aliases) {
-      const candidate = normalizedToHeader.get(normalizeHeaderKey(alias));
-      if (candidate && !usedHeaders.has(candidate)) {
-        matchedHeader = candidate;
-        break;
-      }
-    }
-
-    if (!matchedHeader) {
-      const normalizedField = normalizeHeaderKey(field);
-      const fallback = headers.find((header) => {
-        if (usedHeaders.has(header)) return false;
-        const normalizedHeader = normalizeHeaderKey(header);
-        return normalizedHeader.includes(normalizedField) || normalizedField.includes(normalizedHeader);
-      });
-      matchedHeader = fallback || '';
-    }
-
-    if (matchedHeader) {
-      next[field] = matchedHeader;
-      usedHeaders.add(matchedHeader);
     }
   });
 
@@ -226,8 +181,8 @@ export function AttributedUploadDataDrawer({
 
   useEffect(() => {
     setFieldMappings((prev) => ({
-      registration: autoMatchRequiredFields(requiredCanonicalFields, csvHeaders, prev.registration),
-      pageload: autoMatchRequiredFields(requiredCanonicalFields, csvHeaders, prev.pageload),
+      registration: preserveValidRequiredFieldMappings(requiredCanonicalFields, csvHeaders, prev.registration),
+      pageload: preserveValidRequiredFieldMappings(requiredCanonicalFields, csvHeaders, prev.pageload),
     }));
   }, [csvHeaders, requiredCanonicalFields]);
 
@@ -682,7 +637,7 @@ export function AttributedUploadDataDrawer({
                     })}
                   </div>
                   {csvHeaders.length === 0 ? (
-                    <p className="mt-3 text-xs text-amber-200">Upload CSV first to extract headers and auto-match fields.</p>
+                    <p className="mt-3 text-xs text-amber-200">Upload CSV first to extract headers.</p>
                   ) : null}
                 </section>
 

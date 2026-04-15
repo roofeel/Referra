@@ -16,6 +16,32 @@ import { AuthProvider } from './auth/AuthContext'
 import RequireAuth from './components/RequireAuth'
 import { ToastProvider } from './components/ToastProvider'
 
+function markMaterialSymbolsReady() {
+  const root = document.documentElement
+  const readyClass = 'material-symbols-ready'
+
+  const markReady = () => root.classList.add(readyClass)
+
+  if (!('fonts' in document)) {
+    markReady()
+    return
+  }
+
+  if (document.fonts.check('24px "Material Symbols Outlined"')) {
+    markReady()
+    return
+  }
+
+  const fallbackTimer = window.setTimeout(markReady, 3000)
+  document.fonts
+    .load('24px "Material Symbols Outlined"')
+    .then(markReady)
+    .catch(markReady)
+    .finally(() => window.clearTimeout(fallbackTimer))
+}
+
+markMaterialSymbolsReady()
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
