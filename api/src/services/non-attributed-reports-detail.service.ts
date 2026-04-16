@@ -378,6 +378,7 @@ export async function getNonAttributedReportDetailPayload(
     endDate?: string;
     cohortMode?: 'non-cohort' | 'cohort';
     windowHours?: number;
+    referrerType?: string;
   },
 ) {
   const attributionLogic = normalizeNonAttributedAttributionLogicMapping(report.fieldMappings);
@@ -400,13 +401,17 @@ export async function getNonAttributedReportDetailPayload(
   const startMs = options.startDate ? startOfDayMs(options.startDate) : null;
   const endMs = options.endDate ? endOfDayMs(options.endDate) : null;
   const windowHours = [12, 24, 48, 72].includes(options.windowHours || 0) ? (options.windowHours as number) : null;
+  const referrerTypeFilter = (options.referrerType || '').trim().toLowerCase();
   const cohortMode = options.cohortMode === 'cohort' ? 'cohort' : 'non-cohort';
   const rule = await urlRules.findById(report.ruleId);
-  const shouldFilter = startMs !== null || endMs !== null || windowHours !== null;
+  const shouldFilter = startMs !== null || endMs !== null || windowHours !== null || Boolean(referrerTypeFilter);
 
   if (shouldFilter) {
     const allRows = (await nonAttributedRaws.listByReport(report.id)) as NonAttributedRawRecord[];
     const filteredRows = allRows.filter((item) => {
+      const rowReferrerType = (item.referrerType || '').trim().toLowerCase();
+      if (referrerTypeFilter && rowReferrerType !== referrerTypeFilter) return false;
+
       const filterTimeMs =
         cohortMode === 'cohort'
           ? parseTimeMsByCandidates(item, sourceTimeCandidates)

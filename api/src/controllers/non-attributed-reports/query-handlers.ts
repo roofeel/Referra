@@ -114,6 +114,7 @@ export async function detail(req: Request) {
   const windowHoursRaw = Number(url.searchParams.get('windowHours') || '');
   const startDate = url.searchParams.get('startDate')?.trim() || '';
   const endDate = url.searchParams.get('endDate')?.trim() || '';
+  const referrerType = url.searchParams.get('referrerType')?.trim() || '';
   const cohortModeRaw = url.searchParams.get('cohortMode')?.trim().toLowerCase();
   const cohortMode = cohortModeRaw === 'cohort' ? 'cohort' : 'non-cohort';
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
@@ -130,6 +131,7 @@ export async function detail(req: Request) {
     windowHours: windowHoursRaw,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
+    referrerType: referrerType || undefined,
     cohortMode,
   });
   return Response.json(payload);

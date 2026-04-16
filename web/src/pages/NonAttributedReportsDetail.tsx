@@ -20,16 +20,20 @@ export default function NonAttributedReportsDetail() {
   const [page, setPage] = useState(1);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftEndDate, setDraftEndDate] = useState('');
+  const [draftReferrerType, setDraftReferrerType] = useState('');
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
+  const [appliedReferrerType, setAppliedReferrerType] = useState('');
   const pageSize = 50;
 
   useEffect(() => {
     setPage(1);
     setDraftStartDate('');
     setDraftEndDate('');
+    setDraftReferrerType('');
     setAppliedStartDate('');
     setAppliedEndDate('');
+    setAppliedReferrerType('');
   }, [reportId]);
 
   useEffect(() => {
@@ -48,6 +52,7 @@ export default function NonAttributedReportsDetail() {
         const options: Parameters<typeof api.nonAttributedReports.detail>[1] = { page, pageSize };
         if (appliedStartDate) options.startDate = appliedStartDate;
         if (appliedEndDate) options.endDate = appliedEndDate;
+        if (appliedReferrerType) options.referrerType = appliedReferrerType;
 
         const data = await api.nonAttributedReports.detail(reportId, options);
         if (!alive) return;
@@ -67,9 +72,12 @@ export default function NonAttributedReportsDetail() {
     return () => {
       alive = false;
     };
-  }, [appliedEndDate, appliedStartDate, page, pageSize, reportId]);
+  }, [appliedEndDate, appliedReferrerType, appliedStartDate, page, pageSize, reportId]);
 
   const selectedDetail = selectedRow ? payload?.eventDetails[selectedRow.eventId] || null : null;
+  const referrerTypeOptions = payload
+    ? payload.referrerTypeStats.map((item) => (item.referrerType || '').trim()).filter((item) => Boolean(item))
+    : [];
 
   useEffect(() => {
     if (!isDetailOpen) {
@@ -117,24 +125,31 @@ export default function NonAttributedReportsDetail() {
                 clientName={payload.clientName}
                 reportType={payload.reportType}
                 showCohortWindowFilters={false}
+                showReferrerTypeFilter
+                referrerTypeOptions={referrerTypeOptions}
                 startDate={draftStartDate}
                 endDate={draftEndDate}
+                referrerType={draftReferrerType}
                 cohortMode="non-cohort"
                 windowHours="24"
                 onStartDateChange={setDraftStartDate}
                 onEndDateChange={setDraftEndDate}
+                onReferrerTypeChange={setDraftReferrerType}
                 onCohortModeChange={() => undefined}
                 onWindowHoursChange={() => undefined}
                 onApply={() => {
                   setAppliedStartDate(draftStartDate);
                   setAppliedEndDate(draftEndDate);
+                  setAppliedReferrerType(draftReferrerType);
                   setPage(1);
                 }}
                 onReset={() => {
                   setDraftStartDate('');
                   setDraftEndDate('');
+                  setDraftReferrerType('');
                   setAppliedStartDate('');
                   setAppliedEndDate('');
+                  setAppliedReferrerType('');
                   setPage(1);
                 }}
               />

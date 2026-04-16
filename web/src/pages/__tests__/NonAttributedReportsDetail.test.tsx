@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import NonAttributedReportsDetail from '../NonAttributedReportsDetail';
@@ -76,6 +76,7 @@ describe('NonAttributedReportsDetail', () => {
     expect(nav).toBeInTheDocument();
     expect(screen.getByText('Report #NA-8821')).toBeInTheDocument();
     expect(await screen.findByText('Global Retail Corp')).toBeInTheDocument();
+    expect(screen.getByLabelText('Referrer Type')).toBeInTheDocument();
     expect(screen.queryByLabelText('Cohort Mode')).not.toBeInTheDocument();
     expect(screen.queryByText(/Window/i)).not.toBeInTheDocument();
     expect(screen.queryByText('registration_time')).not.toBeInTheDocument();
@@ -89,6 +90,29 @@ describe('NonAttributedReportsDetail', () => {
     expect(mockNonAttributedReportsDetail).toHaveBeenCalledWith('NA-8821', {
       page: 1,
       pageSize: 50,
+    });
+  });
+
+  it('applies referrer type filter when user clicks Apply', async () => {
+    render(
+      <MemoryRouter initialEntries={['/non-attributed-reports/NA-8821']}>
+        <Routes>
+          <Route path="/non-attributed-reports/:reportId" element={<NonAttributedReportsDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Global Retail Corp');
+
+    fireEvent.change(screen.getByLabelText('Referrer Type'), { target: { value: 'organic' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+
+    await waitFor(() => {
+      expect(mockNonAttributedReportsDetail).toHaveBeenLastCalledWith('NA-8821', {
+        page: 1,
+        pageSize: 50,
+        referrerType: 'organic',
+      });
     });
   });
 });

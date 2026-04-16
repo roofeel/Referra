@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { DayPicker, type DateRange } from 'react-day-picker';
 import { getReportTypeLabel, type ReportType } from '../reports/attributionConfig';
 
@@ -7,6 +7,7 @@ type DashboardFiltersProps = {
   reportType: ReportType;
   referrerTypeOptions?: string[];
   showCohortWindowFilters?: boolean;
+  showReferrerTypeFilter?: boolean;
   startDate: string;
   endDate: string;
   cohortMode: 'non-cohort' | 'cohort';
@@ -39,6 +40,7 @@ export function DashboardFilters({
   reportType,
   referrerTypeOptions = [],
   showCohortWindowFilters = true,
+  showReferrerTypeFilter = showCohortWindowFilters,
   startDate,
   endDate,
   cohortMode,
@@ -66,6 +68,7 @@ export function DashboardFilters({
   onReset,
 }: DashboardFiltersProps) {
   const reportTypeLabel = getReportTypeLabel(reportType);
+  const referrerTypeId = useId();
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isAdvancedDrawerOpen, setIsAdvancedDrawerOpen] = useState(false);
   const [isDurationConfigOpen, setIsDurationConfigOpen] = useState(false);
@@ -203,11 +206,14 @@ export function DashboardFilters({
             ) : null}
           </div>
         </div>
-        {showCohortWindowFilters ? (
+        {showReferrerTypeFilter ? (
           <>
             <div className="w-52">
-              <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Referrer Type</label>
+              <label htmlFor={referrerTypeId} className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">
+                Referrer Type
+              </label>
               <select
+                id={referrerTypeId}
                 value={referrerType}
                 onChange={(event) => onReferrerTypeChange?.(event.target.value)}
                 className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"

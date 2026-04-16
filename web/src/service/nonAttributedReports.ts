@@ -115,6 +115,7 @@ export const nonAttributedReportsApi = {
       endDate?: string;
       cohortMode?: 'non-cohort' | 'cohort';
       windowHours?: number;
+      referrerType?: string;
     },
   ): Promise<ReportDetailResponse> => {
     const params = new URLSearchParams();
@@ -130,6 +131,7 @@ export const nonAttributedReportsApi = {
     if (typeof options?.windowHours === 'number' && Number.isFinite(options.windowHours)) {
       params.set('windowHours', String(Math.floor(options.windowHours)));
     }
+    if (options?.referrerType) params.set('referrerType', options.referrerType);
 
     const query = params.toString();
     const response = await fetch(buildApiUrl(`/api/non-attributed-reports/${id}/detail${query ? `?${query}` : ''}`));
