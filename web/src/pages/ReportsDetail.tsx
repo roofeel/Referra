@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useToast } from '../components/ToastProvider';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { DashboardDetailDrawer } from '../components/dashboard/DashboardDetailDrawer';

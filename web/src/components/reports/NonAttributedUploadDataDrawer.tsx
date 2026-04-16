@@ -23,7 +23,6 @@ type FieldMappingState = Record<AttributionMode, Partial<AttributionLogicMapping
 const REQUIRED_NON_ATTRIBUTED_FIELDS: CanonicalAttributionField[] = ['event_url', 'event_time'];
 const NON_ATTRIBUTED_MODE_LABELS: Record<AttributionMode, string> = {
   registration: 'Registration',
-  pageload: 'Pageload',
 };
 
 function getRequiredCanonicalFields(): CanonicalAttributionField[] {
@@ -155,7 +154,6 @@ export function NonAttributedUploadDataDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<FieldMappingState>({
     registration: {},
-    pageload: {},
   });
   const requiredCanonicalFields = useMemo(() => getRequiredCanonicalFields(), []);
 
@@ -202,7 +200,6 @@ export function NonAttributedUploadDataDrawer({
   useEffect(() => {
     setFieldMappings((prev) => ({
       registration: autoMatchRequiredFields(requiredCanonicalFields, csvHeaders, prev.registration),
-      pageload: autoMatchRequiredFields(requiredCanonicalFields, csvHeaders, prev.pageload),
     }));
   }, [csvHeaders, requiredCanonicalFields]);
 

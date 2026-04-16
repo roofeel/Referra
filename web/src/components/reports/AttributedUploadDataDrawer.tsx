@@ -100,7 +100,6 @@ export function AttributedUploadDataDrawer({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<FieldMappingState>({
     registration: {},
-    pageload: {},
   });
   const requiredCanonicalFields = useMemo(() => getRequiredCanonicalFields(), []);
 
@@ -135,7 +134,6 @@ export function AttributedUploadDataDrawer({
   useEffect(() => {
     setFieldMappings((prev) => ({
       registration: preserveValidRequiredFieldMappings(requiredCanonicalFields, csvHeaders, prev.registration),
-      pageload: preserveValidRequiredFieldMappings(requiredCanonicalFields, csvHeaders, prev.pageload),
     }));
   }, [csvHeaders, requiredCanonicalFields]);
 
