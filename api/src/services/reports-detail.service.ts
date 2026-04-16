@@ -290,6 +290,29 @@ type JourneySourceItem = {
   url: string;
 };
 
+type RelatedEventFieldMappings = {
+  idField: string;
+  timeField: string;
+  eventField: string;
+  eventUrlField: string;
+};
+
+function normalizeRelatedEventFieldMappings(value: unknown): RelatedEventFieldMappings | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const idField = typeof record.idField === 'string' ? record.idField.trim() : '';
+  const timeField = typeof record.timeField === 'string' ? record.timeField.trim() : '';
+  const eventField = typeof record.eventField === 'string' ? record.eventField.trim() : '';
+  const eventUrlField = typeof record.eventUrlField === 'string' ? record.eventUrlField.trim() : '';
+  if (!idField || !timeField || !eventUrlField) return null;
+  return {
+    idField,
+    timeField,
+    eventField,
+    eventUrlField,
+  };
+}
+
 type StoredJourneyLogs = {
   eventUrlParam: string;
   athenaUrlParam: string;
@@ -305,8 +328,86 @@ type StoredJourneyLogs = {
   }>;
 };
 
-function normalizeStoredJourneyLogs(value: unknown): StoredJourneyLogs | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+function normalizeStoredJourneyLogs(
+  value: unknown,
+  context?: {
+    sourceTime?: string;
+    eventTime?: string;
+    relatedEventFieldMappings?: RelatedEventFieldMappings | null;
+    journeyConfig?: JourneyConfig | null;
+  },
+): StoredJourneyLogs | null {
+  if (!value) return null;
+
+  if (Array.isArray(value)) {
+    const related = context?.relatedEventFieldMappings;
+    const journeyConfig = context?.journeyConfig;
+    if (!related && !journeyConfig) return null;
+
+    const rows = value
+      .map((item) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+        const row = item as Record<string, unknown>;
+
+        if (related) {
+          const tsRaw = getJsonValue(row, [related.timeField]);
+          const url = getJsonValue(row, [related.eventUrlField]) || '--';
+          const idValue = getJsonValue(row, [related.idField]);
+          const eventByField = related.eventField ? getJsonValue(row, [related.eventField]) : '';
+          const eventByUrl = extractEventNameFromEventUrl(url);
+          const event = eventByField || eventByUrl || '--';
+          const tsMs = parseTimestampToMs(tsRaw);
+          return {
+            ts: tsMs !== null ? formatTimestampFromMs(tsMs) : tsRaw || '--',
+            event,
+            url,
+            idValue,
+          };
+        }
+
+        if (!journeyConfig) return null;
+        const tsRaw = getJsonValue(row, [journeyConfig.athenaTimeField, 'event_time', 'registration_time', 'timestamp', 'ts']);
+        const url = getJsonValue(row, [journeyConfig.athenaUrlField, 'event_url', 'registration_url', 'url', 'ourl']) || '--';
+        const parsed = parseUrl(url);
+        const idValue = parsed ? getSearchParamIgnoreCase(parsed, journeyConfig.athenaUrlParam).trim() : '';
+        const event =
+          extractEventNameFromEventUrl(url) ||
+          getJsonValue(row, ['action', 'event_name', 'event', 'event_type', 'ev', 'eventName', 'event-name', 'evt_name']) ||
+          '--';
+        const tsMs = parseTimestampToMs(tsRaw);
+        return {
+          ts: tsMs !== null ? formatTimestampFromMs(tsMs) : tsRaw || '--',
+          event,
+          url,
+          idValue,
+        };
+      })
+      .filter((item): item is { ts: string; event: string; url: string; idValue: string } => Boolean(item));
+
+    if (related) {
+      return {
+        eventUrlParam: related.idField,
+        athenaUrlParam: related.idField,
+        athenaUrlField: related.eventUrlField,
+        athenaTimeField: related.timeField,
+        sourceTime: context?.sourceTime || '',
+        eventTime: context?.eventTime || '',
+        rows,
+      };
+    }
+
+    return {
+      eventUrlParam: journeyConfig!.eventUrlParam,
+      athenaUrlParam: journeyConfig!.athenaUrlParam,
+      athenaUrlField: journeyConfig!.athenaUrlField,
+      athenaTimeField: journeyConfig!.athenaTimeField,
+      sourceTime: context?.sourceTime || '',
+      eventTime: context?.eventTime || '',
+      rows,
+    };
+  }
+
+  if (typeof value !== 'object') return null;
   const record = value as Record<string, unknown>;
   const rawRows = Array.isArray(record.rows) ? record.rows : [];
   const rows = rawRows
@@ -428,7 +529,9 @@ function buildDetailPayload(
 
     return {
       eventId: item.id,
-      uid: extractUidFromEventUrl(eventUrl),
+      uid: (typeof (item as Record<string, unknown>).uid === 'string'
+        ? String((item as Record<string, unknown>).uid).trim()
+        : '') || extractUidFromEventUrl(eventUrl),
       eventName,
       ts: formatTableTimestamp(eventTime),
       sourceTs: sourceMsFromRaw !== null ? formatTableTimestamp(sourceTime) : formatTimestampFromMs(sourceMsDerived),
@@ -443,6 +546,7 @@ function buildDetailPayload(
     options.journeyConfig && (options.journeySourceRows || []).length > 0
       ? buildJourneySourceItems(options.journeySourceRows || [], options.journeyConfig)
       : null;
+  const relatedEventFieldMappings = normalizeRelatedEventFieldMappings(report.relatedEventFieldMappings);
   const eventDetails: Record<string, ReportDetailEventDetail> = {};
   rawRows.forEach((item) => {
     const json = asJsonRecord(item.json);
@@ -464,7 +568,12 @@ function buildDetailPayload(
       ],
     };
 
-    const storedJourneyLogs = normalizeStoredJourneyLogs((item as Record<string, unknown>).journeyLogs);
+    const storedJourneyLogs = normalizeStoredJourneyLogs((item as Record<string, unknown>).journeyLogs, {
+      sourceTime,
+      eventTime,
+      relatedEventFieldMappings,
+      journeyConfig: options.journeyConfig || null,
+    });
     if (storedJourneyLogs) {
       detailItem.journey = {
         sourceWindow: storedJourneyLogs.sourceTime || '--',

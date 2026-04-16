@@ -78,6 +78,7 @@ model Report {
   attribution       String   @default("--")
   reportType        String   @default("registration")
   fieldMappings     Json
+  relatedEventFieldMappings Json?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   nonAttributedReports NonAttributedReport[] @relation("AttributedReportToNonAttributedReports")
@@ -122,8 +123,10 @@ model ReferrerRaw {
   referrerType String @map("referrer_type")
   referrerDesc String @map("referrer_desc")
   duration     Int
+  uid          String?
   json         Json
   journeyLogs  Json?  @map("journey_logs")
+  firstPageLoadDuration Int? @map("first_page_load_duration")
 
   @@index([reportId])
 }

@@ -158,7 +158,13 @@ export async function downloadUids(req: Request) {
   const eventUrlField = storedFieldMappings?.event_url || '';
   const uidSet = new Set<string>();
 
-  for (const rawRow of rawRows as Array<{ json: unknown }>) {
+  for (const rawRow of rawRows as Array<{ json: unknown; uid?: unknown }>) {
+    const storedUid = typeof rawRow.uid === 'string' ? rawRow.uid.trim() : '';
+    if (storedUid) {
+      uidSet.add(storedUid);
+      continue;
+    }
+
     const json = asReportJson(rawRow.json);
     const eventUrl = getJsonValue(json, [eventUrlField, 'event_url', 'registration_url', 'page_load_url', 'url', 'ourl']);
     const uidFromUrl = extractUidFromEventUrl(eventUrl);

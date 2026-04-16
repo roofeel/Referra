@@ -21,9 +21,6 @@ type JourneyInputRow = {
 
 type CandidateJourneyRow = {
   tsMs: number;
-  ts: string;
-  url: string;
-  idValue: string;
   row: Record<string, unknown>;
 };
 
@@ -44,11 +41,6 @@ function quoteQualifiedIdentifier(value: string) {
 
 function pad(value: number) {
   return value.toString().padStart(2, '0');
-}
-
-function formatTimestampFromMs(ms: number) {
-  const date = new Date(ms);
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 function toDateBucketTokens(ms: number) {
@@ -183,9 +175,6 @@ export async function buildJourneyLogsForRows(options: {
       const bucket = candidateMap.get(idValue) || [];
       bucket.push({
         tsMs,
-        ts: formatTimestampFromMs(tsMs),
-        url: parsedUrl.toString(),
-        idValue,
         row: rowJson,
       });
       candidateMap.set(idValue, bucket);
@@ -208,20 +197,6 @@ export async function buildJourneyLogsForRows(options: {
       return true;
     });
 
-    return {
-      event_url_param: options.journeyConfig.eventUrlParam,
-      athena_url_param: options.journeyConfig.athenaUrlParam,
-      athena_url_field: options.journeyConfig.athenaUrlField,
-      athena_time_field: options.journeyConfig.athenaTimeField,
-      source_time: item.sourceTime,
-      event_time: item.eventTime,
-      event_id_value: eventId,
-      rows: inWindow.slice(0, MAX_JOURNEY_ROWS_PER_EVENT).map((candidate) => ({
-        ts: candidate.ts,
-        url: candidate.url,
-        idValue: candidate.idValue,
-        row: candidate.row,
-      })),
-    };
+    return inWindow.slice(0, MAX_JOURNEY_ROWS_PER_EVENT).map((candidate) => candidate.row);
   });
 }

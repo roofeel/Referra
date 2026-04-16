@@ -167,7 +167,16 @@ export async function collectAttributedUidSet(
     'ourl',
   ]);
 
-  for (const row of rows as Array<{ json: unknown }>) {
+  const shouldUseStoredUid = uidParamName.trim().toLowerCase() === 'uid';
+  for (const row of rows as Array<{ json: unknown; uid?: unknown }>) {
+    if (shouldUseStoredUid) {
+      const storedUid = typeof row.uid === 'string' ? row.uid.trim() : '';
+      if (storedUid) {
+        uidSet.add(storedUid);
+        continue;
+      }
+    }
+
     const json = asJsonRecord(row.json);
     const eventUrl = getJsonValue(json, eventUrlCandidates);
     if (!eventUrl) continue;

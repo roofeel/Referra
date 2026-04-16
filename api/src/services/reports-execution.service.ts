@@ -8,6 +8,8 @@ export type ReportInputRow = {
   eventUrl: string;
   eventTime: string;
   sourceTime: string;
+  uid?: string;
+  firstPageLoadDuration?: number | null;
   json: unknown;
 };
 
@@ -15,6 +17,8 @@ export type ReportOutputRow = {
   referrerType: string;
   referrerDesc: string;
   duration: number;
+  uid?: string;
+  firstPageLoadDuration?: number | null;
   json: unknown;
 };
 
@@ -133,6 +137,8 @@ export async function executeReportRows(options: {
         referrerType,
         referrerDesc,
         duration,
+        uid: row.uid,
+        firstPageLoadDuration: row.firstPageLoadDuration ?? null,
         json: row.json,
       });
     }

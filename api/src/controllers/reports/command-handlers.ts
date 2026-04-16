@@ -3,11 +3,13 @@ import { normalizeAttributionLogicMapping, type AttributionLogicMapping, type Re
 import { findColumnName, parseCsvRows } from '../../lib/reports-csv.lib.js';
 import { parseTimestampToMs } from '../../lib/reports-url.lib.js';
 import { progressLabelFor, normalizeReportTaskStatus } from '../../lib/reports-presentation.lib.js';
-import { executeReportRows, type UrlRuleExecutor } from '../../services/reports-execution.service.js';
+import { executeReportRows, type ReportInputRow, type UrlRuleExecutor } from '../../services/reports-execution.service.js';
 import { buildJourneyLogsForRows, type JourneyConfig } from '../../services/reports-journey.service.js';
 import { buildDynamicUrlRuleExecutor } from '../shared/url-rule-executor.helpers.js';
 import {
   asReportJson,
+  extractUidFromEventUrl,
+  extractUidFromRawJson,
   formatTimestampFromMs,
   getStringField,
   normalizeJourneyConfig,
@@ -19,6 +21,79 @@ import {
   toReportTask,
 } from './helpers.js';
 import type { ParsedUploadEvent, RequestWithParams } from './types.js';
+
+function normalizeEventLabel(value: string) {
+  return value.trim().toLowerCase().replace(/[\s_-]+/g, '');
+}
+
+function isPageLoadEvent(value: string) {
+  return normalizeEventLabel(value) === 'pageload';
+}
+
+function extractJourneyEventLabel(row: Record<string, unknown>) {
+  return (
+    getStringField(row, 'event') ||
+    getStringField(row, 'event_name') ||
+    getStringField(row, 'event_type') ||
+    getStringField(row, 'action') ||
+    getStringField(row, 'ev')
+  );
+}
+
+function extractJourneyTimestampMs(row: Record<string, unknown>) {
+  const candidates = [
+    'page_load_time',
+    'event_time',
+    'timestamp',
+    'ts',
+    'time',
+    'event_ts',
+    'created_at',
+  ];
+  for (const key of candidates) {
+    const ts = getStringField(row, key);
+    if (!ts) continue;
+    const tsMs = parseTimestampToMs(ts);
+    if (tsMs !== null) return tsMs;
+  }
+  return null;
+}
+
+function computeFirstPageLoadDuration(sourceTime: string, journeyLogs: unknown): number | null {
+  const sourceMs = parseTimestampToMs(sourceTime);
+  if (sourceMs === null || !Array.isArray(journeyLogs)) return null;
+
+  let earliestPageLoadMs: number | null = null;
+  for (const item of journeyLogs) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    if (!isPageLoadEvent(extractJourneyEventLabel(row))) continue;
+    const tsMs = extractJourneyTimestampMs(row);
+    if (tsMs === null) continue;
+    earliestPageLoadMs = earliestPageLoadMs === null ? tsMs : Math.min(earliestPageLoadMs, tsMs);
+  }
+
+  if (earliestPageLoadMs === null) return null;
+  return Math.max(0, Math.round((earliestPageLoadMs - sourceMs) / 1000));
+}
+
+function computeFirstPageLoadDurationFromUploadedEvents(sourceTime: string, matchedRows: ParsedUploadEvent[]): number | null {
+  const sourceMs = parseTimestampToMs(sourceTime);
+  if (sourceMs === null) return null;
+
+  let earliestPageLoadMs: number | null = null;
+  for (const item of matchedRows) {
+    const rowEvent = item.row && typeof item.row === 'object' ? getStringField(item.row as Record<string, unknown>, 'event') : '';
+    const eventLabel = item.event || rowEvent;
+    if (!isPageLoadEvent(eventLabel)) continue;
+    const tsMs = Number.isFinite(item.tsMs) ? item.tsMs : null;
+    if (tsMs === null) continue;
+    earliestPageLoadMs = earliestPageLoadMs === null ? tsMs : Math.min(earliestPageLoadMs, tsMs);
+  }
+
+  if (earliestPageLoadMs === null) return null;
+  return Math.max(0, Math.round((earliestPageLoadMs - sourceMs) / 1000));
+}
 
 export async function create(req: Request) {
   const body = (await req.json()) as {
@@ -142,12 +217,17 @@ export async function create(req: Request) {
   });
 
   const executeRule = buildDynamicUrlRuleExecutor(existingRule.logicSource) as UrlRuleExecutor;
-  const inputRows = parsedCsv.rows.map((row) => ({
-    eventUrl: String(row[eventUrlColumn] ?? ''),
-    eventTime: String(row[eventTimeColumn] ?? ''),
-    sourceTime: String(row[sourceTimeColumn] ?? ''),
-    json: row,
-  }));
+  const inputRows: ReportInputRow[] = parsedCsv.rows.map((row) => {
+    const eventUrl = String(row[eventUrlColumn] ?? '');
+    const jsonRow = row as Record<string, unknown>;
+    return {
+      eventUrl,
+      eventTime: String(row[eventTimeColumn] ?? ''),
+      sourceTime: String(row[sourceTimeColumn] ?? ''),
+      uid: extractUidFromEventUrl(eventUrl) || extractUidFromRawJson(jsonRow),
+      json: row,
+    };
+  });
 
   const journeyLogsByRowIndex = resolvedJourneyConfig
     ? await buildJourneyLogsForRows({
@@ -159,11 +239,15 @@ export async function create(req: Request) {
         })),
       })
     : [];
+  const rowsWithJourney = inputRows.map((item, index) => ({
+    ...item,
+    firstPageLoadDuration: computeFirstPageLoadDuration(item.sourceTime, journeyLogsByRowIndex[index]),
+  }));
 
   try {
     const updated = await executeReportRows({
       reportId: created.id,
-      rows: inputRows,
+      rows: rowsWithJourney,
       executeRule,
       persistRows: async (rows) => {
         await referrerRaws.createMany(
@@ -172,8 +256,10 @@ export async function create(req: Request) {
             referrerType: item.referrerType,
             referrerDesc: item.referrerDesc,
             duration: item.duration,
+            uid: item.uid || null,
             json: item.json,
-            journeyLogs: journeyLogsByRowIndex[index] || null,
+            journeyLogs: journeyLogsByRowIndex[index] ?? null,
+            firstPageLoadDuration: item.firstPageLoadDuration ?? null,
           })),
         );
       },
@@ -267,6 +353,15 @@ export async function attachRelatedEvents(req: Request) {
     uploadedEventsById.set(key, events);
   });
 
+  await reports.update(current.id, {
+    relatedEventFieldMappings: {
+      idField,
+      timeField,
+      eventField: eventField || '',
+      eventUrlField,
+    },
+  });
+
   const storedFieldMappings = normalizeAttributionLogicMapping(current.fieldMappings);
   const sourceTimeField = storedFieldMappings?.source_time || 'source_time';
   const eventTimeField = storedFieldMappings?.event_time || 'event_time';
@@ -345,24 +440,12 @@ export async function attachRelatedEvents(req: Request) {
       });
     }
 
+    const journeyLogs = matchedRows.slice(0, 200).map((item) => item.row);
+
     return {
       id: rawRow.id,
-      journeyLogs: {
-        event_url_param: idField,
-        athena_url_param: idField,
-        athena_url_field: eventUrlField,
-        athena_time_field: timeField,
-        source_time: sourceTime,
-        event_time: eventTime,
-        event_id_value: idValue,
-        rows: matchedRows.slice(0, 200).map((item) => ({
-          ts: item.ts,
-          event: item.event,
-          url: item.url,
-          idValue: item.idValue,
-          row: item.row,
-        })),
-      },
+      journeyLogs,
+      firstPageLoadDuration: computeFirstPageLoadDurationFromUploadedEvents(sourceTime, matchedRows),
     };
   });
 
@@ -486,12 +569,15 @@ export async function rerun(req: Request) {
 
   const executeRule = buildDynamicUrlRuleExecutor(existingRule.logicSource) as UrlRuleExecutor;
   const storedJourneyConfig = normalizeJourneyConfigFromFieldMappings(current.fieldMappings);
-  const inputRows = existingRows.map((row: { json: unknown }) => {
+  const inputRows: ReportInputRow[] = existingRows.map((row: { json: unknown; uid?: unknown }) => {
     const rowJson = asReportJson(row.json);
+    const eventUrl = String(rowJson[storedFieldMappings.event_url] ?? '');
+    const storedUid = typeof row.uid === 'string' ? row.uid.trim() : '';
     return {
-      eventUrl: String(rowJson[storedFieldMappings.event_url] ?? ''),
+      eventUrl,
       eventTime: String(rowJson[storedFieldMappings.event_time] ?? ''),
       sourceTime: String(rowJson[storedFieldMappings.source_time] ?? ''),
+      uid: storedUid || extractUidFromEventUrl(eventUrl) || extractUidFromRawJson(rowJson),
       json: row.json,
     };
   });
@@ -506,18 +592,23 @@ export async function rerun(req: Request) {
         })),
       })
     : [];
+  const rowsWithJourney = inputRows.map((item, index) => ({
+    ...item,
+    firstPageLoadDuration: computeFirstPageLoadDuration(item.sourceTime, journeyLogsByRowIndex[index]),
+  }));
 
   try {
     const updated = await executeReportRows({
       reportId: current.id,
-      rows: inputRows,
+      rows: rowsWithJourney,
       executeRule,
       persistRows: async (rows) => {
         await referrerRaws.replaceByReport(
           current.id,
           rows.map((item, index) => ({
             ...item,
-            journeyLogs: journeyLogsByRowIndex[index] || null,
+            journeyLogs: journeyLogsByRowIndex[index] ?? null,
+            firstPageLoadDuration: item.firstPageLoadDuration ?? null,
           })),
         );
       },

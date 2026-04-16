@@ -153,6 +153,7 @@ export interface Report {
   attribution: string;
   reportType: string;
   fieldMappings: unknown;
+  relatedEventFieldMappings?: unknown | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -184,8 +185,10 @@ export interface ReferrerRaw {
   referrerType: string;
   referrerDesc: string;
   duration: number;
+  uid?: string | null;
   json: unknown;
   journeyLogs?: unknown | null;
+  firstPageLoadDuration?: number | null;
 }
 
 export interface NonAttributedRaw {
@@ -499,6 +502,7 @@ export const reports = {
     attribution?: string;
     reportType?: string;
     fieldMappings: unknown;
+    relatedEventFieldMappings?: unknown | null;
   }) {
     return await (db as any).report.create({
       data: {
@@ -513,6 +517,7 @@ export const reports = {
         attribution: data.attribution || "--",
         reportType: data.reportType || "registration",
         fieldMappings: data.fieldMappings,
+        relatedEventFieldMappings: data.relatedEventFieldMappings ?? null,
       },
       include: {
         client: {
@@ -778,8 +783,10 @@ export const referrerRaws = {
     referrerType: string;
     referrerDesc: string;
     duration: number;
+    uid?: string | null;
     json: unknown;
     journeyLogs?: unknown | null;
+    firstPageLoadDuration?: number | null;
   }>) {
     if (data.length === 0) {
       return { count: 0 };
@@ -791,8 +798,10 @@ export const referrerRaws = {
         referrerType: item.referrerType,
         referrerDesc: item.referrerDesc,
         duration: item.duration,
+        uid: item.uid ?? null,
         json: item.json,
         journeyLogs: item.journeyLogs ?? null,
+        firstPageLoadDuration: item.firstPageLoadDuration ?? null,
       })),
     });
   },
@@ -809,8 +818,10 @@ export const referrerRaws = {
       referrerType: string;
       referrerDesc: string;
       duration: number;
+      uid?: string | null;
       json: unknown;
       journeyLogs?: unknown | null;
+      firstPageLoadDuration?: number | null;
     }>,
   ) {
     return await (db as any).$transaction(async (tx: any) => {
@@ -828,8 +839,10 @@ export const referrerRaws = {
           referrerType: item.referrerType,
           referrerDesc: item.referrerDesc,
           duration: item.duration,
+          uid: item.uid ?? null,
           json: item.json,
           journeyLogs: item.journeyLogs ?? null,
+          firstPageLoadDuration: item.firstPageLoadDuration ?? null,
         })),
       });
     });
@@ -870,6 +883,7 @@ export const referrerRaws = {
     data: Array<{
       id: string;
       journeyLogs: unknown | null;
+      firstPageLoadDuration?: number | null;
     }>,
   ) {
     if (data.length === 0) {
@@ -885,7 +899,10 @@ export const referrerRaws = {
         chunk.map((item) =>
           (db as any).referrerRaw.update({
             where: { id: item.id },
-            data: { journeyLogs: item.journeyLogs },
+            data: {
+              journeyLogs: item.journeyLogs,
+              firstPageLoadDuration: item.firstPageLoadDuration ?? null,
+            },
           }),
         ),
       );
