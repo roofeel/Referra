@@ -126,7 +126,11 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
                   <div className="max-h-56 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-2">
                     {detail.journey.rows.map((row, index) => (
                       <div key={`${row.ts}-${row.idValue}-${index}`} className="rounded bg-slate-50 p-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Time</p>
                         <p className="text-[11px] font-semibold text-slate-800">{row.ts}</p>
+                        <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Event</p>
+                        <p className="text-[11px] text-slate-700">{row.event || '--'}</p>
+                        <p className="mt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500">URL</p>
                         <p className="break-all font-mono text-[10px] text-slate-600">{row.url}</p>
                       </div>
                     ))}

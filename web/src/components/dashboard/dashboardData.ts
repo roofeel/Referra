@@ -57,6 +57,7 @@ export type EventDetail = {
     athenaTimeField: string;
     rows: Array<{
       ts: string;
+      event: string;
       url: string;
       idValue: string;
     }>;

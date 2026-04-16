@@ -52,6 +52,7 @@ type ReportDetailEventDetail = {
     athenaTimeField: string;
     rows: Array<{
       ts: string;
+      event: string;
       url: string;
       idValue: string;
     }>;
@@ -285,6 +286,7 @@ type JourneySourceItem = {
   idValue: string;
   tsMs: number;
   tsLabel: string;
+  event: string;
   url: string;
 };
 
@@ -297,6 +299,7 @@ type StoredJourneyLogs = {
   eventTime: string;
   rows: Array<{
     ts: string;
+    event: string;
     url: string;
     idValue: string;
   }>;
@@ -311,11 +314,12 @@ function normalizeStoredJourneyLogs(value: unknown): StoredJourneyLogs | null {
       if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
       const row = item as Record<string, unknown>;
       const ts = typeof row.ts === 'string' ? row.ts.trim() : '';
+      const event = typeof row.event === 'string' ? row.event.trim() : '';
       const url = typeof row.url === 'string' ? row.url.trim() : '';
       const idValue = typeof row.idValue === 'string' ? row.idValue.trim() : '';
-      return ts || url || idValue ? { ts: ts || '--', url: url || '--', idValue } : null;
+      return ts || event || url || idValue ? { ts: ts || '--', event: event || '--', url: url || '--', idValue } : null;
     })
-    .filter((item): item is { ts: string; url: string; idValue: string } => Boolean(item));
+    .filter((item): item is { ts: string; event: string; url: string; idValue: string } => Boolean(item));
 
   const eventUrlParamRaw = typeof record.event_url_param === 'string' ? record.event_url_param.trim() : '';
   const athenaUrlParamRaw = typeof record.athena_url_param === 'string' ? record.athena_url_param.trim() : '';
@@ -356,6 +360,10 @@ function buildJourneySourceItems(rows: ReferrerRawRecord[], journeyConfig: Journ
       idValue,
       tsMs,
       tsLabel: formatTimestampFromMs(tsMs),
+      event:
+        extractEventNameFromEventUrl(parsedUrl.toString()) ||
+        getJsonValue(json, ['action', 'event_name', 'event', 'event_type', 'ev', 'eventName', 'event-name', 'evt_name']) ||
+        '--',
       url: parsedUrl.toString(),
     });
     grouped.set(idValue, current);
@@ -487,6 +495,7 @@ function buildDetailPayload(
           athenaTimeField: options.journeyConfig.athenaTimeField,
           rows: candidates.slice(0, 200).map((journeyItem) => ({
             ts: journeyItem.tsLabel,
+            event: journeyItem.event,
             url: journeyItem.url,
             idValue: journeyItem.idValue,
           })),
