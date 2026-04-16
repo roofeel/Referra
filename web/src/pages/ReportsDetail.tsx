@@ -25,20 +25,28 @@ export default function ReportsDetail() {
   const [page, setPage] = useState(1);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftEndDate, setDraftEndDate] = useState('');
+  const [draftReferrerType, setDraftReferrerType] = useState('');
   const [draftCohortMode, setDraftCohortMode] = useState<'non-cohort' | 'cohort'>('non-cohort');
+  const [draftBaseDurationEnabled, setDraftBaseDurationEnabled] = useState(true);
   const [draftWindowHours, setDraftWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
+  const [draftImpressionToFirstPageLoadEnabled, setDraftImpressionToFirstPageLoadEnabled] = useState(false);
   const [draftImpressionToFirstPageLoadHours, setDraftImpressionToFirstPageLoadHours] = useState<'' | '12' | '24' | '48' | '72'>('');
+  const [draftFirstPageLoadToRegistrationEnabled, setDraftFirstPageLoadToRegistrationEnabled] = useState(false);
   const [draftFirstPageLoadToRegistrationHours, setDraftFirstPageLoadToRegistrationHours] = useState<
     '' | '12' | '24' | '48' | '72'
   >('');
   const [draftDurationFilterOperator, setDraftDurationFilterOperator] = useState<'and' | 'or'>('and');
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
+  const [appliedReferrerType, setAppliedReferrerType] = useState('');
   const [appliedCohortMode, setAppliedCohortMode] = useState<'non-cohort' | 'cohort'>('non-cohort');
+  const [appliedBaseDurationEnabled, setAppliedBaseDurationEnabled] = useState(true);
   const [appliedWindowHours, setAppliedWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
+  const [appliedImpressionToFirstPageLoadEnabled, setAppliedImpressionToFirstPageLoadEnabled] = useState(false);
   const [appliedImpressionToFirstPageLoadHours, setAppliedImpressionToFirstPageLoadHours] = useState<
     '' | '12' | '24' | '48' | '72'
   >('');
+  const [appliedFirstPageLoadToRegistrationEnabled, setAppliedFirstPageLoadToRegistrationEnabled] = useState(false);
   const [appliedFirstPageLoadToRegistrationHours, setAppliedFirstPageLoadToRegistrationHours] = useState<
     '' | '12' | '24' | '48' | '72'
   >('');
@@ -51,16 +59,24 @@ export default function ReportsDetail() {
     setPage(1);
     setDraftStartDate('');
     setDraftEndDate('');
+    setDraftReferrerType('');
     setDraftCohortMode('non-cohort');
+    setDraftBaseDurationEnabled(true);
     setDraftWindowHours('24');
+    setDraftImpressionToFirstPageLoadEnabled(false);
     setDraftImpressionToFirstPageLoadHours('');
+    setDraftFirstPageLoadToRegistrationEnabled(false);
     setDraftFirstPageLoadToRegistrationHours('');
     setDraftDurationFilterOperator('and');
     setAppliedStartDate('');
     setAppliedEndDate('');
+    setAppliedReferrerType('');
     setAppliedCohortMode('non-cohort');
+    setAppliedBaseDurationEnabled(true);
     setAppliedWindowHours('24');
+    setAppliedImpressionToFirstPageLoadEnabled(false);
     setAppliedImpressionToFirstPageLoadHours('');
+    setAppliedFirstPageLoadToRegistrationEnabled(false);
     setAppliedFirstPageLoadToRegistrationHours('');
     setAppliedDurationFilterOperator('and');
   }, [reportId]);
@@ -81,13 +97,16 @@ export default function ReportsDetail() {
         const options: Parameters<typeof api.reports.detail>[1] = { page, pageSize };
         if (appliedStartDate) options.startDate = appliedStartDate;
         if (appliedEndDate) options.endDate = appliedEndDate;
+        if (appliedReferrerType) options.referrerType = appliedReferrerType;
         options.cohortMode = appliedCohortMode;
-        options.windowHours = Number(appliedWindowHours);
-        if (appliedImpressionToFirstPageLoadHours) {
-          options.impressionToFirstPageLoadHours = Number(appliedImpressionToFirstPageLoadHours);
+        if (appliedBaseDurationEnabled) {
+          options.windowHours = Number(appliedWindowHours);
         }
-        if (appliedFirstPageLoadToRegistrationHours) {
-          options.firstPageLoadToRegistrationHours = Number(appliedFirstPageLoadToRegistrationHours);
+        if (appliedImpressionToFirstPageLoadEnabled) {
+          options.impressionToFirstPageLoadHours = Number(appliedImpressionToFirstPageLoadHours || '24');
+        }
+        if (appliedFirstPageLoadToRegistrationEnabled) {
+          options.firstPageLoadToRegistrationHours = Number(appliedFirstPageLoadToRegistrationHours || '24');
         }
         options.durationFilterOperator = appliedDurationFilterOperator;
 
@@ -111,10 +130,14 @@ export default function ReportsDetail() {
     };
   }, [
     appliedCohortMode,
+    appliedBaseDurationEnabled,
     appliedDurationFilterOperator,
     appliedEndDate,
+    appliedFirstPageLoadToRegistrationEnabled,
     appliedFirstPageLoadToRegistrationHours,
+    appliedImpressionToFirstPageLoadEnabled,
     appliedImpressionToFirstPageLoadHours,
+    appliedReferrerType,
     appliedStartDate,
     appliedWindowHours,
     page,
@@ -124,6 +147,9 @@ export default function ReportsDetail() {
   ]);
 
   const selectedDetail = selectedRow ? payload?.eventDetails[selectedRow.eventId] || null : null;
+  const referrerTypeOptions = payload
+    ? payload.referrerTypeStats.map((item) => (item.referrerType || '').trim()).filter((item) => Boolean(item))
+    : [];
   const uidDownloadHref = reportId ? buildApiUrl(`/api/reports/${reportId}/uid-download`) : '';
 
   useEffect(() => {
@@ -175,27 +201,40 @@ export default function ReportsDetail() {
               <DashboardFilters
                 clientName={payload.clientName}
                 reportType={payload.reportType}
+                referrerTypeOptions={referrerTypeOptions}
                 startDate={draftStartDate}
                 endDate={draftEndDate}
+                referrerType={draftReferrerType}
                 cohortMode={draftCohortMode}
+                baseDurationEnabled={draftBaseDurationEnabled}
                 windowHours={draftWindowHours}
                 showFirstPageLoadFilters={payload.hasRelatedEventFieldMappings}
+                impressionToFirstPageLoadEnabled={draftImpressionToFirstPageLoadEnabled}
                 impressionToFirstPageLoadHours={draftImpressionToFirstPageLoadHours}
+                firstPageLoadToRegistrationEnabled={draftFirstPageLoadToRegistrationEnabled}
                 firstPageLoadToRegistrationHours={draftFirstPageLoadToRegistrationHours}
                 durationFilterOperator={draftDurationFilterOperator}
                 onStartDateChange={setDraftStartDate}
                 onEndDateChange={setDraftEndDate}
+                onReferrerTypeChange={setDraftReferrerType}
                 onCohortModeChange={setDraftCohortMode}
+                onBaseDurationEnabledChange={setDraftBaseDurationEnabled}
                 onWindowHoursChange={setDraftWindowHours}
+                onImpressionToFirstPageLoadEnabledChange={setDraftImpressionToFirstPageLoadEnabled}
                 onImpressionToFirstPageLoadHoursChange={setDraftImpressionToFirstPageLoadHours}
+                onFirstPageLoadToRegistrationEnabledChange={setDraftFirstPageLoadToRegistrationEnabled}
                 onFirstPageLoadToRegistrationHoursChange={setDraftFirstPageLoadToRegistrationHours}
                 onDurationFilterOperatorChange={setDraftDurationFilterOperator}
                 onApply={() => {
                   setAppliedStartDate(draftStartDate);
                   setAppliedEndDate(draftEndDate);
+                  setAppliedReferrerType(draftReferrerType);
                   setAppliedCohortMode(draftCohortMode);
+                  setAppliedBaseDurationEnabled(draftBaseDurationEnabled);
                   setAppliedWindowHours(draftWindowHours);
+                  setAppliedImpressionToFirstPageLoadEnabled(draftImpressionToFirstPageLoadEnabled);
                   setAppliedImpressionToFirstPageLoadHours(draftImpressionToFirstPageLoadHours);
+                  setAppliedFirstPageLoadToRegistrationEnabled(draftFirstPageLoadToRegistrationEnabled);
                   setAppliedFirstPageLoadToRegistrationHours(draftFirstPageLoadToRegistrationHours);
                   setAppliedDurationFilterOperator(draftDurationFilterOperator);
                   setPage(1);
@@ -203,16 +242,24 @@ export default function ReportsDetail() {
                 onReset={() => {
                   setDraftStartDate('');
                   setDraftEndDate('');
+                  setDraftReferrerType('');
                   setDraftCohortMode('non-cohort');
+                  setDraftBaseDurationEnabled(true);
                   setDraftWindowHours('24');
+                  setDraftImpressionToFirstPageLoadEnabled(false);
                   setDraftImpressionToFirstPageLoadHours('');
+                  setDraftFirstPageLoadToRegistrationEnabled(false);
                   setDraftFirstPageLoadToRegistrationHours('');
                   setDraftDurationFilterOperator('and');
                   setAppliedStartDate('');
                   setAppliedEndDate('');
+                  setAppliedReferrerType('');
                   setAppliedCohortMode('non-cohort');
+                  setAppliedBaseDurationEnabled(true);
                   setAppliedWindowHours('24');
+                  setAppliedImpressionToFirstPageLoadEnabled(false);
                   setAppliedImpressionToFirstPageLoadHours('');
+                  setAppliedFirstPageLoadToRegistrationEnabled(false);
                   setAppliedFirstPageLoadToRegistrationHours('');
                   setAppliedDurationFilterOperator('and');
                   setPage(1);

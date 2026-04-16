@@ -203,6 +203,7 @@ export const reportsApi = {
       impressionToFirstPageLoadHours?: number;
       firstPageLoadToRegistrationHours?: number;
       durationFilterOperator?: 'and' | 'or';
+      referrerType?: string;
     },
   ): Promise<ReportDetailResponse> => {
     const params = new URLSearchParams();
@@ -219,6 +220,7 @@ export const reportsApi = {
       params.set('firstPageLoadToRegistrationHours', String(options.firstPageLoadToRegistrationHours));
     }
     if (options?.durationFilterOperator) params.set('durationFilterOperator', options.durationFilterOperator);
+    if (options?.referrerType) params.set('referrerType', options.referrerType);
     const query = params.toString();
     const response = await fetch(buildApiUrl(`/api/reports/${id}/detail${query ? `?${query}` : ''}`));
 

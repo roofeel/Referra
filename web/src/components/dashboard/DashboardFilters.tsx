@@ -5,22 +5,31 @@ import { getReportTypeLabel, type ReportType } from '../reports/attributionConfi
 type DashboardFiltersProps = {
   clientName: string;
   reportType: ReportType;
+  referrerTypeOptions?: string[];
   showCohortWindowFilters?: boolean;
   startDate: string;
   endDate: string;
   cohortMode: 'non-cohort' | 'cohort';
   windowHours: '12' | '24' | '48' | '72';
   showFirstPageLoadFilters?: boolean;
+  baseDurationEnabled?: boolean;
   impressionToFirstPageLoadHours?: '' | '12' | '24' | '48' | '72';
+  impressionToFirstPageLoadEnabled?: boolean;
   firstPageLoadToRegistrationHours?: '' | '12' | '24' | '48' | '72';
+  firstPageLoadToRegistrationEnabled?: boolean;
   durationFilterOperator?: 'and' | 'or';
+  referrerType?: string;
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
   onCohortModeChange: (value: 'non-cohort' | 'cohort') => void;
   onWindowHoursChange: (value: '12' | '24' | '48' | '72') => void;
+  onBaseDurationEnabledChange?: (enabled: boolean) => void;
   onImpressionToFirstPageLoadHoursChange?: (value: '' | '12' | '24' | '48' | '72') => void;
+  onImpressionToFirstPageLoadEnabledChange?: (enabled: boolean) => void;
   onFirstPageLoadToRegistrationHoursChange?: (value: '' | '12' | '24' | '48' | '72') => void;
+  onFirstPageLoadToRegistrationEnabledChange?: (enabled: boolean) => void;
   onDurationFilterOperatorChange?: (value: 'and' | 'or') => void;
+  onReferrerTypeChange?: (value: string) => void;
   onApply: () => void;
   onReset: () => void;
 };
@@ -28,22 +37,31 @@ type DashboardFiltersProps = {
 export function DashboardFilters({
   clientName,
   reportType,
+  referrerTypeOptions = [],
   showCohortWindowFilters = true,
   startDate,
   endDate,
   cohortMode,
   windowHours,
   showFirstPageLoadFilters = false,
+  baseDurationEnabled = true,
   impressionToFirstPageLoadHours = '',
+  impressionToFirstPageLoadEnabled = false,
   firstPageLoadToRegistrationHours = '',
+  firstPageLoadToRegistrationEnabled = false,
   durationFilterOperator = 'and',
+  referrerType = '',
   onStartDateChange,
   onEndDateChange,
   onCohortModeChange,
   onWindowHoursChange,
+  onBaseDurationEnabledChange,
   onImpressionToFirstPageLoadHoursChange,
+  onImpressionToFirstPageLoadEnabledChange,
   onFirstPageLoadToRegistrationHoursChange,
+  onFirstPageLoadToRegistrationEnabledChange,
   onDurationFilterOperatorChange,
+  onReferrerTypeChange,
   onApply,
   onReset,
 }: DashboardFiltersProps) {
@@ -140,6 +158,21 @@ export function DashboardFilters({
         </div>
         {showCohortWindowFilters ? (
           <>
+            <div className="w-52">
+              <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Referrer Type</label>
+              <select
+                value={referrerType}
+                onChange={(event) => onReferrerTypeChange?.(event.target.value)}
+                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
+              >
+                <option value="">All</option>
+                {referrerTypeOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="w-40">
               <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Cohort</label>
               <select
@@ -152,76 +185,118 @@ export function DashboardFilters({
                 <option value="cohort">cohort</option>
               </select>
             </div>
-            <div className="w-56">
-              <label
-                className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500"
-                title={reportTypeLabel}
-              >
-                {`Window · ${reportTypeLabel}`}
-              </label>
-              <select
-                value={windowHours}
-                onChange={(event) => onWindowHoursChange(event.target.value as '12' | '24' | '48' | '72')}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
-              >
-                <option value="12">12h</option>
-                <option value="24">24h</option>
-                <option value="48">48h</option>
-                <option value="72">72h</option>
-              </select>
-            </div>
+            {!showFirstPageLoadFilters ? (
+              <div className="w-56">
+                <label
+                  className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500"
+                  title={reportTypeLabel}
+                >
+                  {`Window · ${reportTypeLabel}`}
+                </label>
+                <select
+                  value={windowHours}
+                  onChange={(event) => onWindowHoursChange(event.target.value as '12' | '24' | '48' | '72')}
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
+                >
+                  <option value="12">12h</option>
+                  <option value="24">24h</option>
+                  <option value="48">48h</option>
+                  <option value="72">72h</option>
+                </select>
+              </div>
+            ) : null}
             {showFirstPageLoadFilters ? (
-              <>
-                <div className="w-64">
-                  <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">
-                    Window · impression -&gt; first page load
+              <div className="w-full rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Duration Filters</p>
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                    Match
+                    <select
+                      value={durationFilterOperator}
+                      onChange={(event) => onDurationFilterOperatorChange?.(event.target.value as 'and' | 'or')}
+                      className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-900 outline-none focus:border-blue-300"
+                    >
+                      <option value="and">ALL</option>
+                      <option value="or">ANY</option>
+                    </select>
                   </label>
-                  <select
-                    value={impressionToFirstPageLoadHours}
-                    onChange={(event) =>
-                      onImpressionToFirstPageLoadHoursChange?.(event.target.value as '' | '12' | '24' | '48' | '72')
-                    }
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
-                  >
-                    <option value="">off</option>
-                    <option value="12">12h</option>
-                    <option value="24">24h</option>
-                    <option value="48">48h</option>
-                    <option value="72">72h</option>
-                  </select>
                 </div>
-                <div className="w-64">
-                  <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">
-                    Window · first page load -&gt; registration
-                  </label>
-                  <select
-                    value={firstPageLoadToRegistrationHours}
-                    onChange={(event) =>
-                      onFirstPageLoadToRegistrationHoursChange?.(event.target.value as '' | '12' | '24' | '48' | '72')
-                    }
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
-                  >
-                    <option value="">off</option>
-                    <option value="12">12h</option>
-                    <option value="24">24h</option>
-                    <option value="48">48h</option>
-                    <option value="72">72h</option>
-                  </select>
+                <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
+                  <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-2">
+                    <label className="inline-flex min-w-[220px] items-center gap-2 text-sm font-medium text-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={baseDurationEnabled}
+                        onChange={(event) => onBaseDurationEnabledChange?.(event.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Impression -&gt; Registration
+                    </label>
+                    <span className="text-xs text-slate-500">&lt;=</span>
+                    <select
+                      value={windowHours}
+                      disabled={!baseDurationEnabled}
+                      onChange={(event) => onWindowHoursChange(event.target.value as '12' | '24' | '48' | '72')}
+                      className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-900 outline-none disabled:cursor-not-allowed disabled:bg-slate-100"
+                    >
+                      <option value="12">12h</option>
+                      <option value="24">24h</option>
+                      <option value="48">48h</option>
+                      <option value="72">72h</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-2">
+                    <label className="inline-flex min-w-[220px] items-center gap-2 text-sm font-medium text-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={impressionToFirstPageLoadEnabled}
+                        onChange={(event) => onImpressionToFirstPageLoadEnabledChange?.(event.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      Impression -&gt; First Page Load
+                    </label>
+                    <span className="text-xs text-slate-500">&lt;=</span>
+                    <select
+                      value={impressionToFirstPageLoadHours || '24'}
+                      disabled={!impressionToFirstPageLoadEnabled}
+                      onChange={(event) =>
+                        onImpressionToFirstPageLoadHoursChange?.(event.target.value as '' | '12' | '24' | '48' | '72')
+                      }
+                      className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-900 outline-none disabled:cursor-not-allowed disabled:bg-slate-100"
+                    >
+                      <option value="12">12h</option>
+                      <option value="24">24h</option>
+                      <option value="48">48h</option>
+                      <option value="72">72h</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-2">
+                    <label className="inline-flex min-w-[220px] items-center gap-2 text-sm font-medium text-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={firstPageLoadToRegistrationEnabled}
+                        onChange={(event) => onFirstPageLoadToRegistrationEnabledChange?.(event.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      First Page Load -&gt; Registration
+                    </label>
+                    <span className="text-xs text-slate-500">&lt;=</span>
+                    <select
+                      value={firstPageLoadToRegistrationHours || '24'}
+                      disabled={!firstPageLoadToRegistrationEnabled}
+                      onChange={(event) =>
+                        onFirstPageLoadToRegistrationHoursChange?.(event.target.value as '' | '12' | '24' | '48' | '72')
+                      }
+                      className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-medium text-slate-900 outline-none disabled:cursor-not-allowed disabled:bg-slate-100"
+                    >
+                      <option value="12">12h</option>
+                      <option value="24">24h</option>
+                      <option value="48">48h</option>
+                      <option value="72">72h</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="w-36">
-                  <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">
-                    Filter Logic
-                  </label>
-                  <select
-                    value={durationFilterOperator}
-                    onChange={(event) => onDurationFilterOperatorChange?.(event.target.value as 'and' | 'or')}
-                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
-                  >
-                    <option value="and">AND</option>
-                    <option value="or">OR</option>
-                  </select>
-                </div>
-              </>
+              </div>
             ) : null}
           </>
         ) : null}

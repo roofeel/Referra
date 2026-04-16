@@ -798,6 +798,7 @@ export async function getReportDetailPayload(
     impressionToFirstPageLoadHours?: number;
     firstPageLoadToRegistrationHours?: number;
     durationFilterOperator?: 'and' | 'or';
+    referrerType?: string;
   },
 ) {
   const journeyConfig = normalizeJourneyConfigFromFieldMappings(report.fieldMappings);
@@ -819,15 +820,19 @@ export async function getReportDetailPayload(
   const impressionToFirstPageLoadHours = toOptionalWindowHours(options.impressionToFirstPageLoadHours);
   const firstPageLoadToRegistrationHours = toOptionalWindowHours(options.firstPageLoadToRegistrationHours);
   const durationFilterOperator = options.durationFilterOperator === 'or' ? 'or' : 'and';
+  const referrerTypeFilter = (options.referrerType || '').trim().toLowerCase();
   const cohortMode = options.cohortMode === 'cohort' ? 'cohort' : 'non-cohort';
   const rule = await urlRules.findById(report.ruleId);
   const hasAnyDurationFilter =
     windowHours !== null || impressionToFirstPageLoadHours !== null || firstPageLoadToRegistrationHours !== null;
-  const shouldFilter = startMs !== null || endMs !== null || hasAnyDurationFilter;
+  const shouldFilter = startMs !== null || endMs !== null || hasAnyDurationFilter || Boolean(referrerTypeFilter);
 
   if (shouldFilter) {
     const allRows = (await referrerRaws.listByReport(report.id)) as ReferrerRawRecord[];
     const filteredRows = allRows.filter((item) => {
+      const rowReferrerType = (item.referrerType || '').trim().toLowerCase();
+      if (referrerTypeFilter && rowReferrerType !== referrerTypeFilter) return false;
+
       const filterTimeMs =
         cohortMode === 'cohort'
           ? parseTimeMsByCandidates(item, sourceTimeCandidates)

@@ -132,16 +132,6 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
             {detail.journey ? (
               <div>
                 <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">Journey Matches</h3>
-                <div className="mb-2 rounded-lg bg-slate-100 p-3 text-[11px] text-slate-600">
-                  <p>
-                    Window: <span className="font-semibold">{detail.journey.sourceWindow}</span> to{' '}
-                    <span className="font-semibold">{detail.journey.eventWindow}</span>
-                  </p>
-                  <p className="mt-1">
-                    Param mapping: event <span className="font-semibold">{detail.journey.eventUrlParam}</span> {'->'} athena{' '}
-                    <span className="font-semibold">{detail.journey.athenaUrlParam}</span>
-                  </p>
-                </div>
                 {detail.journey.rows.length === 0 ? (
                   <p className="text-[11px] text-slate-500">No matched journey rows in this time window.</p>
                 ) : (

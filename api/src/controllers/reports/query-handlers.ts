@@ -128,6 +128,7 @@ export async function detail(req: Request) {
   const durationFilterOperator = durationFilterOperatorRaw === 'or' ? 'or' : 'and';
   const startDate = url.searchParams.get('startDate')?.trim() || '';
   const endDate = url.searchParams.get('endDate')?.trim() || '';
+  const referrerType = url.searchParams.get('referrerType')?.trim() || '';
   const cohortModeRaw = url.searchParams.get('cohortMode')?.trim().toLowerCase();
   const cohortMode = cohortModeRaw === 'cohort' ? 'cohort' : 'non-cohort';
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
@@ -145,6 +146,7 @@ export async function detail(req: Request) {
     impressionToFirstPageLoadHours: impressionToFirstPageLoadHoursRaw,
     firstPageLoadToRegistrationHours: firstPageLoadToRegistrationHoursRaw,
     durationFilterOperator,
+    referrerType: referrerType || undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     cohortMode,
