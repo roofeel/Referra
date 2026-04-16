@@ -10,10 +10,17 @@ type DashboardFiltersProps = {
   endDate: string;
   cohortMode: 'non-cohort' | 'cohort';
   windowHours: '12' | '24' | '48' | '72';
+  showFirstPageLoadFilters?: boolean;
+  impressionToFirstPageLoadHours?: '' | '12' | '24' | '48' | '72';
+  firstPageLoadToRegistrationHours?: '' | '12' | '24' | '48' | '72';
+  durationFilterOperator?: 'and' | 'or';
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
   onCohortModeChange: (value: 'non-cohort' | 'cohort') => void;
   onWindowHoursChange: (value: '12' | '24' | '48' | '72') => void;
+  onImpressionToFirstPageLoadHoursChange?: (value: '' | '12' | '24' | '48' | '72') => void;
+  onFirstPageLoadToRegistrationHoursChange?: (value: '' | '12' | '24' | '48' | '72') => void;
+  onDurationFilterOperatorChange?: (value: 'and' | 'or') => void;
   onApply: () => void;
   onReset: () => void;
 };
@@ -26,10 +33,17 @@ export function DashboardFilters({
   endDate,
   cohortMode,
   windowHours,
+  showFirstPageLoadFilters = false,
+  impressionToFirstPageLoadHours = '',
+  firstPageLoadToRegistrationHours = '',
+  durationFilterOperator = 'and',
   onStartDateChange,
   onEndDateChange,
   onCohortModeChange,
   onWindowHoursChange,
+  onImpressionToFirstPageLoadHoursChange,
+  onFirstPageLoadToRegistrationHoursChange,
+  onDurationFilterOperatorChange,
   onApply,
   onReset,
 }: DashboardFiltersProps) {
@@ -156,6 +170,59 @@ export function DashboardFilters({
                 <option value="72">72h</option>
               </select>
             </div>
+            {showFirstPageLoadFilters ? (
+              <>
+                <div className="w-64">
+                  <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">
+                    Window · impression -&gt; first page load
+                  </label>
+                  <select
+                    value={impressionToFirstPageLoadHours}
+                    onChange={(event) =>
+                      onImpressionToFirstPageLoadHoursChange?.(event.target.value as '' | '12' | '24' | '48' | '72')
+                    }
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
+                  >
+                    <option value="">off</option>
+                    <option value="12">12h</option>
+                    <option value="24">24h</option>
+                    <option value="48">48h</option>
+                    <option value="72">72h</option>
+                  </select>
+                </div>
+                <div className="w-64">
+                  <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">
+                    Window · first page load -&gt; registration
+                  </label>
+                  <select
+                    value={firstPageLoadToRegistrationHours}
+                    onChange={(event) =>
+                      onFirstPageLoadToRegistrationHoursChange?.(event.target.value as '' | '12' | '24' | '48' | '72')
+                    }
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
+                  >
+                    <option value="">off</option>
+                    <option value="12">12h</option>
+                    <option value="24">24h</option>
+                    <option value="48">48h</option>
+                    <option value="72">72h</option>
+                  </select>
+                </div>
+                <div className="w-36">
+                  <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">
+                    Filter Logic
+                  </label>
+                  <select
+                    value={durationFilterOperator}
+                    onChange={(event) => onDurationFilterOperatorChange?.(event.target.value as 'and' | 'or')}
+                    className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
+                  >
+                    <option value="and">AND</option>
+                    <option value="or">OR</option>
+                  </select>
+                </div>
+              </>
+            ) : null}
           </>
         ) : null}
         <div className="ml-auto flex items-center gap-2">

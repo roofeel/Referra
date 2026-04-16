@@ -27,10 +27,22 @@ export default function ReportsDetail() {
   const [draftEndDate, setDraftEndDate] = useState('');
   const [draftCohortMode, setDraftCohortMode] = useState<'non-cohort' | 'cohort'>('non-cohort');
   const [draftWindowHours, setDraftWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
+  const [draftImpressionToFirstPageLoadHours, setDraftImpressionToFirstPageLoadHours] = useState<'' | '12' | '24' | '48' | '72'>('');
+  const [draftFirstPageLoadToRegistrationHours, setDraftFirstPageLoadToRegistrationHours] = useState<
+    '' | '12' | '24' | '48' | '72'
+  >('');
+  const [draftDurationFilterOperator, setDraftDurationFilterOperator] = useState<'and' | 'or'>('and');
   const [appliedStartDate, setAppliedStartDate] = useState('');
   const [appliedEndDate, setAppliedEndDate] = useState('');
   const [appliedCohortMode, setAppliedCohortMode] = useState<'non-cohort' | 'cohort'>('non-cohort');
   const [appliedWindowHours, setAppliedWindowHours] = useState<'12' | '24' | '48' | '72'>('24');
+  const [appliedImpressionToFirstPageLoadHours, setAppliedImpressionToFirstPageLoadHours] = useState<
+    '' | '12' | '24' | '48' | '72'
+  >('');
+  const [appliedFirstPageLoadToRegistrationHours, setAppliedFirstPageLoadToRegistrationHours] = useState<
+    '' | '12' | '24' | '48' | '72'
+  >('');
+  const [appliedDurationFilterOperator, setAppliedDurationFilterOperator] = useState<'and' | 'or'>('and');
   const [refreshKey, setRefreshKey] = useState(0);
   const pageSize = 50;
   const toast = useToast();
@@ -41,10 +53,16 @@ export default function ReportsDetail() {
     setDraftEndDate('');
     setDraftCohortMode('non-cohort');
     setDraftWindowHours('24');
+    setDraftImpressionToFirstPageLoadHours('');
+    setDraftFirstPageLoadToRegistrationHours('');
+    setDraftDurationFilterOperator('and');
     setAppliedStartDate('');
     setAppliedEndDate('');
     setAppliedCohortMode('non-cohort');
     setAppliedWindowHours('24');
+    setAppliedImpressionToFirstPageLoadHours('');
+    setAppliedFirstPageLoadToRegistrationHours('');
+    setAppliedDurationFilterOperator('and');
   }, [reportId]);
 
   useEffect(() => {
@@ -65,6 +83,13 @@ export default function ReportsDetail() {
         if (appliedEndDate) options.endDate = appliedEndDate;
         options.cohortMode = appliedCohortMode;
         options.windowHours = Number(appliedWindowHours);
+        if (appliedImpressionToFirstPageLoadHours) {
+          options.impressionToFirstPageLoadHours = Number(appliedImpressionToFirstPageLoadHours);
+        }
+        if (appliedFirstPageLoadToRegistrationHours) {
+          options.firstPageLoadToRegistrationHours = Number(appliedFirstPageLoadToRegistrationHours);
+        }
+        options.durationFilterOperator = appliedDurationFilterOperator;
 
         const data = await api.reports.detail(reportId, options);
         if (!alive) return;
@@ -84,7 +109,19 @@ export default function ReportsDetail() {
     return () => {
       alive = false;
     };
-  }, [appliedCohortMode, appliedEndDate, appliedStartDate, appliedWindowHours, page, pageSize, refreshKey, reportId]);
+  }, [
+    appliedCohortMode,
+    appliedDurationFilterOperator,
+    appliedEndDate,
+    appliedFirstPageLoadToRegistrationHours,
+    appliedImpressionToFirstPageLoadHours,
+    appliedStartDate,
+    appliedWindowHours,
+    page,
+    pageSize,
+    refreshKey,
+    reportId,
+  ]);
 
   const selectedDetail = selectedRow ? payload?.eventDetails[selectedRow.eventId] || null : null;
   const uidDownloadHref = reportId ? buildApiUrl(`/api/reports/${reportId}/uid-download`) : '';
@@ -142,15 +179,25 @@ export default function ReportsDetail() {
                 endDate={draftEndDate}
                 cohortMode={draftCohortMode}
                 windowHours={draftWindowHours}
+                showFirstPageLoadFilters={payload.hasRelatedEventFieldMappings}
+                impressionToFirstPageLoadHours={draftImpressionToFirstPageLoadHours}
+                firstPageLoadToRegistrationHours={draftFirstPageLoadToRegistrationHours}
+                durationFilterOperator={draftDurationFilterOperator}
                 onStartDateChange={setDraftStartDate}
                 onEndDateChange={setDraftEndDate}
                 onCohortModeChange={setDraftCohortMode}
                 onWindowHoursChange={setDraftWindowHours}
+                onImpressionToFirstPageLoadHoursChange={setDraftImpressionToFirstPageLoadHours}
+                onFirstPageLoadToRegistrationHoursChange={setDraftFirstPageLoadToRegistrationHours}
+                onDurationFilterOperatorChange={setDraftDurationFilterOperator}
                 onApply={() => {
                   setAppliedStartDate(draftStartDate);
                   setAppliedEndDate(draftEndDate);
                   setAppliedCohortMode(draftCohortMode);
                   setAppliedWindowHours(draftWindowHours);
+                  setAppliedImpressionToFirstPageLoadHours(draftImpressionToFirstPageLoadHours);
+                  setAppliedFirstPageLoadToRegistrationHours(draftFirstPageLoadToRegistrationHours);
+                  setAppliedDurationFilterOperator(draftDurationFilterOperator);
                   setPage(1);
                 }}
                 onReset={() => {
@@ -158,10 +205,16 @@ export default function ReportsDetail() {
                   setDraftEndDate('');
                   setDraftCohortMode('non-cohort');
                   setDraftWindowHours('24');
+                  setDraftImpressionToFirstPageLoadHours('');
+                  setDraftFirstPageLoadToRegistrationHours('');
+                  setDraftDurationFilterOperator('and');
                   setAppliedStartDate('');
                   setAppliedEndDate('');
                   setAppliedCohortMode('non-cohort');
                   setAppliedWindowHours('24');
+                  setAppliedImpressionToFirstPageLoadHours('');
+                  setAppliedFirstPageLoadToRegistrationHours('');
+                  setAppliedDurationFilterOperator('and');
                   setPage(1);
                 }}
               />
@@ -169,6 +222,7 @@ export default function ReportsDetail() {
               <DashboardInsights referrerTypeStats={payload.referrerTypeStats} />
               <DashboardTable
                 reportType={payload.reportType}
+                showFirstPageLoadColumns={payload.hasRelatedEventFieldMappings}
                 rows={payload.rows}
                 selectedRow={selectedRow}
                 page={payload.pagination.page}

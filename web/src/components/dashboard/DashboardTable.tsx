@@ -6,6 +6,7 @@ type DashboardTableProps = {
   reportType: ReportType;
   showTimeColumns?: boolean;
   showDurationColumn?: boolean;
+  showFirstPageLoadColumns?: boolean;
   rows: TableRow[];
   selectedRow: TableRow | null;
   page: number;
@@ -20,6 +21,7 @@ export function DashboardTable({
   reportType,
   showTimeColumns = true,
   showDurationColumn = true,
+  showFirstPageLoadColumns = false,
   rows,
   selectedRow,
   page,
@@ -37,6 +39,7 @@ export function DashboardTable({
     ...(showTimeColumns
       ? [getTimeHeaderByReportType(reportType, 'event_time'), getTimeHeaderByReportType(reportType, 'source_time')]
       : []),
+    ...(showFirstPageLoadColumns ? ['first_page_load_time', 'impression -> first_page_load', 'first_page_load -> registration'] : []),
     'referrer_type',
     'referrer_desc',
     ...(showDurationColumn ? ['duration'] : []),
@@ -73,6 +76,17 @@ export function DashboardTable({
                 </td>
                 {showTimeColumns ? <td className="px-4 py-3 text-xs text-slate-500">{row.ts}</td> : null}
                 {showTimeColumns ? <td className="px-4 py-3 text-xs text-slate-500">{row.sourceTs}</td> : null}
+                {showFirstPageLoadColumns ? (
+                  <td className="px-4 py-3 text-xs text-slate-500">{row.firstPageLoadTs || '--'}</td>
+                ) : null}
+                {showFirstPageLoadColumns ? (
+                  <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">{row.firstPageLoadDuration || '--'}</td>
+                ) : null}
+                {showFirstPageLoadColumns ? (
+                  <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">
+                    {row.firstPageLoadToRegistrationDuration || '--'}
+                  </td>
+                ) : null}
                 <td className="px-4 py-3 text-xs text-slate-700">{row.category}</td>
                 <td className="max-w-[280px] truncate px-4 py-3 text-xs text-slate-700" title={row.type}>
                   {row.type}

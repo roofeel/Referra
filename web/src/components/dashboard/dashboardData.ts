@@ -35,6 +35,9 @@ export type TableRow = {
   eventName: string;
   ts: string;
   sourceTs: string;
+  firstPageLoadTs?: string;
+  firstPageLoadDuration?: string;
+  firstPageLoadToRegistrationDuration?: string;
   category: string;
   type: string;
   status: string;
@@ -48,6 +51,9 @@ export type EventDetail = {
   aiResult: string;
   extractedParameters: Array<[string, string]>;
   attributionPath: Array<[string, string, string]>;
+  firstPageLoadEventTime?: string;
+  firstPageLoadDuration?: string;
+  firstPageLoadToRegistrationDuration?: string;
   journey?: {
     sourceWindow: string;
     eventWindow: string;

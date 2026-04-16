@@ -48,6 +48,7 @@ export interface ReportsResponse {
 export interface ReportDetailResponse {
   clientName: string;
   reportType: ReportType;
+  hasRelatedEventFieldMappings?: boolean;
   referrerTypeStats: ReferrerTypeStat[];
   metrics: Metric[];
   distribution: DistributionItem[];
@@ -199,6 +200,9 @@ export const reportsApi = {
       endDate?: string;
       cohortMode?: 'non-cohort' | 'cohort';
       windowHours?: number;
+      impressionToFirstPageLoadHours?: number;
+      firstPageLoadToRegistrationHours?: number;
+      durationFilterOperator?: 'and' | 'or';
     },
   ): Promise<ReportDetailResponse> => {
     const params = new URLSearchParams();
@@ -208,6 +212,13 @@ export const reportsApi = {
     if (options?.endDate) params.set('endDate', options.endDate);
     if (options?.cohortMode) params.set('cohortMode', options.cohortMode);
     if (options?.windowHours) params.set('windowHours', String(options.windowHours));
+    if (options?.impressionToFirstPageLoadHours) {
+      params.set('impressionToFirstPageLoadHours', String(options.impressionToFirstPageLoadHours));
+    }
+    if (options?.firstPageLoadToRegistrationHours) {
+      params.set('firstPageLoadToRegistrationHours', String(options.firstPageLoadToRegistrationHours));
+    }
+    if (options?.durationFilterOperator) params.set('durationFilterOperator', options.durationFilterOperator);
     const query = params.toString();
     const response = await fetch(buildApiUrl(`/api/reports/${id}/detail${query ? `?${query}` : ''}`));
 

@@ -107,6 +107,28 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
               </div>
             </div>
 
+            {detail.firstPageLoadDuration || detail.firstPageLoadEventTime ? (
+              <div>
+                <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">First Page Load</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">First Page Load Time</span>
+                    <span className="font-bold text-slate-900">{detail.firstPageLoadEventTime || '--'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">Impression -&gt; First Page Load</span>
+                    <span className="font-mono font-bold text-slate-900">{detail.firstPageLoadDuration || '--'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500">First Page Load -&gt; Registration</span>
+                    <span className="font-mono font-bold text-slate-900">
+                      {detail.firstPageLoadToRegistrationDuration || '--'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {detail.journey ? (
               <div>
                 <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">Journey Matches</h3>

@@ -122,6 +122,10 @@ export async function detail(req: Request) {
   const pageRaw = Number(url.searchParams.get('page') || '1');
   const pageSizeRaw = Number(url.searchParams.get('pageSize') || '50');
   const windowHoursRaw = Number(url.searchParams.get('windowHours') || '');
+  const impressionToFirstPageLoadHoursRaw = Number(url.searchParams.get('impressionToFirstPageLoadHours') || '');
+  const firstPageLoadToRegistrationHoursRaw = Number(url.searchParams.get('firstPageLoadToRegistrationHours') || '');
+  const durationFilterOperatorRaw = url.searchParams.get('durationFilterOperator')?.trim().toLowerCase();
+  const durationFilterOperator = durationFilterOperatorRaw === 'or' ? 'or' : 'and';
   const startDate = url.searchParams.get('startDate')?.trim() || '';
   const endDate = url.searchParams.get('endDate')?.trim() || '';
   const cohortModeRaw = url.searchParams.get('cohortMode')?.trim().toLowerCase();
@@ -138,6 +142,9 @@ export async function detail(req: Request) {
     page,
     pageSize,
     windowHours: windowHoursRaw,
+    impressionToFirstPageLoadHours: impressionToFirstPageLoadHoursRaw,
+    firstPageLoadToRegistrationHours: firstPageLoadToRegistrationHoursRaw,
+    durationFilterOperator,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
     cohortMode,

@@ -30,6 +30,9 @@ type ReportDetailTableRow = {
   eventName: string;
   ts: string;
   sourceTs: string;
+  firstPageLoadTs: string;
+  firstPageLoadDuration: string;
+  firstPageLoadToRegistrationDuration: string;
   category: string;
   type: string;
   status: string;
@@ -43,6 +46,9 @@ type ReportDetailEventDetail = {
   aiResult: string;
   extractedParameters: Array<[string, string]>;
   attributionPath: Array<[string, string, string]>;
+  firstPageLoadEventTime?: string;
+  firstPageLoadDuration?: string;
+  firstPageLoadToRegistrationDuration?: string;
   journey?: {
     sourceWindow: string;
     eventWindow: string;
@@ -62,6 +68,7 @@ type ReportDetailEventDetail = {
 export type ReportDetailPayload = {
   clientName: string;
   reportType: ReportType;
+  hasRelatedEventFieldMappings: boolean;
   referrerTypeStats: Array<{
     referrerType: string;
     count: number;
@@ -246,6 +253,69 @@ function inDurationWindow(durationSeconds: number, windowHours: number | null) {
   if (!Number.isFinite(durationSeconds)) return false;
   const duration = Math.round(durationSeconds);
   return duration >= 0 && duration <= windowHours * 60 * 60;
+}
+
+function toOptionalWindowHours(value: number | undefined) {
+  return [12, 24, 48, 72].includes(value || 0) ? (value as number) : null;
+}
+
+function getStoredFirstPageLoadDurationSeconds(item: ReferrerRawRecord) {
+  const raw = (item as Record<string, unknown>).firstPageLoadDuration;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return Math.max(0, Math.round(raw));
+  if (typeof raw === 'string' && raw.trim()) {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
+  }
+  return null;
+}
+
+function getFirstPageLoadToRegistrationDurationSeconds(item: ReferrerRawRecord) {
+  const firstPageLoadDuration = getStoredFirstPageLoadDurationSeconds(item);
+  if (firstPageLoadDuration === null || !Number.isFinite(item.duration)) return null;
+  return Math.max(0, Math.round(item.duration) - firstPageLoadDuration);
+}
+
+function normalizeEventLabel(value: string) {
+  return value.trim().toLowerCase().replace(/[\s_-]+/g, '');
+}
+
+function isPageLoadEvent(value: string) {
+  return normalizeEventLabel(value) === 'pageload';
+}
+
+function parseFirstPageLoadEventMsFromRawJourneyLogs(
+  value: unknown,
+  context?: { relatedEventFieldMappings?: RelatedEventFieldMappings | null; journeyConfig?: JourneyConfig | null },
+) {
+  if (!Array.isArray(value)) return null;
+  const related = context?.relatedEventFieldMappings;
+  const journeyConfig = context?.journeyConfig;
+  let earliestMs: number | null = null;
+  for (const item of value) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    const eventLabel =
+      (related?.eventField ? getJsonValue(row, [related.eventField]) : '') ||
+      extractEventNameFromEventUrl(getJsonValue(row, [related?.eventUrlField || '', journeyConfig?.athenaUrlField || ''])) ||
+      getJsonValue(row, ['event', 'event_name', 'event_type', 'action', 'ev']);
+    if (!isPageLoadEvent(eventLabel)) continue;
+
+    const timeCandidates = [
+      related?.timeField || '',
+      journeyConfig?.athenaTimeField || '',
+      'page_load_time',
+      'event_time',
+      'timestamp',
+      'ts',
+      'time',
+      'event_ts',
+      'created_at',
+    ].filter(Boolean);
+    const tsMs = parseTimestampToMs(getJsonValue(row, timeCandidates));
+    if (tsMs === null) continue;
+    earliestMs = earliestMs === null ? tsMs : Math.min(earliestMs, tsMs);
+  }
+  return earliestMs;
 }
 
 type JourneyConfig = {
@@ -509,6 +579,9 @@ function buildDetailPayload(
   const avgDuration =
     totalRows === 0 ? 0 : rawRows.reduce((sum, row) => sum + (Number.isFinite(row.duration) ? row.duration : 0), 0) / totalRows;
 
+  const relatedEventFieldMappings = normalizeRelatedEventFieldMappings(report.relatedEventFieldMappings);
+  const hasRelatedEventFieldMappings = Boolean(relatedEventFieldMappings);
+
   const rows: ReportDetailTableRow[] = rawRows.map((item) => {
     const json = asJsonRecord(item.json);
     const eventUrl = getJsonValue(json, ['event_url', 'registration_url', 'url', 'ourl']) || '';
@@ -522,6 +595,21 @@ function buildDetailPayload(
         : eventMs !== null && Number.isFinite(item.duration)
           ? eventMs - Math.max(0, Math.round(item.duration)) * 1000
           : null;
+    const storedFirstPageLoadDuration = getStoredFirstPageLoadDurationSeconds(item);
+    const firstPageLoadEventMsFromJourney = parseFirstPageLoadEventMsFromRawJourneyLogs(
+      (item as Record<string, unknown>).journeyLogs,
+      {
+        relatedEventFieldMappings,
+        journeyConfig: options.journeyConfig || null,
+      },
+    );
+    const firstPageLoadEventMs =
+      firstPageLoadEventMsFromJourney !== null
+        ? firstPageLoadEventMsFromJourney
+        : storedFirstPageLoadDuration !== null && sourceMsDerived !== null
+          ? sourceMsDerived + storedFirstPageLoadDuration * 1000
+          : null;
+    const firstPageLoadToRegistrationDuration = getFirstPageLoadToRegistrationDurationSeconds(item);
     const eventName =
       (extractEventNameFromEventUrl(eventUrl) ||
         getJsonValue(json, ['action', 'event_name', 'event', 'event_type', 'ev', 'eventName', 'event-name', 'evt_name']))
@@ -535,6 +623,11 @@ function buildDetailPayload(
       eventName,
       ts: formatTableTimestamp(eventTime),
       sourceTs: sourceMsFromRaw !== null ? formatTableTimestamp(sourceTime) : formatTimestampFromMs(sourceMsDerived),
+      firstPageLoadTs: hasRelatedEventFieldMappings ? formatTimestampFromMs(firstPageLoadEventMs) : '--',
+      firstPageLoadDuration: hasRelatedEventFieldMappings ? formatDurationLabel(storedFirstPageLoadDuration ?? Number.NaN) : '--',
+      firstPageLoadToRegistrationDuration: hasRelatedEventFieldMappings
+        ? formatDurationLabel(firstPageLoadToRegistrationDuration ?? Number.NaN)
+        : '--',
       category: item.referrerType || 'unknown',
       type: item.referrerDesc || '--',
       status: isMatchedRow(item) ? 'SUCCESS' : 'UNMATCHED',
@@ -546,7 +639,6 @@ function buildDetailPayload(
     options.journeyConfig && (options.journeySourceRows || []).length > 0
       ? buildJourneySourceItems(options.journeySourceRows || [], options.journeyConfig)
       : null;
-  const relatedEventFieldMappings = normalizeRelatedEventFieldMappings(report.relatedEventFieldMappings);
   const eventDetails: Record<string, ReportDetailEventDetail> = {};
   rawRows.forEach((item) => {
     const json = asJsonRecord(item.json);
@@ -567,6 +659,9 @@ function buildDetailPayload(
         ['Classification', `${item.referrerType || 'unknown'} • ${isMatchedRow(item) ? 'Matched' : 'Unmatched'}`, 'bg-blue-700'],
       ],
     };
+    const sourceTimeMs = parseTimestampToMs(sourceTime);
+    const storedFirstPageLoadDuration = getStoredFirstPageLoadDurationSeconds(item);
+    const firstPageLoadToRegistrationDuration = getFirstPageLoadToRegistrationDurationSeconds(item);
 
     const storedJourneyLogs = normalizeStoredJourneyLogs((item as Record<string, unknown>).journeyLogs, {
       sourceTime,
@@ -584,6 +679,17 @@ function buildDetailPayload(
         athenaTimeField: storedJourneyLogs.athenaTimeField,
         rows: storedJourneyLogs.rows.slice(0, 200),
       };
+      const firstPageLoadJourneyTs = storedJourneyLogs.rows
+        .filter((row) => isPageLoadEvent(row.event || ''))
+        .map((row) => parseTimestampToMs(row.ts))
+        .filter((ms): ms is number => ms !== null)
+        .sort((a, b) => a - b)[0];
+      const firstPageLoadEventMs =
+        firstPageLoadJourneyTs ??
+        (storedFirstPageLoadDuration !== null && sourceTimeMs !== null ? sourceTimeMs + storedFirstPageLoadDuration * 1000 : null);
+      detailItem.firstPageLoadEventTime = formatTimestampFromMs(firstPageLoadEventMs);
+      detailItem.firstPageLoadDuration = formatDurationLabel(storedFirstPageLoadDuration ?? Number.NaN);
+      detailItem.firstPageLoadToRegistrationDuration = formatDurationLabel(firstPageLoadToRegistrationDuration ?? Number.NaN);
     } else if (options.journeyConfig && journeySourceMap) {
       const parsedEventUrl = parseUrl(urlValue);
       const eventIdValue = parsedEventUrl ? getSearchParamIgnoreCase(parsedEventUrl, options.journeyConfig.eventUrlParam).trim() : '';
@@ -609,7 +715,24 @@ function buildDetailPayload(
             idValue: journeyItem.idValue,
           })),
         };
+        const firstPageLoadJourneyTs = detailItem.journey.rows
+          .filter((row) => isPageLoadEvent(row.event || ''))
+          .map((row) => parseTimestampToMs(row.ts))
+          .filter((ms): ms is number => ms !== null)
+          .sort((a, b) => a - b)[0];
+        const firstPageLoadEventMs =
+          firstPageLoadJourneyTs ??
+          (storedFirstPageLoadDuration !== null && sourceTimeMs !== null ? sourceTimeMs + storedFirstPageLoadDuration * 1000 : null);
+        detailItem.firstPageLoadEventTime = formatTimestampFromMs(firstPageLoadEventMs);
+        detailItem.firstPageLoadDuration = formatDurationLabel(storedFirstPageLoadDuration ?? Number.NaN);
+        detailItem.firstPageLoadToRegistrationDuration = formatDurationLabel(firstPageLoadToRegistrationDuration ?? Number.NaN);
       }
+    } else if (hasRelatedEventFieldMappings) {
+      const firstPageLoadEventMs =
+        storedFirstPageLoadDuration !== null && sourceTimeMs !== null ? sourceTimeMs + storedFirstPageLoadDuration * 1000 : null;
+      detailItem.firstPageLoadEventTime = formatTimestampFromMs(firstPageLoadEventMs);
+      detailItem.firstPageLoadDuration = formatDurationLabel(storedFirstPageLoadDuration ?? Number.NaN);
+      detailItem.firstPageLoadToRegistrationDuration = formatDurationLabel(firstPageLoadToRegistrationDuration ?? Number.NaN);
     }
     eventDetails[item.id] = detailItem;
   });
@@ -626,6 +749,7 @@ function buildDetailPayload(
   return {
     clientName: report.client?.name || 'Unknown Client',
     reportType: isAttributionMode(report.reportType) ? report.reportType : 'registration',
+    hasRelatedEventFieldMappings,
     referrerTypeStats,
     metrics: [
       {
@@ -671,6 +795,9 @@ export async function getReportDetailPayload(
     endDate?: string;
     cohortMode?: 'non-cohort' | 'cohort';
     windowHours?: number;
+    impressionToFirstPageLoadHours?: number;
+    firstPageLoadToRegistrationHours?: number;
+    durationFilterOperator?: 'and' | 'or';
   },
 ) {
   const journeyConfig = normalizeJourneyConfigFromFieldMappings(report.fieldMappings);
@@ -688,10 +815,15 @@ export async function getReportDetailPayload(
   ]);
   const startMs = options.startDate ? startOfDayMs(options.startDate) : null;
   const endMs = options.endDate ? endOfDayMs(options.endDate) : null;
-  const windowHours = [12, 24, 48, 72].includes(options.windowHours || 0) ? (options.windowHours as number) : null;
+  const windowHours = toOptionalWindowHours(options.windowHours);
+  const impressionToFirstPageLoadHours = toOptionalWindowHours(options.impressionToFirstPageLoadHours);
+  const firstPageLoadToRegistrationHours = toOptionalWindowHours(options.firstPageLoadToRegistrationHours);
+  const durationFilterOperator = options.durationFilterOperator === 'or' ? 'or' : 'and';
   const cohortMode = options.cohortMode === 'cohort' ? 'cohort' : 'non-cohort';
   const rule = await urlRules.findById(report.ruleId);
-  const shouldFilter = startMs !== null || endMs !== null || windowHours !== null;
+  const hasAnyDurationFilter =
+    windowHours !== null || impressionToFirstPageLoadHours !== null || firstPageLoadToRegistrationHours !== null;
+  const shouldFilter = startMs !== null || endMs !== null || hasAnyDurationFilter;
 
   if (shouldFilter) {
     const allRows = (await referrerRaws.listByReport(report.id)) as ReferrerRawRecord[];
@@ -706,7 +838,22 @@ export async function getReportDetailPayload(
         if (startMs !== null && filterTimeMs < startMs) return false;
         if (endMs !== null && filterTimeMs > endMs) return false;
       }
-      if (!inDurationWindow(item.duration, windowHours)) return false;
+      const durationChecks: boolean[] = [];
+      if (windowHours !== null) {
+        durationChecks.push(inDurationWindow(item.duration, windowHours));
+      }
+      if (impressionToFirstPageLoadHours !== null) {
+        const firstDuration = getStoredFirstPageLoadDurationSeconds(item);
+        durationChecks.push(firstDuration !== null && inDurationWindow(firstDuration, impressionToFirstPageLoadHours));
+      }
+      if (firstPageLoadToRegistrationHours !== null) {
+        const secondDuration = getFirstPageLoadToRegistrationDurationSeconds(item);
+        durationChecks.push(secondDuration !== null && inDurationWindow(secondDuration, firstPageLoadToRegistrationHours));
+      }
+      if (durationChecks.length > 0) {
+        const passed = durationFilterOperator === 'or' ? durationChecks.some(Boolean) : durationChecks.every(Boolean);
+        if (!passed) return false;
+      }
       return true;
     });
 
