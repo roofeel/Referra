@@ -1,4 +1,4 @@
-export type AttributionMode = 'registration' | 'pageload';
+export type AttributionMode = 'registration';
 export type ReportType = AttributionMode | 'custom';
 
 export type CanonicalAttributionField = 'source_url' | 'source_time' | 'event_url' | 'event_time';
@@ -47,7 +47,7 @@ export const ATTRIBUTION_MODE_OPTIONS: Array<{ mode: AttributionMode; label: str
 ];
 
 export function getReportTypeLabel(reportType: ReportType) {
-  if (reportType === 'registration' || reportType === 'pageload') {
+  if (reportType === 'registration') {
     return ATTRIBUTION_MODE_META[reportType].label;
   }
   return 'Custom Attribution';
@@ -57,7 +57,7 @@ export function getTimeHeaderByReportType(
   reportType: ReportType,
   field: 'event_time' | 'source_time',
 ) {
-  if (reportType === 'registration' || reportType === 'pageload') {
+  if (reportType === 'registration') {
     return ATTRIBUTION_ALIAS_CONFIG[reportType].find((item) => item.canonical === field)?.alias || field;
   }
   return field;
