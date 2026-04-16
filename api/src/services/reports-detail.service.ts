@@ -420,10 +420,27 @@ function normalizeStoredJourneyLogs(
         const row = item as Record<string, unknown>;
 
         if (related) {
-          const tsRaw = getJsonValue(row, [related.timeField]);
-          const url = getJsonValue(row, [related.eventUrlField]) || '--';
-          const idValue = getJsonValue(row, [related.idField]);
-          const eventByField = related.eventField ? getJsonValue(row, [related.eventField]) : '';
+          const rowNested = row.row && typeof row.row === 'object' && !Array.isArray(row.row)
+            ? (row.row as Record<string, unknown>)
+            : null;
+          const tsRaw =
+            getJsonValue(row, ['ts', related.timeField, 'event_time', 'registration_time', 'timestamp', 'time']) ||
+            (rowNested
+              ? getJsonValue(rowNested, [related.timeField, 'event_time', 'registration_time', 'timestamp', 'time'])
+              : '');
+          const url =
+            getJsonValue(row, [related.eventUrlField, 'url', 'event_url', 'registration_url', 'ourl']) ||
+            (rowNested
+              ? getJsonValue(rowNested, [related.eventUrlField, 'url', 'event_url', 'registration_url', 'ourl'])
+              : '') ||
+            '--';
+          const idValue =
+            getJsonValue(row, [related.idField, 'idValue', 'uid']) ||
+            (rowNested ? getJsonValue(rowNested, [related.idField, 'idValue', 'uid']) : '');
+          const eventByField =
+            (related.eventField ? getJsonValue(row, [related.eventField, 'event']) : '') ||
+            (rowNested && related.eventField ? getJsonValue(rowNested, [related.eventField, 'event']) : '') ||
+            getJsonValue(row, ['event']);
           const eventByUrl = extractEventNameFromEventUrl(url);
           const event = eventByField || eventByUrl || '--';
           const tsMs = parseTimestampToMs(tsRaw);

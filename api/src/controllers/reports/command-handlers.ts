@@ -440,7 +440,13 @@ export async function attachRelatedEvents(req: Request) {
       });
     }
 
-    const journeyLogs = matchedRows.slice(0, 200).map((item) => item.row);
+    const journeyLogs = matchedRows.slice(0, 200).map((item) => ({
+      ts: item.ts,
+      event: item.event,
+      url: item.url,
+      idValue: item.idValue,
+      row: item.row,
+    }));
 
     return {
       id: rawRow.id,

@@ -206,7 +206,7 @@ export function DashboardFilters({
               </div>
             ) : null}
             {showFirstPageLoadFilters ? (
-              <div className="w-full rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+              <div className="w-auto bg-slate-50/70 p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Duration Filters</p>
                   <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">

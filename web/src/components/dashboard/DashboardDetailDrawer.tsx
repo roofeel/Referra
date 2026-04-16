@@ -26,7 +26,7 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
         aria-modal="true"
         aria-labelledby="event-detail-title"
         aria-hidden={!isOpen}
-        className={`fixed bottom-0 right-0 top-0 z-50 w-96 overflow-y-auto border-l border-slate-200/30 bg-white shadow-2xl transition-transform duration-300 ${
+        className={`fixed bottom-0 right-0 top-0 z-50 w-[40rem] max-w-[92vw] overflow-y-auto border-l border-slate-200/30 bg-white shadow-2xl transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -109,7 +109,7 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
 
             {detail.firstPageLoadDuration || detail.firstPageLoadEventTime ? (
               <div>
-                <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">First Page Load</h3>
+                <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">Durations</h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-500">First Page Load Time</span>
