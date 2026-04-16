@@ -262,6 +262,75 @@ describe('ReportsDetail', () => {
     });
   });
 
+  it('renders event_time column after first_page_load_time when first-page-load columns are enabled', async () => {
+    mockReportsDetail.mockResolvedValueOnce({
+      clientName: 'Global Retail Corp',
+      hasRelatedEventFieldMappings: true,
+      referrerTypeStats: [{ referrerType: 'organic', count: 1, percentage: 100 }],
+      metrics: [],
+      distribution: [],
+      insights: {
+        parsingSuccess: 100,
+        missedRules: 0,
+        aiParameterCoverage: 100,
+        unmatchedTokens: 0,
+        aiConfidenceAvg: 95,
+      },
+      pagination: {
+        page: 1,
+        pageSize: 50,
+        totalRows: 1,
+        totalPages: 1,
+      },
+      rows: [
+        {
+          eventId: 'ev_1',
+          uid: 'u_001',
+          eventName: 'REGISTRATION',
+          ts: '2026-03-24 10:00:00',
+          sourceTs: '2026-03-24 09:50:00',
+          firstPageLoadTs: '2026-03-24 09:55:00',
+          firstPageLoadDuration: '5.0m',
+          firstPageLoadToRegistrationDuration: '5.0m',
+          category: 'organic',
+          type: 'matched',
+          status: 'SUCCESS',
+          duration: '10.0m',
+        },
+      ],
+      eventDetails: {
+        ev_1: {
+          url: 'https://example.com?uid=u_001',
+          ruleName: 'Checkout Rule',
+          confidenceScore: '95.0%',
+          aiResult: 'matched',
+          extractedParameters: [['uid', 'u_001']],
+          attributionPath: [],
+        },
+      },
+      reportType: 'registration',
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/reports/KTX-8821']}>
+        <Routes>
+          <Route path="/reports/:reportId" element={<ReportsDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('Global Retail Corp');
+    const headerNames = screen
+      .getAllByRole('columnheader')
+      .map((header) => (header.textContent || '').trim().toLowerCase());
+    const firstPageLoadTimeIndex = headerNames.indexOf('first_page_load_time');
+    const eventTimeIndex = headerNames.indexOf('registration_time');
+
+    expect(firstPageLoadTimeIndex).toBeGreaterThan(-1);
+    expect(eventTimeIndex).toBeGreaterThan(-1);
+    expect(eventTimeIndex).toBeGreaterThan(firstPageLoadTimeIndex);
+  });
+
   it('uses source_time date range when cohort mode is selected', async () => {
     const user = userEvent.setup();
 

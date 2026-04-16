@@ -33,13 +33,18 @@ export function DashboardTable({
 }: DashboardTableProps) {
   const start = totalRows === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = totalRows === 0 ? 0 : Math.min(page * pageSize, totalRows);
+  const eventTimeHeader = getTimeHeaderByReportType(reportType, 'event_time');
+  const sourceTimeHeader = getTimeHeaderByReportType(reportType, 'source_time');
   const headers = [
     'uid',
     'event_name',
-    ...(showTimeColumns
-      ? [getTimeHeaderByReportType(reportType, 'event_time'), getTimeHeaderByReportType(reportType, 'source_time')]
-      : []),
-    ...(showFirstPageLoadColumns ? ['first_page_load_time', 'impression -> first_page_load', 'first_page_load -> registration'] : []),
+    ...(showTimeColumns && showFirstPageLoadColumns
+      ? [sourceTimeHeader, 'first_page_load_time', eventTimeHeader, 'impression -> first_page_load', 'first_page_load -> registration']
+      : showTimeColumns
+        ? [eventTimeHeader, sourceTimeHeader]
+        : showFirstPageLoadColumns
+          ? ['first_page_load_time', 'impression -> first_page_load', 'first_page_load -> registration']
+          : []),
     'referrer_type',
     'referrer_desc',
     ...(showDurationColumn ? ['duration'] : []),
@@ -74,18 +79,29 @@ export function DashboardTable({
                     {row.eventName}
                   </span>
                 </td>
-                {showTimeColumns ? <td className="px-4 py-3 text-xs text-slate-500">{row.ts}</td> : null}
-                {showTimeColumns ? <td className="px-4 py-3 text-xs text-slate-500">{row.sourceTs}</td> : null}
-                {showFirstPageLoadColumns ? (
-                  <td className="px-4 py-3 text-xs text-slate-500">{row.firstPageLoadTs || '--'}</td>
+                {showTimeColumns && showFirstPageLoadColumns ? (
+                  <>
+                    <td className="px-4 py-3 text-xs text-slate-500">{row.sourceTs}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{row.firstPageLoadTs || '--'}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{row.ts}</td>
+                    <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">{row.firstPageLoadDuration || '--'}</td>
+                    <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">
+                      {row.firstPageLoadToRegistrationDuration || '--'}
+                    </td>
+                  </>
                 ) : null}
-                {showFirstPageLoadColumns ? (
-                  <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">{row.firstPageLoadDuration || '--'}</td>
+                {showTimeColumns && !showFirstPageLoadColumns ? <td className="px-4 py-3 text-xs text-slate-500">{row.ts}</td> : null}
+                {showTimeColumns && !showFirstPageLoadColumns ? (
+                  <td className="px-4 py-3 text-xs text-slate-500">{row.sourceTs}</td>
                 ) : null}
-                {showFirstPageLoadColumns ? (
-                  <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">
-                    {row.firstPageLoadToRegistrationDuration || '--'}
-                  </td>
+                {!showTimeColumns && showFirstPageLoadColumns ? (
+                  <>
+                    <td className="px-4 py-3 text-xs text-slate-500">{row.firstPageLoadTs || '--'}</td>
+                    <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">{row.firstPageLoadDuration || '--'}</td>
+                    <td className="px-4 py-3 text-right font-mono text-xs text-slate-500">
+                      {row.firstPageLoadToRegistrationDuration || '--'}
+                    </td>
+                  </>
                 ) : null}
                 <td className="px-4 py-3 text-xs text-slate-700">{row.category}</td>
                 <td className="max-w-[280px] truncate px-4 py-3 text-xs text-slate-700" title={row.type}>
