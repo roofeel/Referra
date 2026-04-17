@@ -1,5 +1,13 @@
 import type { EventDetail } from './dashboardData';
 
+type InlineToken = {
+  text: string;
+  strong?: boolean;
+  em?: boolean;
+  code?: boolean;
+  href?: string;
+};
+
 type DashboardDetailDrawerProps = {
   detail: EventDetail | null;
   canGenerateUserJourney?: boolean;
@@ -8,6 +16,174 @@ type DashboardDetailDrawerProps = {
   isOpen: boolean;
   onClose: () => void;
 };
+
+function renderInlineMarkdown(text: string) {
+  const tokens: InlineToken[] = [];
+  const pattern = /(\[[^\]]+\]\([^)]+\)|`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  let start = 0;
+
+  for (const match of text.matchAll(pattern)) {
+    const full = match[0];
+    const index = match.index ?? 0;
+    if (index > start) {
+      tokens.push({ text: text.slice(start, index) });
+    }
+
+    if (full.startsWith('[')) {
+      const linkMatch = full.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        tokens.push({ text: linkMatch[1], href: linkMatch[2] });
+      } else {
+        tokens.push({ text: full });
+      }
+    } else if (full.startsWith('`') && full.endsWith('`')) {
+      tokens.push({ text: full.slice(1, -1), code: true });
+    } else if (full.startsWith('**') && full.endsWith('**')) {
+      tokens.push({ text: full.slice(2, -2), strong: true });
+    } else if (full.startsWith('*') && full.endsWith('*')) {
+      tokens.push({ text: full.slice(1, -1), em: true });
+    } else {
+      tokens.push({ text: full });
+    }
+
+    start = index + full.length;
+  }
+
+  if (start < text.length) {
+    tokens.push({ text: text.slice(start) });
+  }
+
+  return tokens.map((token, index) => {
+    const key = `${token.text}-${index}`;
+    if (token.href) {
+      return (
+        <a
+          key={key}
+          href={token.href}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-blue-700 underline decoration-blue-300 underline-offset-2 hover:text-blue-800"
+        >
+          {token.text}
+        </a>
+      );
+    }
+    if (token.code) {
+      return (
+        <code key={key} className="rounded bg-slate-200/80 px-1 py-[1px] font-mono text-[11px] text-slate-800">
+          {token.text}
+        </code>
+      );
+    }
+    if (token.strong) {
+      return (
+        <strong key={key} className="font-semibold text-slate-900">
+          {token.text}
+        </strong>
+      );
+    }
+    if (token.em) {
+      return (
+        <em key={key} className="italic text-slate-800">
+          {token.text}
+        </em>
+      );
+    }
+    return <span key={key}>{token.text}</span>;
+  });
+}
+
+function renderJourneyMarkdown(markdown: string) {
+  const lines = markdown.split('\n');
+  const elements: JSX.Element[] = [];
+  let i = 0;
+  let blockIndex = 0;
+
+  const flushParagraph = (start: number, end: number) => {
+    const text = lines
+      .slice(start, end)
+      .map((line) => line.trim())
+      .join(' ')
+      .trim();
+    if (!text) return;
+    elements.push(
+      <p key={`p-${blockIndex++}`} className="text-[11px] leading-6 text-slate-700">
+        {renderInlineMarkdown(text)}
+      </p>,
+    );
+  };
+
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (!line) {
+      i += 1;
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) {
+      const level = heading[1].length;
+      const title = heading[2].trim();
+      const headingClass =
+        level <= 2
+          ? 'mt-2 text-[12px] font-semibold text-slate-900'
+          : 'mt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-700';
+      elements.push(
+        <h4 key={`h-${blockIndex++}`} className={headingClass}>
+          {renderInlineMarkdown(title)}
+        </h4>,
+      );
+      i += 1;
+      continue;
+    }
+
+    if (/^([-*])\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length) {
+        const listLine = lines[i].trim();
+        const match = listLine.match(/^[-*]\s+(.+)$/);
+        if (!match) break;
+        items.push(match[1].trim());
+        i += 1;
+      }
+      elements.push(
+        <ul key={`ul-${blockIndex++}`} className="ml-4 list-disc space-y-1 text-[11px] leading-6 text-slate-700">
+          {items.map((item, index) => (
+            <li key={`${item}-${index}`}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ul>,
+      );
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length) {
+        const listLine = lines[i].trim();
+        const match = listLine.match(/^\d+\.\s+(.+)$/);
+        if (!match) break;
+        items.push(match[1].trim());
+        i += 1;
+      }
+      elements.push(
+        <ol key={`ol-${blockIndex++}`} className="ml-4 list-decimal space-y-1 text-[11px] leading-6 text-slate-700">
+          {items.map((item, index) => (
+            <li key={`${item}-${index}`}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ol>,
+      );
+      continue;
+    }
+
+    const paragraphStart = i;
+    while (i < lines.length && lines[i].trim() && !/^(#{1,6})\s+/.test(lines[i].trim()) && !/^[-*]\s+/.test(lines[i].trim()) && !/^\d+\.\s+/.test(lines[i].trim())) {
+      i += 1;
+    }
+    flushParagraph(paragraphStart, i);
+  }
+
+  return elements;
+}
 
 export function DashboardDetailDrawer({
   detail,
@@ -151,7 +327,7 @@ export function DashboardDetailDrawer({
               </button>
               {detail.userJourneyDoc ? (
                 <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <pre className="whitespace-pre-wrap text-[11px] leading-5 text-slate-700">{detail.userJourneyDoc}</pre>
+                  <div className="space-y-2">{renderJourneyMarkdown(detail.userJourneyDoc)}</div>
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-500">No generated report yet.</p>

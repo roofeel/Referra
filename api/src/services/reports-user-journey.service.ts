@@ -103,7 +103,7 @@ export async function generateUserJourneyDocFromLogs(journeyLogs: unknown) {
   }
 
   const region = process.env.AWS_REGION?.trim() || process.env.AWS_DEFAULT_REGION?.trim() || 'us-east-1';
-  const modelId = process.env.BEDROCK_SONNET_MODEL_ID?.trim() || 'anthropic.claude-3-5-sonnet-20240620-v1:0';
+  const modelId = process.env.BEDROCK_SONNET_MODEL_ID?.trim() || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
 
   const bedrock = createAmazonBedrock({
     region,

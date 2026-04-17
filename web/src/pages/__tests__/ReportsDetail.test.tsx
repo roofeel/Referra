@@ -70,6 +70,7 @@ describe('ReportsDetail', () => {
           ruleName: 'Checkout Rule',
           confidenceScore: '95.0%',
           aiResult: 'matched',
+          userJourneyDoc: '# Day 1\n- 10:00:00: **Registration Submitted**',
           extractedParameters: [['utm_source', 'google']],
           attributionPath: [
             ['Source', '2026-03-24 09:50:00', 'bg-emerald-500'],
@@ -123,6 +124,9 @@ describe('ReportsDetail', () => {
 
     expect(screen.getByRole('dialog', { name: 'Event Detail' })).toBeInTheDocument();
     expect(screen.getByText('Checkout Rule')).toBeInTheDocument();
+    expect(screen.getByText('Day 1')).toBeInTheDocument();
+    expect(screen.getByText(/10:00:00:/)).toBeInTheDocument();
+    expect(screen.getByText('Registration Submitted')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Close Event Detail' }));
 
