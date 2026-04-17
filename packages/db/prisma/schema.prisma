@@ -126,6 +126,7 @@ model ReferrerRaw {
   uid          String?
   json         Json
   journeyLogs  Json?  @map("journey_logs")
+  userJourneyDoc String? @map("user_journey_doc")
   firstPageLoadDuration Int? @map("first_page_load_duration")
 
   @@index([reportId])

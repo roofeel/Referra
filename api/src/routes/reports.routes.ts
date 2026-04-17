@@ -26,4 +26,7 @@ export const reportsRoutes = {
   '/api/reports/:id/attach-related-events': {
     POST: reportsController.attachRelatedEvents,
   },
+  '/api/reports/:id/referrer-raws/:rawId/user-journey/generate': {
+    POST: reportsController.generateUserJourney,
+  },
 };

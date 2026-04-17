@@ -49,6 +49,7 @@ export type EventDetail = {
   ruleName: string;
   confidenceScore: string;
   aiResult: string;
+  userJourneyDoc?: string;
   extractedParameters: Array<[string, string]>;
   attributionPath: Array<[string, string, string]>;
   firstPageLoadEventTime?: string;

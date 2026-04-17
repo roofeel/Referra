@@ -79,6 +79,12 @@ export interface AttachRelatedEventsResponse {
   matchedEvents: number;
 }
 
+export interface GenerateUserJourneyResponse {
+  reportId: string;
+  rawId: string;
+  userJourneyDoc: string;
+}
+
 export type CreateReportTaskPayload = {
   taskName: string;
   client: string;
@@ -243,6 +249,18 @@ export const reportsApi = {
 
     if (!response.ok) {
       await throwApiError(response, 'Failed to attach related events');
+    }
+
+    return response.json();
+  },
+
+  generateUserJourney: async (id: string, rawId: string): Promise<GenerateUserJourneyResponse> => {
+    const response = await fetch(buildApiUrl(`/api/reports/${id}/referrer-raws/${rawId}/user-journey/generate`), {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to generate user journey');
     }
 
     return response.json();

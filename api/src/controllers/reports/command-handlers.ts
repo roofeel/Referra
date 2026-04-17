@@ -5,6 +5,7 @@ import { parseTimestampToMs } from '../../lib/reports-url.lib.js';
 import { progressLabelFor, normalizeReportTaskStatus } from '../../lib/reports-presentation.lib.js';
 import { executeReportRows, type ReportInputRow, type UrlRuleExecutor } from '../../services/reports-execution.service.js';
 import { buildJourneyLogsForRows, type JourneyConfig } from '../../services/reports-journey.service.js';
+import { generateUserJourneyDocFromLogs } from '../../services/reports-user-journey.service.js';
 import { buildDynamicUrlRuleExecutor } from '../shared/url-rule-executor.helpers.js';
 import {
   asReportJson,
@@ -504,6 +505,46 @@ export async function attachRelatedEvents(req: Request) {
     matchedRows: rowsWithMatchedEvents,
     matchedEvents: totalMatchedEvents,
   });
+}
+
+export async function generateUserJourney(req: Request) {
+  const request = req as RequestWithParams<{ id: string; rawId: string }>;
+  const current = await reports.findById(request.params.id);
+
+  if (!current) {
+    return Response.json({ error: 'Report task not found' }, { status: 404 });
+  }
+
+  const target = await referrerRaws.findByIdInReport(current.id, request.params.rawId);
+  if (!target) {
+    return Response.json({ error: 'ReferrerRaw not found' }, { status: 404 });
+  }
+
+  try {
+    const userJourneyDoc = await generateUserJourneyDocFromLogs((target as { journeyLogs?: unknown }).journeyLogs);
+    await referrerRaws.updateUserJourneyDoc({
+      id: request.params.rawId,
+      reportId: current.id,
+      userJourneyDoc,
+    });
+    await logs.createMany([
+      {
+        reportId: current.id,
+        level: 'info',
+        message: `user_journey_doc generated for referrer_raw=${request.params.rawId}`,
+      },
+    ]);
+
+    return Response.json({
+      reportId: current.id,
+      rawId: request.params.rawId,
+      userJourneyDoc,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const status = message.includes('journey_logs is empty') ? 400 : 500;
+    return Response.json({ error: `Failed to generate user journey: ${message}` }, { status });
+  }
 }
 
 export async function updateStatus(req: Request) {

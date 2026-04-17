@@ -44,6 +44,7 @@ type ReportDetailEventDetail = {
   ruleName: string;
   confidenceScore: string;
   aiResult: string;
+  userJourneyDoc?: string;
   extractedParameters: Array<[string, string]>;
   attributionPath: Array<[string, string, string]>;
   firstPageLoadEventTime?: string;
@@ -669,6 +670,10 @@ function buildDetailPayload(
       ruleName: rule?.name?.trim() || 'N/A',
       confidenceScore: `${(isMatchedRow(item) ? 95 : 60).toFixed(1)}%`,
       aiResult: item.referrerDesc || 'No description',
+      userJourneyDoc:
+        typeof (item as Record<string, unknown>).userJourneyDoc === 'string'
+          ? String((item as Record<string, unknown>).userJourneyDoc).trim()
+          : undefined,
       extractedParameters: params.length > 0 ? params : [['referrer_type', item.referrerType || 'unknown']],
       attributionPath: [
         ['Source', `${sourceTime || '--'} • ${sourceUrl || '--'}`, 'bg-emerald-500'],

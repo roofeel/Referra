@@ -2,11 +2,21 @@ import type { EventDetail } from './dashboardData';
 
 type DashboardDetailDrawerProps = {
   detail: EventDetail | null;
+  canGenerateUserJourney?: boolean;
+  isGeneratingUserJourney?: boolean;
+  onGenerateUserJourney?: () => void;
   isOpen: boolean;
   onClose: () => void;
 };
 
-export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDetailDrawerProps) {
+export function DashboardDetailDrawer({
+  detail,
+  canGenerateUserJourney = false,
+  isGeneratingUserJourney = false,
+  onGenerateUserJourney,
+  isOpen,
+  onClose,
+}: DashboardDetailDrawerProps) {
   if (!detail) {
     return null;
   }
@@ -70,18 +80,6 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
             </div>
 
             <div>
-              <h3 className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase text-blue-700">
-                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  auto_awesome
-                </span>
-                AI results
-              </h3>
-              <div className="border-l-2 border-blue-700 bg-blue-50 p-3">
-                <p className="text-[11px] leading-relaxed text-blue-900">{detail.aiResult}</p>
-              </div>
-            </div>
-
-            <div>
               <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">Extracted Parameters</h3>
               <div className="space-y-2">
                 {detail.extractedParameters.map(([key, value]) => (
@@ -89,19 +87,6 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
                     <span className="w-16 text-[10px] font-bold text-slate-400">{key}</span>
                     <div className="h-0 flex-1 border-b border-dotted border-slate-300" />
                     <span className="text-xs font-bold text-slate-900">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="mb-4 text-[10px] font-bold uppercase text-slate-500">Attribution Path</h3>
-              <div className="relative space-y-6 pl-6 before:absolute before:bottom-2 before:left-2 before:top-2 before:w-px before:bg-slate-200">
-                {detail.attributionPath.map(([title, detailText, color]) => (
-                  <div key={title} className="relative">
-                    <div className={`absolute -left-[22px] top-1 h-3 w-3 rounded-full ring-4 ring-white ${color}`} />
-                    <p className="text-xs font-bold text-slate-900">{title}</p>
-                    <p className="text-[10px] text-slate-500">{detailText}</p>
                   </div>
                 ))}
               </div>
@@ -131,7 +116,7 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
 
             {detail.journey ? (
               <div>
-                <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">Journey Matches</h3>
+                <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">Event Logs</h3>
                 {detail.journey.rows.length === 0 ? (
                   <p className="text-[11px] text-slate-500">No matched journey rows in this time window.</p>
                 ) : (
@@ -150,9 +135,31 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
                 )}
               </div>
             ) : null}
+
+            <div>
+              <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">User Journey</h3>
+              <button
+                type="button"
+                onClick={onGenerateUserJourney}
+                disabled={!canGenerateUserJourney || isGeneratingUserJourney}
+                className="mb-3 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                <span className="material-symbols-outlined text-sm">
+                  {isGeneratingUserJourney ? 'progress_activity' : 'auto_awesome'}
+                </span>
+                {isGeneratingUserJourney ? 'Generating...' : 'Generate User Journey'}
+              </button>
+              {detail.userJourneyDoc ? (
+                <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <pre className="whitespace-pre-wrap text-[11px] leading-5 text-slate-700">{detail.userJourneyDoc}</pre>
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-500">No generated report yet.</p>
+              )}
+            </div>
           </div>
 
-          <div className="mt-12 border-t border-slate-200 pt-6">
+          {/* <div className="mt-12 border-t border-slate-200 pt-6">
             <button
               type="button"
               className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-100 py-3 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-200"
@@ -160,7 +167,7 @@ export function DashboardDetailDrawer({ detail, isOpen, onClose }: DashboardDeta
               <span className="material-symbols-outlined text-lg">flag</span>
               Flag for Manual Review
             </button>
-          </div>
+          </div> */}
         </div>
       </aside>
     </>

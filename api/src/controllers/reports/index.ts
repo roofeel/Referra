@@ -1,4 +1,4 @@
-import { create, attachRelatedEvents, updateStatus, rerun, remove } from './command-handlers.js';
+import { create, attachRelatedEvents, generateUserJourney, updateStatus, rerun, remove } from './command-handlers.js';
 import { list, listLogs, detail, downloadUids } from './query-handlers.js';
 
 export const reportsController = {
@@ -8,6 +8,7 @@ export const reportsController = {
   detail,
   downloadUids,
   attachRelatedEvents,
+  generateUserJourney,
   updateStatus,
   rerun,
   delete: remove,

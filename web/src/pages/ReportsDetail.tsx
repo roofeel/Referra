@@ -22,6 +22,7 @@ export default function ReportsDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isAttachDrawerOpen, setIsAttachDrawerOpen] = useState(false);
   const [isAttachingRelatedEvents, setIsAttachingRelatedEvents] = useState(false);
+  const [generatingJourneyEventId, setGeneratingJourneyEventId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [draftStartDate, setDraftStartDate] = useState('');
   const [draftEndDate, setDraftEndDate] = useState('');
@@ -147,6 +148,7 @@ export default function ReportsDetail() {
   ]);
 
   const selectedDetail = selectedRow ? payload?.eventDetails[selectedRow.eventId] || null : null;
+  const isGeneratingUserJourney = Boolean(selectedRow?.eventId && generatingJourneyEventId === selectedRow.eventId);
   const referrerTypeOptions = payload
     ? payload.referrerTypeStats.map((item) => (item.referrerType || '').trim()).filter((item) => Boolean(item))
     : [];
@@ -166,6 +168,43 @@ export default function ReportsDetail() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isDetailOpen]);
+
+  const handleGenerateUserJourney = async () => {
+    if (!reportId) {
+      toast.error('Missing report id');
+      return;
+    }
+    if (!selectedRow?.eventId) {
+      toast.error('Missing selected event');
+      return;
+    }
+
+    try {
+      setGeneratingJourneyEventId(selectedRow.eventId);
+      const response = await api.reports.generateUserJourney(reportId, selectedRow.eventId);
+      setPayload((prev) => {
+        if (!prev) return prev;
+        const current = prev.eventDetails[response.rawId];
+        if (!current) return prev;
+        return {
+          ...prev,
+          eventDetails: {
+            ...prev.eventDetails,
+            [response.rawId]: {
+              ...current,
+              userJourneyDoc: response.userJourneyDoc,
+            },
+          },
+        };
+      });
+      toast.success('User journey generated');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Generate user journey failed';
+      toast.error(message);
+    } finally {
+      setGeneratingJourneyEventId(null);
+    }
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#f2f4f6] text-slate-900 antialiased">
@@ -292,7 +331,16 @@ export default function ReportsDetail() {
         </div>
       </main>
 
-      <DashboardDetailDrawer detail={selectedDetail} isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} />
+      <DashboardDetailDrawer
+        detail={selectedDetail}
+        canGenerateUserJourney={Boolean(reportId && selectedRow?.eventId)}
+        isGeneratingUserJourney={isGeneratingUserJourney}
+        onGenerateUserJourney={() => {
+          void handleGenerateUserJourney();
+        }}
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+      />
       <AttachRelatedEventsDrawer
         isOpen={isAttachDrawerOpen}
         uidDownloadHref={uidDownloadHref}

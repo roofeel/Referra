@@ -188,6 +188,7 @@ export interface ReferrerRaw {
   uid?: string | null;
   json: unknown;
   journeyLogs?: unknown | null;
+  userJourneyDoc?: string | null;
   firstPageLoadDuration?: number | null;
 }
 
@@ -786,6 +787,7 @@ export const referrerRaws = {
     uid?: string | null;
     json: unknown;
     journeyLogs?: unknown | null;
+    userJourneyDoc?: string | null;
     firstPageLoadDuration?: number | null;
   }>) {
     if (data.length === 0) {
@@ -801,6 +803,7 @@ export const referrerRaws = {
         uid: item.uid ?? null,
         json: item.json,
         journeyLogs: item.journeyLogs ?? null,
+        userJourneyDoc: item.userJourneyDoc ?? null,
         firstPageLoadDuration: item.firstPageLoadDuration ?? null,
       })),
     });
@@ -821,6 +824,7 @@ export const referrerRaws = {
       uid?: string | null;
       json: unknown;
       journeyLogs?: unknown | null;
+      userJourneyDoc?: string | null;
       firstPageLoadDuration?: number | null;
     }>,
   ) {
@@ -842,6 +846,7 @@ export const referrerRaws = {
           uid: item.uid ?? null,
           json: item.json,
           journeyLogs: item.journeyLogs ?? null,
+          userJourneyDoc: item.userJourneyDoc ?? null,
           firstPageLoadDuration: item.firstPageLoadDuration ?? null,
         })),
       });
@@ -875,6 +880,38 @@ export const referrerRaws = {
       where: { reportId },
       _count: {
         _all: true,
+      },
+    });
+  },
+
+  async findByIdInReport(reportId: string, id: string) {
+    return await (db as any).referrerRaw.findFirst({
+      where: {
+        id,
+        reportId,
+      },
+    });
+  },
+
+  async updateUserJourneyDoc(params: {
+    reportId: string;
+    id: string;
+    userJourneyDoc: string | null;
+  }) {
+    await (db as any).referrerRaw.updateMany({
+      where: {
+        id: params.id,
+        reportId: params.reportId,
+      },
+      data: {
+        userJourneyDoc: params.userJourneyDoc,
+      },
+    });
+
+    return await (db as any).referrerRaw.findFirst({
+      where: {
+        id: params.id,
+        reportId: params.reportId,
       },
     });
   },
