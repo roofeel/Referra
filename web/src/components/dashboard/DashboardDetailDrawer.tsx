@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { EventDetail } from './dashboardData';
 
 type InlineToken = {
@@ -95,7 +96,7 @@ function renderInlineMarkdown(text: string) {
 
 function renderJourneyMarkdown(markdown: string) {
   const lines = markdown.split('\n');
-  const elements: JSX.Element[] = [];
+  const elements: ReactNode[] = [];
   let i = 0;
   let blockIndex = 0;
 
