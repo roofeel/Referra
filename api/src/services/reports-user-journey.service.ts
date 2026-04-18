@@ -1,5 +1,6 @@
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { generateText } from 'ai';
+import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 
 type JourneyLogEntry = {
   ts: string;
@@ -115,7 +116,7 @@ export async function generateUserJourneyDocFromLogs(journeyLogs: unknown) {
           secretAccessKey,
           ...(sessionToken ? { sessionToken } : {}),
         }
-      : {};
+      : { credentialProvider: fromNodeProviderChain() };
 
   const bedrock = createAmazonBedrock({
     region,
