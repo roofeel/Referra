@@ -104,12 +104,22 @@ export async function generateUserJourneyDocFromLogs(journeyLogs: unknown) {
 
   const region = process.env.AWS_REGION?.trim() || process.env.AWS_DEFAULT_REGION?.trim() || 'us-east-1';
   const modelId = process.env.BEDROCK_SONNET_MODEL_ID?.trim() || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim();
+  const sessionToken = process.env.AWS_SESSION_TOKEN?.trim();
+
+  const credentialConfig =
+    accessKeyId && secretAccessKey
+      ? {
+          accessKeyId,
+          secretAccessKey,
+          ...(sessionToken ? { sessionToken } : {}),
+        }
+      : {};
 
   const bedrock = createAmazonBedrock({
     region,
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    sessionToken: process.env.AWS_SESSION_TOKEN,
+    ...credentialConfig,
   });
 
   const result = await generateText({
