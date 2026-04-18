@@ -149,6 +149,7 @@ export default function ReportsDetail() {
 
   const selectedDetail = selectedRow ? payload?.eventDetails[selectedRow.eventId] || null : null;
   const isGeneratingUserJourney = Boolean(selectedRow?.eventId && generatingJourneyEventId === selectedRow.eventId);
+  const reportTitle = payload?.reportName?.trim() || 'Report Detail';
   const referrerTypeOptions = payload
     ? payload.referrerTypeStats.map((item) => (item.referrerType || '').trim()).filter((item) => Boolean(item))
     : [];
@@ -214,7 +215,7 @@ export default function ReportsDetail() {
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200/70 bg-white px-8">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Report Detail</p>
-            <h1 className="text-lg font-bold text-slate-900">{reportId ? `Report #${reportId}` : 'Report Detail'}</h1>
+            <h1 className="text-lg font-bold text-slate-900">{reportTitle}</h1>
           </div>
           <div className="flex items-center gap-3">
             <button

@@ -27,6 +27,7 @@ describe('ReportsDetail', () => {
   beforeEach(() => {
     mockReportsDetail.mockReset();
     mockReportsDetail.mockResolvedValue({
+      reportName: 'March Attribution Report',
       clientName: 'Global Retail Corp',
       referrerTypeStats: [{ referrerType: 'organic', count: 1, percentage: 100 }],
       metrics: [
@@ -93,7 +94,7 @@ describe('ReportsDetail', () => {
 
     const nav = screen.getByRole('navigation', { name: 'Reports Detail Navigation' });
     expect(nav).toBeInTheDocument();
-    expect(screen.getByText('Report #KTX-8821')).toBeInTheDocument();
+    expect(await screen.findByText('March Attribution Report')).toBeInTheDocument();
     expect(await screen.findByText('Global Retail Corp')).toBeInTheDocument();
     expect(await screen.findByText('Referrer Type Bar Chart')).toBeInTheDocument();
     expect(screen.getByText('Referrer Type Donut Chart')).toBeInTheDocument();
@@ -137,6 +138,7 @@ describe('ReportsDetail', () => {
     const user = userEvent.setup();
     mockReportsDetail
       .mockResolvedValueOnce({
+        reportName: 'March Attribution Report',
         clientName: 'Global Retail Corp',
         referrerTypeStats: [{ referrerType: 'organic', count: 60, percentage: 100 }],
         metrics: [],
@@ -179,6 +181,7 @@ describe('ReportsDetail', () => {
         },
       })
       .mockResolvedValueOnce({
+        reportName: 'March Attribution Report',
         clientName: 'Global Retail Corp',
         referrerTypeStats: [{ referrerType: 'organic', count: 60, percentage: 100 }],
         metrics: [],

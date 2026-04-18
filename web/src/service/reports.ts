@@ -46,6 +46,7 @@ export interface ReportsResponse {
 }
 
 export interface ReportDetailResponse {
+  reportName?: string;
   clientName: string;
   reportType: ReportType;
   hasRelatedEventFieldMappings?: boolean;

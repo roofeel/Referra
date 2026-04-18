@@ -67,6 +67,7 @@ type ReportDetailEventDetail = {
 };
 
 export type ReportDetailPayload = {
+  reportName: string;
   clientName: string;
   reportType: ReportType;
   hasRelatedEventFieldMappings: boolean;
@@ -769,6 +770,7 @@ function buildDetailPayload(
   }));
 
   return {
+    reportName: report.taskName?.trim() || 'Untitled Report',
     clientName: report.client?.name || 'Unknown Client',
     reportType: isAttributionMode(report.reportType) ? report.reportType : 'registration',
     hasRelatedEventFieldMappings,
