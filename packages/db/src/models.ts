@@ -883,6 +883,16 @@ export const referrerRaws = {
     });
   },
 
+  async listByReportAndUid(reportId: string, uid: string) {
+    return await (db as any).referrerRaw.findMany({
+      where: {
+        reportId,
+        uid,
+      },
+      orderBy: { id: "asc" },
+    });
+  },
+
   async countByReport(reportId: string) {
     return await (db as any).referrerRaw.count({
       where: { reportId },

@@ -1,5 +1,6 @@
-import { reports, users } from "../../../packages/db/index.js";
+import { logs, referrerRaws, reports, users } from "../../../packages/db/index.js";
 import { getReportDetailPayload } from "../services/reports-detail.service.js";
+import { generateUserJourneyDocFromLogs } from "../services/reports-user-journey.service.js";
 
 type JsonRpcId = string | number | null;
 
@@ -23,6 +24,7 @@ type McpTool = {
 
 const MCP_TOOL_NAME_LIST = "category_attributed_list";
 const MCP_TOOL_NAME_DETAIL = "category_attributed_detail";
+const MCP_TOOL_NAME_USER_JOURNEY_BY_UID = "category_attributed_user_journey_by_uid";
 const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 const mcpTools: McpTool[] = [
@@ -111,6 +113,33 @@ const mcpTools: McpTool[] = [
         },
       },
       required: ["reportId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: MCP_TOOL_NAME_USER_JOURNEY_BY_UID,
+    description: "Query user journey in a Category Attributed report by report id and uid.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        reportId: {
+          type: "string",
+          description: "Required report task id.",
+        },
+        uid: {
+          type: "string",
+          description: "Required uid in report rows.",
+        },
+        generate: {
+          type: "boolean",
+          description: "Optional. Default true. Generate user journey doc when missing.",
+        },
+        forceRegenerate: {
+          type: "boolean",
+          description: "Optional. Default false. Regenerate even if doc already exists.",
+        },
+      },
+      required: ["reportId", "uid"],
       additionalProperties: false,
     },
   },
@@ -288,6 +317,114 @@ async function callCategoryAttributedDetailTool(args: unknown) {
   };
 }
 
+function readStringValue(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return "";
+}
+
+function normalizeUserJourneyByUidArgs(raw: unknown) {
+  const value = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+  const reportId = typeof value.reportId === "string" ? value.reportId.trim() : "";
+  const uid = typeof value.uid === "string" ? value.uid.trim() : "";
+  const generate = typeof value.generate === "boolean" ? value.generate : true;
+  const forceRegenerate = typeof value.forceRegenerate === "boolean" ? value.forceRegenerate : false;
+  return {
+    reportId,
+    uid,
+    generate,
+    forceRegenerate,
+  };
+}
+
+async function callCategoryAttributedUserJourneyByUidTool(args: unknown) {
+  const normalized = normalizeUserJourneyByUidArgs(args);
+  if (!normalized.reportId) {
+    throw new Error("reportId is required");
+  }
+  if (!normalized.uid) {
+    throw new Error("uid is required");
+  }
+
+  const current = await reports.findById(normalized.reportId);
+  if (!current) {
+    throw new Error("Report task not found");
+  }
+
+  const rows = await referrerRaws.listByReportAndUid(current.id, normalized.uid);
+  const journeys = [];
+  for (const item of rows as Array<any>) {
+    const existingDoc =
+      typeof item.userJourneyDoc === "string" && item.userJourneyDoc.trim() ? item.userJourneyDoc.trim() : "";
+    let userJourneyDoc = existingDoc;
+    let generationError = "";
+
+    const shouldGenerate =
+      normalized.generate && (normalized.forceRegenerate || !userJourneyDoc);
+    if (shouldGenerate) {
+      try {
+        userJourneyDoc = await generateUserJourneyDocFromLogs((item as { journeyLogs?: unknown }).journeyLogs);
+        await referrerRaws.updateUserJourneyDoc({
+          id: String(item.id),
+          reportId: current.id,
+          userJourneyDoc,
+        });
+        await logs.createMany([
+          {
+            reportId: current.id,
+            level: "info",
+            message: `user_journey_doc generated for referrer_raw=${String(item.id)} via mcp_uid_query`,
+          },
+        ]);
+      } catch (error) {
+        generationError = error instanceof Error ? error.message : String(error);
+      }
+    }
+
+    const json = item?.json && typeof item.json === "object" && !Array.isArray(item.json) ? (item.json as Record<string, unknown>) : {};
+    const journeyLogs = Array.isArray(item?.journeyLogs) ? item.journeyLogs : [];
+    journeys.push({
+      rawId: String(item.id || ""),
+      uid: typeof item.uid === "string" ? item.uid : normalized.uid,
+      referrerType: String(item.referrerType || ""),
+      referrerDesc: String(item.referrerDesc || ""),
+      durationSeconds: Number(item.duration || 0),
+      sourceTime: readStringValue(json, ["source_time", "impression_time", "sourceTime"]),
+      eventTime: readStringValue(json, ["event_time", "registration_time", "eventTime"]),
+      firstPageLoadDurationSeconds:
+        typeof item.firstPageLoadDuration === "number" && Number.isFinite(item.firstPageLoadDuration)
+          ? item.firstPageLoadDuration
+          : null,
+      userJourneyDoc,
+      generationError: generationError || null,
+      journeyLogsCount: journeyLogs.length,
+      journeyLogs,
+    });
+  }
+
+  const payload = {
+    reportId: current.id,
+    uid: normalized.uid,
+    generate: normalized.generate,
+    forceRegenerate: normalized.forceRegenerate,
+    total: journeys.length,
+    journeys,
+  };
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(payload, null, 2),
+      },
+    ],
+    structuredContent: payload,
+  };
+}
+
 export const mcpController = {
   async remote(req: Request) {
     const user = await authenticate(req);
@@ -343,7 +480,11 @@ export const mcpController = {
       };
       const toolName = typeof params.name === "string" ? params.name.trim() : "";
 
-      if (toolName !== MCP_TOOL_NAME_LIST && toolName !== MCP_TOOL_NAME_DETAIL) {
+      if (
+        toolName !== MCP_TOOL_NAME_LIST &&
+        toolName !== MCP_TOOL_NAME_DETAIL &&
+        toolName !== MCP_TOOL_NAME_USER_JOURNEY_BY_UID
+      ) {
         return toJsonRpcError(payload.id, -32601, `Unknown tool: ${toolName || "(empty)"}`);
       }
 
@@ -351,7 +492,9 @@ export const mcpController = {
         const result =
           toolName === MCP_TOOL_NAME_DETAIL
             ? await callCategoryAttributedDetailTool(params.arguments)
-            : await callCategoryAttributedListTool(params.arguments);
+            : toolName === MCP_TOOL_NAME_USER_JOURNEY_BY_UID
+              ? await callCategoryAttributedUserJourneyByUidTool(params.arguments)
+              : await callCategoryAttributedListTool(params.arguments);
         return toJsonRpcResult(payload.id, result);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
