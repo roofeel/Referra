@@ -83,7 +83,7 @@ describe('NonAttributedReportsDetail', () => {
     expect(screen.queryByText('impression_time')).not.toBeInTheDocument();
     expect(screen.queryByText('duration')).not.toBeInTheDocument();
     expect(screen.queryByText('Avg Duration')).not.toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: /Category NonAttributed/i })).toHaveAttribute(
+    expect(within(nav).getByText('NonAttributed').closest('a')).toHaveAttribute(
       'href',
       '/non-attributed-reports',
     );

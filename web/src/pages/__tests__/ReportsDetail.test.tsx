@@ -99,7 +99,7 @@ describe('ReportsDetail', () => {
     expect(await screen.findByText('Referrer Type Bar Chart')).toBeInTheDocument();
     expect(screen.getByText('Referrer Type Donut Chart')).toBeInTheDocument();
     expect(screen.getByText('REGISTRATION')).toBeInTheDocument();
-    expect(within(nav).getByRole('link', { name: /Category Attributed/i })).toHaveAttribute('href', '/reports');
+    expect(within(nav).getByText('Attributed').closest('a')).toHaveAttribute('href', '/reports');
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
     expect(mockReportsDetail).toHaveBeenCalledWith('KTX-8821', {
       page: 1,
