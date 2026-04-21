@@ -10,6 +10,30 @@ export default function McpDocuments() {
   const endpoint = useMemo(() => `${API_URL}/api/mcp`, []);
   const bearerToken = auth?.user?.bearerToken || '';
   const authorizationHeader = bearerToken ? `Bearer ${bearerToken}` : 'Bearer <your-token>';
+  const initializeRequest = `{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "clientInfo": { "name": "your-client", "version": "1.0.0" },
+    "capabilities": {}
+  }
+}`;
+  const clientConfigSample = `{
+  "mcpServers": {
+    "ai-referrer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "${endpoint}",
+        "--header",
+        "Authorization: ${authorizationHeader}"
+      ]
+    }
+  }
+}`;
 
   async function handleCopyToken() {
     if (!bearerToken) return;
@@ -68,6 +92,17 @@ export default function McpDocuments() {
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">MCP Usage</h2>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+              <li>Use Bearer Token in the `Authorization` header for every request.</li>
+              <li>Call `initialize` first, then `notifications/initialized`.</li>
+              <li>Call `tools/list` to discover tools.</li>
+              <li>Call `tools/call` with name `category_attributed_list`.</li>
+            </ol>
+            <pre className="mt-3 overflow-x-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">{initializeRequest}</pre>
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">Example Request</h2>
             <pre className="mt-2 overflow-x-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">
 {`curl -X POST '${endpoint}' \\
@@ -86,6 +121,14 @@ export default function McpDocuments() {
     }
   }'`}
             </pre>
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">Config Sample (mcp-remote)</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Use this JSON in MCP clients that support stdio server configuration (for example via `mcp-remote`).
+            </p>
+            <pre className="mt-3 overflow-x-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">{clientConfigSample}</pre>
           </section>
         </div>
       </main>
