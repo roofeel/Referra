@@ -18,6 +18,7 @@ describe('AppSidebar', () => {
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
     expect(within(nav).getByRole('link', { name: /Category Attributed/i })).toHaveAttribute('href', '/reports');
     expect(within(nav).getByRole('link', { name: /Athena Tables/i })).toHaveAttribute('href', '/athena-tables');
+    expect(within(nav).getByRole('link', { name: /MCP Document/i })).toHaveAttribute('href', '/documents/mcp');
     expect(screen.getByText('Guest User')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Logout/i })).toBeDisabled();
   });

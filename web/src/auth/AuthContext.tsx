@@ -32,11 +32,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let cancelled = false;
 
-    void api.users.getById(user.id).catch(() => {
-      if (cancelled) return;
-      setUser(null);
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-    });
+    void api.users
+      .getById(user.id)
+      .then((latestUser) => {
+        if (cancelled) return;
+        setUser(latestUser);
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(latestUser));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setUser(null);
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      });
 
     return () => {
       cancelled = true;

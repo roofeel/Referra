@@ -5,6 +5,7 @@ export interface User {
   email: string;
   name?: string | null;
   avatar?: string | null;
+  bearerToken: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -249,12 +250,13 @@ interface TeamMoodTrend {
 }
 
 export const users = {
-  async create(data: { email: string; name?: string; avatar?: string }) {
+  async create(data: { email: string; name?: string; avatar?: string; bearerToken?: string }) {
     return await db.user.create({
       data: {
         email: data.email,
         name: data.name,
         avatar: data.avatar,
+        bearerToken: data.bearerToken,
       },
     });
   },
@@ -268,6 +270,19 @@ export const users = {
   async findByEmail(email: string) {
     return await db.user.findUnique({
       where: { email },
+    });
+  },
+
+  async findByBearerToken(bearerToken: string) {
+    return await db.user.findUnique({
+      where: { bearerToken },
+    });
+  },
+
+  async updateBearerToken(id: string, bearerToken: string) {
+    return await db.user.update({
+      where: { id },
+      data: { bearerToken },
     });
   },
 

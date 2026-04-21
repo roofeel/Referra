@@ -18,6 +18,7 @@ model User {
   email     String   @unique
   name      String?
   avatar    String?
+  bearerToken String @unique @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

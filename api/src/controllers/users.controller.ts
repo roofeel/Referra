@@ -5,6 +5,31 @@ function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+function createBearerToken() {
+  const randomPart = crypto.randomUUID().replace(/-/g, "");
+  return `mcp_${randomPart}`;
+}
+
+async function ensureUserBearerToken(user: Awaited<ReturnType<typeof users.findById>>) {
+  if (!user) return user;
+  if (typeof user.bearerToken === "string" && user.bearerToken.trim()) {
+    return user;
+  }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      return await users.updateBearerToken(user.id, createBearerToken());
+    } catch (error) {
+      const code = (error as { code?: string })?.code;
+      if (code !== "P2002") {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error("Failed to assign user bearer token after retries");
+}
+
 type GoogleTokenInfo = {
   email?: string;
   email_verified?: string | boolean;
@@ -62,9 +87,12 @@ async function loginOrCreateUser(payload: { email?: string; name?: string; avata
       email: normalizedEmail,
       name: payload.name,
       avatar: payload.avatar,
+      bearerToken: createBearerToken(),
     });
     isNewUser = true;
   }
+
+  user = await ensureUserBearerToken(user);
 
   return {
     user,
@@ -115,7 +143,8 @@ export const usersController = {
 
   async getById(req: Request) {
     const request = req as RequestWithParams<{ id: string }>;
-    const user = await users.findById(request.params.id);
+    const foundUser = await users.findById(request.params.id);
+    const user = await ensureUserBearerToken(foundUser);
     if (!user) {
       return Response.json({ error: "User not found" }, { status: 404 });
     }
