@@ -85,9 +85,9 @@ export default function McpDocuments() {
           <section className="rounded-xl border border-slate-200 bg-white p-5">
             <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">Features</h2>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
-              <li>Currently only one tool is available: `category_attributed_list`.</li>
-              <li>Purpose: query the Category Attributed list (data from `/api/reports`).</li>
-              <li>Supported filters: `status`, `client`, `search`, `limit`.</li>
+              <li>Available tools: `category_attributed_list`, `category_attributed_detail`.</li>
+              <li>`category_attributed_list`: query the Category Attributed task list (from `/api/reports`).</li>
+              <li>`category_attributed_detail`: query detail data of one report by `reportId` (from `/api/reports/:id/detail`).</li>
             </ul>
           </section>
 
@@ -97,13 +97,13 @@ export default function McpDocuments() {
               <li>Use Bearer Token in the `Authorization` header for every request.</li>
               <li>Call `initialize` first, then `notifications/initialized`.</li>
               <li>Call `tools/list` to discover tools.</li>
-              <li>Call `tools/call` with name `category_attributed_list`.</li>
+              <li>Call `tools/call` with name `category_attributed_list` or `category_attributed_detail`.</li>
             </ol>
             <pre className="mt-3 overflow-x-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">{initializeRequest}</pre>
           </section>
 
           <section className="rounded-xl border border-slate-200 bg-white p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">Example Request</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">Example Request (List)</h2>
             <pre className="mt-2 overflow-x-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">
 {`curl -X POST '${endpoint}' \\
   -H 'Content-Type: application/json' \\
@@ -117,6 +117,28 @@ export default function McpDocuments() {
       "arguments": {
         "status": "Completed",
         "limit": 20
+      }
+    }
+  }'`}
+            </pre>
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-5">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-700">Example Request (Detail)</h2>
+            <pre className="mt-2 overflow-x-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">
+{`curl -X POST '${endpoint}' \\
+  -H 'Content-Type: application/json' \\
+  -H 'Authorization: ${authorizationHeader}' \\
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "category_attributed_detail",
+      "arguments": {
+        "reportId": "YOUR_REPORT_ID",
+        "page": 1,
+        "pageSize": 20
       }
     }
   }'`}

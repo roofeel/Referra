@@ -1,4 +1,5 @@
 import { reports, users } from "../../../packages/db/index.js";
+import { getReportDetailPayload } from "../services/reports-detail.service.js";
 
 type JsonRpcId = string | number | null;
 
@@ -20,12 +21,13 @@ type McpTool = {
   };
 };
 
-const MCP_TOOL_NAME = "category_attributed_list";
+const MCP_TOOL_NAME_LIST = "category_attributed_list";
+const MCP_TOOL_NAME_DETAIL = "category_attributed_detail";
 const MCP_PROTOCOL_VERSION = "2024-11-05";
 
 const mcpTools: McpTool[] = [
   {
-    name: MCP_TOOL_NAME,
+    name: MCP_TOOL_NAME_LIST,
     description: "Query Category Attributed report task list.",
     inputSchema: {
       type: "object",
@@ -49,6 +51,66 @@ const mcpTools: McpTool[] = [
           description: "Max returned rows. Default 50.",
         },
       },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: MCP_TOOL_NAME_DETAIL,
+    description: "Query Category Attributed report detail by report id.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        reportId: {
+          type: "string",
+          description: "Required report task id.",
+        },
+        page: {
+          type: "integer",
+          minimum: 1,
+          description: "Optional page number. Default 1.",
+        },
+        pageSize: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          description: "Optional page size. Default 50.",
+        },
+        startDate: {
+          type: "string",
+          description: "Optional start date filter, format YYYY-MM-DD.",
+        },
+        endDate: {
+          type: "string",
+          description: "Optional end date filter, format YYYY-MM-DD.",
+        },
+        referrerType: {
+          type: "string",
+          description: "Optional referrer_type filter.",
+        },
+        cohortMode: {
+          type: "string",
+          enum: ["non-cohort", "cohort"],
+          description: "Optional cohort mode. Default non-cohort.",
+        },
+        windowHours: {
+          type: "number",
+          description: "Optional duration filter: event_time - source_time <= windowHours.",
+        },
+        impressionToFirstPageLoadHours: {
+          type: "number",
+          description: "Optional duration filter: first_page_load_time - source_time <= value.",
+        },
+        firstPageLoadToRegistrationHours: {
+          type: "number",
+          description: "Optional duration filter: event_time - first_page_load_time <= value.",
+        },
+        durationFilterOperator: {
+          type: "string",
+          enum: ["and", "or"],
+          description: "Duration filters combine operator. Default and.",
+        },
+      },
+      required: ["reportId"],
       additionalProperties: false,
     },
   },
@@ -153,6 +215,79 @@ async function callCategoryAttributedListTool(args: unknown) {
   };
 }
 
+function normalizeDetailArgs(raw: unknown) {
+  const value = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
+  const reportId = typeof value.reportId === "string" ? value.reportId.trim() : "";
+  const pageRaw = Number(value.page);
+  const pageSizeRaw = Number(value.pageSize);
+  const windowHoursRaw = Number(value.windowHours);
+  const impressionToFirstPageLoadHoursRaw = Number(value.impressionToFirstPageLoadHours);
+  const firstPageLoadToRegistrationHoursRaw = Number(value.firstPageLoadToRegistrationHours);
+  const durationFilterOperatorRaw =
+    typeof value.durationFilterOperator === "string" ? value.durationFilterOperator.trim().toLowerCase() : "";
+  const durationFilterOperator: "and" | "or" = durationFilterOperatorRaw === "or" ? "or" : "and";
+  const startDate = typeof value.startDate === "string" ? value.startDate.trim() : "";
+  const endDate = typeof value.endDate === "string" ? value.endDate.trim() : "";
+  const referrerType = typeof value.referrerType === "string" ? value.referrerType.trim() : "";
+  const cohortModeRaw = typeof value.cohortMode === "string" ? value.cohortMode.trim().toLowerCase() : "";
+  const cohortMode: "non-cohort" | "cohort" = cohortModeRaw === "cohort" ? "cohort" : "non-cohort";
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
+  const pageSize = Number.isFinite(pageSizeRaw) && pageSizeRaw > 0 ? Math.min(200, Math.floor(pageSizeRaw)) : 50;
+
+  return {
+    reportId,
+    page,
+    pageSize,
+    startDate,
+    endDate,
+    referrerType,
+    cohortMode,
+    windowHours: Number.isFinite(windowHoursRaw) ? windowHoursRaw : undefined,
+    impressionToFirstPageLoadHours: Number.isFinite(impressionToFirstPageLoadHoursRaw)
+      ? impressionToFirstPageLoadHoursRaw
+      : undefined,
+    firstPageLoadToRegistrationHours: Number.isFinite(firstPageLoadToRegistrationHoursRaw)
+      ? firstPageLoadToRegistrationHoursRaw
+      : undefined,
+    durationFilterOperator,
+  };
+}
+
+async function callCategoryAttributedDetailTool(args: unknown) {
+  const normalized = normalizeDetailArgs(args);
+  if (!normalized.reportId) {
+    throw new Error("reportId is required");
+  }
+
+  const current = await reports.findById(normalized.reportId);
+  if (!current) {
+    throw new Error("Report task not found");
+  }
+
+  const payload = await getReportDetailPayload(current, {
+    page: normalized.page,
+    pageSize: normalized.pageSize,
+    startDate: normalized.startDate || undefined,
+    endDate: normalized.endDate || undefined,
+    referrerType: normalized.referrerType || undefined,
+    cohortMode: normalized.cohortMode,
+    windowHours: normalized.windowHours,
+    impressionToFirstPageLoadHours: normalized.impressionToFirstPageLoadHours,
+    firstPageLoadToRegistrationHours: normalized.firstPageLoadToRegistrationHours,
+    durationFilterOperator: normalized.durationFilterOperator,
+  });
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(payload, null, 2),
+      },
+    ],
+    structuredContent: payload,
+  };
+}
+
 export const mcpController = {
   async remote(req: Request) {
     const user = await authenticate(req);
@@ -208,12 +343,20 @@ export const mcpController = {
       };
       const toolName = typeof params.name === "string" ? params.name.trim() : "";
 
-      if (toolName !== MCP_TOOL_NAME) {
+      if (toolName !== MCP_TOOL_NAME_LIST && toolName !== MCP_TOOL_NAME_DETAIL) {
         return toJsonRpcError(payload.id, -32601, `Unknown tool: ${toolName || "(empty)"}`);
       }
 
-      const result = await callCategoryAttributedListTool(params.arguments);
-      return toJsonRpcResult(payload.id, result);
+      try {
+        const result =
+          toolName === MCP_TOOL_NAME_DETAIL
+            ? await callCategoryAttributedDetailTool(params.arguments)
+            : await callCategoryAttributedListTool(params.arguments);
+        return toJsonRpcResult(payload.id, result);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return toJsonRpcError(payload.id, -32000, `Tool execution failed: ${message}`);
+      }
     }
 
     return toJsonRpcError(payload.id, -32601, `Method not found: ${payload.method}`);
