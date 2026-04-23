@@ -456,39 +456,6 @@ export async function attachRelatedEvents(req: Request) {
     };
   });
 
-  console.info(
-    '[attach_related_events.debug]',
-    JSON.stringify({
-      reportId: current.id,
-      mapping: {
-        idField,
-        timeField,
-        eventField,
-        eventUrlField,
-        reportEventUrlField: storedEventUrlField,
-        sourceTimeField,
-        eventTimeField,
-      },
-      csv: {
-        headerCount: parsedCsv.headers.length,
-        rowCount: parsedCsv.rows.length,
-        uploadEvents: validUploadEventCount,
-        distinctIds: uploadedEventsById.size,
-      },
-      raw: {
-        rowCount: rawRows.length,
-        rowsWithMatchedEvents,
-        totalMatchedEvents,
-        missingIdCount,
-        missingSourceTimeCount,
-        missingEventTimeCount,
-        noCandidatesByIdCount,
-        filteredByTimeWindowCount,
-      },
-      samples: debugSamples,
-    }),
-  );
-
   await referrerRaws.updateJourneyLogsMany(payloads);
   await logs.createMany([
     {
@@ -520,8 +487,20 @@ export async function generateUserJourney(req: Request) {
     return Response.json({ error: 'ReferrerRaw not found' }, { status: 404 });
   }
 
+  const targetJson = asReportJson((target as { json?: unknown }).json);
+  const storedFieldMappings = normalizeAttributionLogicMapping(current.fieldMappings);
+  const sourceUrlField = storedFieldMappings?.source_url;
+  const sourceTimeField = storedFieldMappings?.source_time;
+  const sourceUrl =
+    getStringField(targetJson, sourceUrlField);
+  const sourceTime =
+    getStringField(targetJson, sourceTimeField);
+
   try {
-    const userJourneyDoc = await generateUserJourneyDocFromLogs((target as { journeyLogs?: unknown }).journeyLogs);
+    const userJourneyDoc = await generateUserJourneyDocFromLogs((target as { journeyLogs?: unknown }).journeyLogs, {
+      sourceUrl,
+      sourceTime,
+    });
     await referrerRaws.updateUserJourneyDoc({
       id: request.params.rawId,
       reportId: current.id,

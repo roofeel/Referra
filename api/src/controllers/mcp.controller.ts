@@ -357,6 +357,10 @@ async function callCategoryAttributedUserJourneyByUidTool(args: unknown) {
   const rows = await referrerRaws.listByReportAndUid(current.id, normalized.uid);
   const journeys = [];
   for (const item of rows as Array<any>) {
+    const json = item?.json && typeof item.json === "object" && !Array.isArray(item.json) ? (item.json as Record<string, unknown>) : {};
+    const sourceUrl = readStringValue(json, ["source_url", "impression_url", "source", "sourceUrl"]);
+    const sourceTime = readStringValue(json, ["source_time", "impression_time", "sourceTime"]);
+    const eventTime = readStringValue(json, ["event_time", "registration_time", "eventTime"]);
     const existingDoc =
       typeof item.userJourneyDoc === "string" && item.userJourneyDoc.trim() ? item.userJourneyDoc.trim() : "";
     let userJourneyDoc = existingDoc;
@@ -366,7 +370,11 @@ async function callCategoryAttributedUserJourneyByUidTool(args: unknown) {
       normalized.generate && (normalized.forceRegenerate || !userJourneyDoc);
     if (shouldGenerate) {
       try {
-        userJourneyDoc = await generateUserJourneyDocFromLogs((item as { journeyLogs?: unknown }).journeyLogs);
+        userJourneyDoc = await generateUserJourneyDocFromLogs((item as { journeyLogs?: unknown }).journeyLogs, {
+          sourceUrl,
+          sourceTime,
+          eventTime,
+        });
         await referrerRaws.updateUserJourneyDoc({
           id: String(item.id),
           reportId: current.id,
@@ -384,7 +392,6 @@ async function callCategoryAttributedUserJourneyByUidTool(args: unknown) {
       }
     }
 
-    const json = item?.json && typeof item.json === "object" && !Array.isArray(item.json) ? (item.json as Record<string, unknown>) : {};
     const journeyLogs = Array.isArray(item?.journeyLogs) ? item.journeyLogs : [];
     journeys.push({
       rawId: String(item.id || ""),
@@ -392,8 +399,8 @@ async function callCategoryAttributedUserJourneyByUidTool(args: unknown) {
       referrerType: String(item.referrerType || ""),
       referrerDesc: String(item.referrerDesc || ""),
       durationSeconds: Number(item.duration || 0),
-      sourceTime: readStringValue(json, ["source_time", "impression_time", "sourceTime"]),
-      eventTime: readStringValue(json, ["event_time", "registration_time", "eventTime"]),
+      sourceTime,
+      eventTime,
       firstPageLoadDurationSeconds:
         typeof item.firstPageLoadDuration === "number" && Number.isFinite(item.firstPageLoadDuration)
           ? item.firstPageLoadDuration

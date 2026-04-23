@@ -10,9 +10,14 @@ type JourneyLogEntry = {
 };
 
 type JourneyContext = {
+  sourceUrl: string;
   sourceTime: string;
-  eventTime: string;
   rows: JourneyLogEntry[];
+};
+
+type JourneyContextHints = {
+  sourceUrl?: string;
+  sourceTime?: string;
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -33,12 +38,12 @@ function normalizeJourneyEntry(value: unknown): JourneyLogEntry | null {
   const nested = asRecord(row.row);
 
   const ts =
-    pickText(row, ['ts', 'time', 'timestamp', 'event_time', 'registration_time']) ||
-    pickText(nested, ['ts', 'time', 'timestamp', 'event_time', 'registration_time']);
+    pickText(row, ['ts', 'time', 'timestamp', 'event_time']) ||
+    pickText(nested, ['ts', 'time', 'timestamp', 'event_time']);
   const event = pickText(row, ['event', 'event_name', 'event_type', 'action', 'ev']) || pickText(nested, ['event', 'event_name']);
   const url =
-    pickText(row, ['url', 'event_url', 'registration_url', 'ourl', 'page_load_url']) ||
-    pickText(nested, ['url', 'event_url', 'registration_url', 'ourl', 'page_load_url']);
+    pickText(row, ['url', 'event_url', 'ourl']) ||
+    pickText(nested, ['url', 'event_url', 'ourl']);
   const idValue = pickText(row, ['idValue', 'uid']) || pickText(nested, ['idValue', 'uid']);
 
   if (!ts && !event && !url && !idValue) return null;
@@ -50,14 +55,20 @@ function normalizeJourneyEntry(value: unknown): JourneyLogEntry | null {
   };
 }
 
-function normalizeJourneyContext(journeyLogs: unknown): JourneyContext | null {
+function normalizeJourneyContext(journeyLogs: unknown, hints?: JourneyContextHints): JourneyContext | null {
   if (!journeyLogs) return null;
 
   if (Array.isArray(journeyLogs)) {
     const rows = journeyLogs
       .map((item) => normalizeJourneyEntry(item))
       .filter((item): item is JourneyLogEntry => Boolean(item));
-    return rows.length > 0 ? { sourceTime: '', eventTime: '', rows } : null;
+    return rows.length > 0
+      ? {
+          sourceUrl: hints?.sourceUrl?.trim() || '',
+          sourceTime: hints?.sourceTime?.trim() || '',
+          rows,
+        }
+      : null;
   }
 
   const root = asRecord(journeyLogs);
@@ -69,20 +80,20 @@ function normalizeJourneyContext(journeyLogs: unknown): JourneyContext | null {
   if (rows.length === 0) return null;
 
   return {
-    sourceTime: pickText(root, ['source_time', 'sourceTime']),
-    eventTime: pickText(root, ['event_time', 'eventTime']),
+    sourceUrl: pickText(root, ['source_url']) || hints?.sourceUrl?.trim() || '',
+    sourceTime: pickText(root, ['source_time']) || hints?.sourceTime?.trim() || '',
     rows,
   };
 }
 
 function buildPrompt(input: JourneyContext) {
   const context = {
+    source_url: input.sourceUrl || null,
     source_time: input.sourceTime || null,
-    event_time: input.eventTime || null,
     journey_logs: input.rows.slice(0, 300),
   };
 
-  return `You are a fraud investigation analyst. Convert the provided journey_logs into a concise, factual markdown timeline report.
+  return `You are a ctv attribution analyst. Convert the provided journey_logs into a concise, factual markdown timeline report.
 
 Output requirements:
 - Use Markdown only.
@@ -97,8 +108,8 @@ Data context (JSON):
 ${JSON.stringify(context, null, 2)}`;
 }
 
-export async function generateUserJourneyDocFromLogs(journeyLogs: unknown) {
-  const normalized = normalizeJourneyContext(journeyLogs);
+export async function generateUserJourneyDocFromLogs(journeyLogs: unknown, hints?: JourneyContextHints) {
+  const normalized = normalizeJourneyContext(journeyLogs, hints);
   if (!normalized) {
     throw new Error('journey_logs is empty');
   }
