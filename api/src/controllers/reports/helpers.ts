@@ -35,7 +35,6 @@ export function buildPayload(
   filteredTasks: ReportTask[],
   clientNames: string[],
   rules: Array<{ id: string; name: string }>,
-  athenaTableItems: Array<{ id: string; tableType: string; tableNamePattern: string; columns: string[] }>,
   urlParsingVersions: string[],
   dataPoints24h: string,
 ): ReportsPayload {
@@ -48,114 +47,9 @@ export function buildPayload(
     },
     clients: clientNames,
     rules,
-    athenaTables: athenaTableItems,
     urlParsingVersions,
     tasks: filteredTasks,
   };
-}
-
-function splitColumnDefinitions(definition: string): string[] {
-  const items: string[] = [];
-  let current = '';
-  let parenDepth = 0;
-  let angleDepth = 0;
-  let inSingleQuote = false;
-  let inDoubleQuote = false;
-  let inBacktick = false;
-
-  for (let index = 0; index < definition.length; index += 1) {
-    const char = definition[index];
-    const prev = index > 0 ? definition[index - 1] : '';
-
-    if (char === "'" && !inDoubleQuote && !inBacktick && prev !== '\\') {
-      inSingleQuote = !inSingleQuote;
-      current += char;
-      continue;
-    }
-    if (char === '"' && !inSingleQuote && !inBacktick && prev !== '\\') {
-      inDoubleQuote = !inDoubleQuote;
-      current += char;
-      continue;
-    }
-    if (char === '`' && !inSingleQuote && !inDoubleQuote) {
-      inBacktick = !inBacktick;
-      current += char;
-      continue;
-    }
-
-    if (inSingleQuote || inDoubleQuote || inBacktick) {
-      current += char;
-      continue;
-    }
-
-    if (char === '(') parenDepth += 1;
-    if (char === ')') parenDepth = Math.max(0, parenDepth - 1);
-    if (char === '<') angleDepth += 1;
-    if (char === '>') angleDepth = Math.max(0, angleDepth - 1);
-
-    if (char === ',' && parenDepth === 0 && angleDepth === 0) {
-      const token = current.trim();
-      if (token) items.push(token);
-      current = '';
-      continue;
-    }
-
-    current += char;
-  }
-
-  const lastToken = current.trim();
-  if (lastToken) {
-    items.push(lastToken);
-  }
-  return items;
-}
-
-function pickColumnName(definition: string): string {
-  const trimmed = definition.trim();
-  if (!trimmed) return '';
-  if (/^(primary|unique|foreign|constraint|index|key)\b/i.test(trimmed)) return '';
-
-  const backtick = trimmed.match(/^`([^`]+)`/);
-  if (backtick?.[1]) return backtick[1].trim();
-  const doubleQuoted = trimmed.match(/^"([^"]+)"/);
-  if (doubleQuoted?.[1]) return doubleQuoted[1].trim();
-  const bare = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)/);
-  return bare?.[1] ? bare[1].trim() : '';
-}
-
-export function extractAthenaColumnsFromDdl(ddl: string | null | undefined): string[] {
-  const source = typeof ddl === 'string' ? ddl.trim() : '';
-  if (!source) return [];
-
-  const seen = new Set<string>();
-  const columns: string[] = [];
-  const addColumn = (name: string) => {
-    const normalized = name.trim();
-    if (!normalized) return;
-    if (seen.has(normalized)) return;
-    seen.add(normalized);
-    columns.push(normalized);
-  };
-
-  const mainMatch = source.match(
-    /\(([\s\S]*?)\)\s*(?:PARTITIONED\s+BY|COMMENT|ROW\s+FORMAT|STORED\s+AS|LOCATION|TBLPROPERTIES|WITH|$)/i,
-  );
-  if (mainMatch?.[1]) {
-    splitColumnDefinitions(mainMatch[1]).forEach((definition) => {
-      addColumn(pickColumnName(definition));
-    });
-  }
-
-  const partitionMatch = source.match(
-    /PARTITIONED\s+BY\s*\(([\s\S]*?)\)\s*(?:COMMENT|ROW\s+FORMAT|STORED\s+AS|LOCATION|TBLPROPERTIES|WITH|$)/i,
-  );
-  if (partitionMatch?.[1]) {
-    splitColumnDefinitions(partitionMatch[1]).forEach((definition) => {
-      addColumn(pickColumnName(definition));
-    });
-  }
-
-  return columns;
 }
 
 export function normalizeJourneyConfig(input: unknown): NormalizedJourneyConfig | null {
@@ -163,16 +57,16 @@ export function normalizeJourneyConfig(input: unknown): NormalizedJourneyConfig 
     return null;
   }
   const item = input as Record<string, unknown>;
-  const athenaTableId = typeof item.athenaTableId === 'string' ? item.athenaTableId.trim() : '';
+  const athenaTableName = typeof item.athenaTableName === 'string' ? item.athenaTableName.trim() : '';
   const eventUrlParam = typeof item.eventUrlParam === 'string' ? item.eventUrlParam.trim() : '';
   const athenaUrlParam = typeof item.athenaUrlParam === 'string' ? item.athenaUrlParam.trim() : '';
   const athenaUrlField = typeof item.athenaUrlField === 'string' ? item.athenaUrlField.trim() : '';
   const athenaTimeField = typeof item.athenaTimeField === 'string' ? item.athenaTimeField.trim() : '';
-  if (!athenaTableId || !eventUrlParam || !athenaUrlParam || !athenaUrlField || !athenaTimeField) {
+  if (!athenaTableName || !eventUrlParam || !athenaUrlParam || !athenaUrlField || !athenaTimeField) {
     return null;
   }
   return {
-    athenaTableId,
+    athenaTableName,
     eventUrlParam,
     athenaUrlParam,
     athenaUrlField,
@@ -186,18 +80,8 @@ export function normalizeJourneyConfigFromFieldMappings(fieldMappings: unknown):
   }
   const record = fieldMappings as Record<string, unknown>;
   const raw = record.__journeyConfig;
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return null;
-  }
-  const normalized = normalizeJourneyConfig(raw);
-  if (!normalized) return null;
-  const item = raw as Record<string, unknown>;
-  const athenaTableName = typeof item.athenaTableName === 'string' ? item.athenaTableName.trim() : '';
-  if (!athenaTableName) return null;
-  return {
-    ...normalized,
-    athenaTableName,
-  };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  return normalizeJourneyConfig(raw);
 }
 
 export function resolveAttributionLogicFromBody(body: {

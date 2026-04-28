@@ -321,7 +321,6 @@ function parseFirstPageLoadEventMsFromRawJourneyLogs(
 }
 
 type JourneyConfig = {
-  athenaTableId: string;
   athenaTableName: string;
   eventUrlParam: string;
   athenaUrlParam: string;
@@ -336,16 +335,14 @@ function normalizeJourneyConfigFromFieldMappings(fieldMappings: unknown): Journe
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const item = raw as Record<string, unknown>;
 
-  const athenaTableId = typeof item.athenaTableId === 'string' ? item.athenaTableId.trim() : '';
   const athenaTableName = typeof item.athenaTableName === 'string' ? item.athenaTableName.trim() : '';
   const eventUrlParam = typeof item.eventUrlParam === 'string' ? item.eventUrlParam.trim() : '';
   const athenaUrlParam = typeof item.athenaUrlParam === 'string' ? item.athenaUrlParam.trim() : '';
   const athenaUrlField = typeof item.athenaUrlField === 'string' ? item.athenaUrlField.trim() : '';
   const athenaTimeField = typeof item.athenaTimeField === 'string' ? item.athenaTimeField.trim() : '';
-  if (!athenaTableId || !eventUrlParam || !athenaUrlParam || !athenaUrlField || !athenaTimeField) return null;
+  if (!athenaTableName || !eventUrlParam || !athenaUrlParam || !athenaUrlField || !athenaTimeField) return null;
 
   return {
-    athenaTableId,
     athenaTableName,
     eventUrlParam,
     athenaUrlParam,

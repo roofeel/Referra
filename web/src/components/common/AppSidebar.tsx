@@ -6,7 +6,6 @@ type SidebarItemKey =
   | 'url-rules'
   | 'reports'
   | 'non-attributed-reports'
-  | 'athena-tables'
   | 'mcp-docs';
 
 type SidebarItem = {
@@ -27,7 +26,6 @@ const referrerTypeAnalysisItems: SidebarItem[] = [
 
 const settingSidebarItems: SidebarItem[] = [
   { key: 'url-rules', label: 'Url Rules', icon: 'terminal', to: '/url-rules' },
-  { key: 'athena-tables', label: 'Athena Tables', icon: 'table_chart', to: '/athena-tables' },
 ];
 
 const documentSidebarItems: SidebarItem[] = [

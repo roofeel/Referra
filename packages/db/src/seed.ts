@@ -16,7 +16,7 @@ async function seed() {
 
   console.log("Created test user:", user);
   console.log("\nTest user ID:", user.id);
-  console.log("Use this ID as authorId when creating ideas from the frontend.");
+  console.log("Use this ID for authenticated API testing.");
 }
 
 seed()

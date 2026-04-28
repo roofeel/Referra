@@ -18,6 +18,7 @@ type JourneyContext = {
 type JourneyContextHints = {
   sourceUrl?: string;
   sourceTime?: string;
+  eventTime?: string;
 };
 
 function asRecord(value: unknown): Record<string, unknown> {

@@ -31,7 +31,6 @@ export type ReportsPayload = {
   };
   clients: string[];
   rules: Array<{ id: string; name: string }>;
-  athenaTables: Array<{ id: string; tableType: string; tableNamePattern: string; columns: string[] }>;
   urlParsingVersions: string[];
   tasks: ReportTask[];
 };
@@ -50,4 +49,4 @@ export type ParsedUploadEvent = {
   row: Record<string, string>;
 };
 
-export type NormalizedJourneyConfig = Omit<JourneyConfig, 'athenaTableName'>;
+export type NormalizedJourneyConfig = JourneyConfig;

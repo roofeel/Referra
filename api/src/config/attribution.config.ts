@@ -1,4 +1,4 @@
-export type AttributionMode = 'registration' | 'pageload';
+export type AttributionMode = 'registration';
 export type ReportType = AttributionMode | 'custom';
 export type CanonicalAttributionField = 'source_url' | 'source_time' | 'event_url' | 'event_time';
 export type AttributionLogicMapping = Record<CanonicalAttributionField, string>;
@@ -12,7 +12,7 @@ export const ATTRIBUTION_ALIAS_CONFIG: Record<
     event_url: 'registration_url',
     source_time: 'impression_time',
     event_time: 'registration_time',
-  },
+  }
 };
 
 export const REQUIRED_CANONICAL_FIELDS: CanonicalAttributionField[] = [
@@ -23,7 +23,7 @@ export const REQUIRED_CANONICAL_FIELDS: CanonicalAttributionField[] = [
 ];
 
 export function isAttributionMode(value: unknown): value is AttributionMode {
-  return value === 'registration' || value === 'pageload';
+  return value === 'registration';
 }
 
 export function normalizeAttributionLogicMapping(input: unknown): AttributionLogicMapping | null {

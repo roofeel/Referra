@@ -40,7 +40,6 @@ export interface ReportsResponse {
   };
   clients: string[];
   rules: Array<{ id: string; name: string }>;
-  athenaTables?: Array<{ id: string; tableType: string; tableNamePattern: string; columns: string[] }>;
   urlParsingVersions: string[];
   tasks: ReportTask[];
 }
@@ -105,7 +104,7 @@ export type CreateReportTaskPayload = {
   attributedReportId?: string;
   uidParamName?: string;
   journeyConfig?: {
-    athenaTableId: string;
+    athenaTableName: string;
     eventUrlParam: string;
     athenaUrlParam: string;
     athenaUrlField: string;

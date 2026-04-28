@@ -1,4 +1,4 @@
-import { athenaTables, clients, logs, referrerRaws, reports, urlRules } from '../../../../packages/db/index.js';
+import { clients, logs, referrerRaws, reports, urlRules } from '../../../../packages/db/index.js';
 import { normalizeAttributionLogicMapping } from '../../config/attribution.config.js';
 import { formatCompactCount, normalizeReportTaskStatus } from '../../lib/reports-presentation.lib.js';
 import { getReportDetailPayload } from '../../services/reports-detail.service.js';
@@ -7,7 +7,6 @@ import { getJsonValue } from '../shared/json.helpers.js';
 import {
   asReportJson,
   buildPayload,
-  extractAthenaColumnsFromDdl,
   extractUidFromEventUrl,
   extractUidFromRawJson,
   toReportLog,
@@ -28,12 +27,11 @@ export async function list(req: Request) {
   let taskRows: any[] = [];
   let clientNames: string[] = [];
   let rulesPayload: Array<{ id: string; name: string }> = [];
-  let athenaTableItems: Array<{ id: string; tableType: string; tableNamePattern: string; columns: string[] }> = [];
   let urlParsingVersions: string[] = [];
   let dataPoints24h = '0';
 
   try {
-    const [reportRowsRaw, clientRowsRaw, rulesRaw, athenaTableRowsRaw, updated24hRows] = await Promise.all([
+    const [reportRowsRaw, clientRowsRaw, rulesRaw, updated24hRows] = await Promise.all([
       reports.list({
         status,
         client: client || undefined,
@@ -43,18 +41,11 @@ export async function list(req: Request) {
       }),
       clients.list(),
       urlRules.list(),
-      athenaTables.list(),
       reports.listUpdatedAfter(new Date(Date.now() - 24 * 60 * 60 * 1000)),
     ]);
     const reportRows = reportRowsRaw as Array<{ client?: { name?: string | null } | null }>;
     const clientRows = clientRowsRaw as Array<{ name?: string | null }>;
     const rules = rulesRaw as Array<NonNullable<UrlRuleRecord>>;
-    const athenaTableRows = athenaTableRowsRaw as Array<{
-      id: string;
-      tableType?: string | null;
-      tableNamePattern?: string | null;
-      ddl?: string | null;
-    }>;
 
     taskRows = reportRows;
     clientNames = Array.from(
@@ -76,16 +67,6 @@ export async function list(req: Request) {
       .filter((rule) => Boolean(rule.id) && Boolean(rule.name))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    athenaTableItems = athenaTableRows
-      .map((item) => ({
-        id: item.id,
-        tableType: item.tableType?.trim() || '',
-        tableNamePattern: item.tableNamePattern?.trim() || '',
-        columns: extractAthenaColumnsFromDdl(item.ddl),
-      }))
-      .filter((item) => Boolean(item.id) && Boolean(item.tableType) && Boolean(item.tableNamePattern))
-      .sort((a, b) => `${a.tableType}/${a.tableNamePattern}`.localeCompare(`${b.tableType}/${b.tableNamePattern}`));
-
     urlParsingVersions = Array.from(
       new Set(
         rules
@@ -101,7 +82,7 @@ export async function list(req: Request) {
   }
 
   const tasks = taskRows.map((row) => toReportTask(row));
-  return Response.json(buildPayload(tasks, clientNames, rulesPayload, athenaTableItems, urlParsingVersions, dataPoints24h));
+  return Response.json(buildPayload(tasks, clientNames, rulesPayload, urlParsingVersions, dataPoints24h));
 }
 
 export async function listLogs(req: Request) {

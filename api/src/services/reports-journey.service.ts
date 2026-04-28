@@ -5,7 +5,6 @@ const MAX_JOURNEY_ROWS_PER_EVENT = 200;
 const MAX_PATTERN_DAYS = 90;
 
 export type JourneyConfig = {
-  athenaTableId: string;
   athenaTableName: string;
   eventUrlParam: string;
   athenaUrlParam: string;
