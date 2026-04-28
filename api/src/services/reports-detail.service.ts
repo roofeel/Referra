@@ -577,6 +577,11 @@ function buildDetailPayload(
     journeySourceRows?: ReferrerRawRecord[];
   },
 ): ReportDetailPayload {
+  const attributionLogic = normalizeAttributionLogicMapping(report.fieldMappings);
+  const eventUrlField = attributionLogic?.event_url || '';
+  const eventTimeField = attributionLogic?.event_time || '';
+  const sourceUrlField = attributionLogic?.source_url || '';
+  const sourceTimeField = attributionLogic?.source_time || '';
   const totalRows = options.totalRows;
   const referrerTypeStats = options.referrerTypeCounts
     .map((item) => ({
@@ -600,9 +605,9 @@ function buildDetailPayload(
 
   const rows: ReportDetailTableRow[] = rawRows.map((item) => {
     const json = asJsonRecord(item.json);
-    const eventUrl = getJsonValue(json, ['event_url', 'registration_url', 'url', 'ourl']) || '';
-    const eventTime = getJsonValue(json, ['event_time', 'registration_time', 'timestamp', 'ts']);
-    const sourceTime = getJsonValue(json, ['source_time', 'impression_time']);
+    const eventUrl = eventUrlField ? getJsonValue(json, [eventUrlField]) : '';
+    const eventTime = eventTimeField ? getJsonValue(json, [eventTimeField]) : '';
+    const sourceTime = sourceTimeField ? getJsonValue(json, [sourceTimeField]) : '';
     const eventMs = parseTimestampToMs(eventTime);
     const sourceMsFromRaw = parseTimestampToMs(sourceTime);
     const sourceMsDerived =
@@ -658,10 +663,10 @@ function buildDetailPayload(
   const eventDetails: Record<string, ReportDetailEventDetail> = {};
   rawRows.forEach((item) => {
     const json = asJsonRecord(item.json);
-    const urlValue = getJsonValue(json, ['event_url', 'registration_url', 'url', 'ourl']) || 'N/A';
-    const sourceUrl = getJsonValue(json, ['source_url', 'impression_url', 'source']);
-    const sourceTime = getJsonValue(json, ['source_time', 'impression_time']);
-    const eventTime = getJsonValue(json, ['event_time', 'registration_time', 'timestamp', 'ts']);
+    const urlValue = eventUrlField ? getJsonValue(json, [eventUrlField]) || 'N/A' : 'N/A';
+    const sourceUrl = sourceUrlField ? getJsonValue(json, [sourceUrlField]) : '';
+    const sourceTime = sourceTimeField ? getJsonValue(json, [sourceTimeField]) : '';
+    const eventTime = eventTimeField ? getJsonValue(json, [eventTimeField]) : '';
     const params = parseQueryParams(urlValue);
     const detailItem: ReportDetailEventDetail = {
       url: urlValue,
@@ -824,17 +829,8 @@ export async function getReportDetailPayload(
 ) {
   const journeyConfig = normalizeJourneyConfigFromFieldMappings(report.fieldMappings);
   const attributionLogic = normalizeAttributionLogicMapping(report.fieldMappings);
-  const eventTimeCandidates = withPrimaryCandidate(attributionLogic?.event_time || null, [
-    'event_time',
-    'registration_time',
-    'page_load_time',
-    'timestamp',
-    'ts',
-  ]);
-  const sourceTimeCandidates = withPrimaryCandidate(attributionLogic?.source_time || null, [
-    'source_time',
-    'impression_time',
-  ]);
+  const eventTimeCandidates = attributionLogic?.event_time ? [attributionLogic.event_time] : [];
+  const sourceTimeCandidates = attributionLogic?.source_time ? [attributionLogic.source_time] : [];
   const startMs = options.startDate ? startOfDayMs(options.startDate) : null;
   const endMs = options.endDate ? endOfDayMs(options.endDate) : null;
   const windowHours = toOptionalWindowHours(options.windowHours);

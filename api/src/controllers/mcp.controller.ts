@@ -1,4 +1,5 @@
 import { logs, referrerRaws, reports, users } from "../../../packages/db/index.js";
+import { normalizeAttributionLogicMapping } from "../config/attribution.config.js";
 import { getReportDetailPayload } from "../services/reports-detail.service.js";
 import { generateUserJourneyDocFromLogs } from "../services/reports-user-journey.service.js";
 
@@ -355,12 +356,16 @@ async function callCategoryAttributedUserJourneyByUidTool(args: unknown) {
   }
 
   const rows = await referrerRaws.listByReportAndUid(current.id, normalized.uid);
+  const attributionLogic = normalizeAttributionLogicMapping(current.fieldMappings);
+  const sourceUrlField = attributionLogic?.source_url || "";
+  const sourceTimeField = attributionLogic?.source_time || "";
+  const eventTimeField = attributionLogic?.event_time || "";
   const journeys = [];
   for (const item of rows as Array<any>) {
     const json = item?.json && typeof item.json === "object" && !Array.isArray(item.json) ? (item.json as Record<string, unknown>) : {};
-    const sourceUrl = readStringValue(json, ["source_url", "impression_url", "source", "sourceUrl"]);
-    const sourceTime = readStringValue(json, ["source_time", "impression_time", "sourceTime"]);
-    const eventTime = readStringValue(json, ["event_time", "registration_time", "eventTime"]);
+    const sourceUrl = sourceUrlField ? readStringValue(json, [sourceUrlField]) : "";
+    const sourceTime = sourceTimeField ? readStringValue(json, [sourceTimeField]) : "";
+    const eventTime = eventTimeField ? readStringValue(json, [eventTimeField]) : "";
     const existingDoc =
       typeof item.userJourneyDoc === "string" && item.userJourneyDoc.trim() ? item.userJourneyDoc.trim() : "";
     let userJourneyDoc = existingDoc;
