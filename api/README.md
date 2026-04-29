@@ -21,9 +21,10 @@ AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
 
 # Sentry (Optional)
 SENTRY_DSN=
-SENTRY_ENVIRONMENT=development
-SENTRY_RELEASE=
-SENTRY_TRACES_SAMPLE_RATE=0
+
+# Auth (Optional)
+# Restrict login emails to this suffix
+LOGIN_ALLOWED_EMAIL_SUFFIX=
 ```
 
 You can also copy from `api/.env.example`:

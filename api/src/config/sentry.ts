@@ -1,14 +1,5 @@
 import * as Sentry from "@sentry/bun";
 
-function parseNumberEnv(name: string, fallback: number): number {
-  const value = process.env[name];
-  if (!value) return fallback;
-
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  return parsed;
-}
-
 const sentryDsn = process.env.SENTRY_DSN;
 const sentryEnabled = Boolean(sentryDsn);
 

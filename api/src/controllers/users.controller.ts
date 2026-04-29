@@ -42,6 +42,20 @@ function getGoogleClientId() {
   return process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || "";
 }
 
+function getAllowedLoginEmailSuffix() {
+  return process.env.LOGIN_ALLOWED_EMAIL_SUFFIX?.trim().toLowerCase() || "";
+}
+
+function isAllowedLoginEmail(email: string) {
+  const configuredSuffix = getAllowedLoginEmailSuffix();
+  if (!configuredSuffix) return true;
+
+  const normalizedSuffix = configuredSuffix.startsWith("@")
+    ? configuredSuffix
+    : `@${configuredSuffix}`;
+  return email.endsWith(normalizedSuffix);
+}
+
 async function verifyGoogleIdToken(idToken: string) {
   const response = await fetch(
     `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
@@ -79,6 +93,15 @@ async function loginOrCreateUser(payload: { email?: string; name?: string; avata
   }
 
   const normalizedEmail = normalizeEmail(payload.email);
+  if (!isAllowedLoginEmail(normalizedEmail)) {
+    return {
+      error: Response.json(
+        { error: "Email domain is not allowed for login" },
+        { status: 403 },
+      ),
+    };
+  }
+
   let user = await users.findByEmail(normalizedEmail);
   let isNewUser = false;
 
