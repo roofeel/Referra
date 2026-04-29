@@ -19,6 +19,7 @@
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "4.0.95",
     "@aws-sdk/credential-providers": "3.1032.0",
+    "@sentry/bun": "^10.50.0",
     "ai": "^6.0.78",
     "hono": "^4.11.9",
     "zod": "^4.3.6"

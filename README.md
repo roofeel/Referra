@@ -2,10 +2,6 @@
 
 Ai Referrer is a separated frontend/backend project organized into `api` (server) and `web` (frontend).
 
-## Demo
-
-- Live Demo: https://referra.coolify-tinca.tonob.net/
-
 ## Project Structure
 
 - `api/`: Backend service code (Bun + TypeScript), providing APIs and business logic.

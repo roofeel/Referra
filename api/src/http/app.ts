@@ -1,4 +1,5 @@
 import { routes } from "../routes/index.js";
+import { captureApiException } from "../config/sentry.js";
 
 type RouteParams = Record<string, string>;
 type AppRequest = Request & { params: RouteParams };
@@ -123,6 +124,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     return withCors(req, response);
   } catch (error) {
     console.error("Unhandled API error:", error);
+    captureApiException(error, req);
     return withCors(
       req,
       Response.json({ error: "Internal server error" }, { status: 500 }),
