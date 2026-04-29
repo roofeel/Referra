@@ -80,9 +80,23 @@ export interface AttachRelatedEventsResponse {
 }
 
 export interface GenerateUserJourneyResponse {
+  jobId: string;
   reportId: string;
   rawId: string;
-  userJourneyDoc: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GenerateUserJourneyJobStatusResponse {
+  jobId: string;
+  reportId: string;
+  rawId: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  userJourneyDoc?: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type CreateReportTaskPayload = {
@@ -261,6 +275,20 @@ export const reportsApi = {
 
     if (!response.ok) {
       await throwApiError(response, 'Failed to generate user journey');
+    }
+
+    return response.json();
+  },
+
+  getGenerateUserJourneyJobStatus: async (
+    id: string,
+    rawId: string,
+    jobId: string,
+  ): Promise<GenerateUserJourneyJobStatusResponse> => {
+    const response = await fetch(buildApiUrl(`/api/reports/${id}/referrer-raws/${rawId}/user-journey/jobs/${jobId}`));
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to fetch user journey generation job status');
     }
 
     return response.json();

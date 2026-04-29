@@ -3,9 +3,9 @@ import { normalizeReportTaskStatus, progressLabelFor } from '../../lib/reports-p
 import {
   attachRelatedEventsToReport,
   createReportTask,
-  generateUserJourneyForReportRaw,
   rerunReportTask,
 } from '../../services/reports-command-workflows.service.js';
+import { enqueueUserJourneyJob } from '../../services/reports-user-journey-jobs.service.js';
 import {
   attachRelatedEventsBodySchema,
   createReportBodySchema,
@@ -40,8 +40,8 @@ export async function attachRelatedEvents(req: Request) {
 export async function generateUserJourney(req: Request) {
   const request = req as RequestWithParams<{ id: string; rawId: string }>;
   try {
-    const payload = await generateUserJourneyForReportRaw(request.params.id, request.params.rawId);
-    return Response.json(payload);
+    const job = enqueueUserJourneyJob(request.params.id, request.params.rawId);
+    return Response.json(job, { status: 202 });
   } catch (error) {
     return toServiceErrorResponse(error, 'Failed to generate user journey');
   }

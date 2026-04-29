@@ -60,6 +60,7 @@ const mockedControllers = {
     downloadUids: makeHandler("reports.downloadUids"),
     attachRelatedEvents: makeHandler("reports.attachRelatedEvents"),
     generateUserJourney: makeHandler("reports.generateUserJourney"),
+    getUserJourneyJobStatus: makeHandler("reports.getUserJourneyJobStatus"),
   },
   urlRulesController: {
     list: makeHandler("urlRules.list"),
@@ -192,6 +193,12 @@ const routeCases: RouteCase[] = [
     action: "reports.generateUserJourney",
     params: { id: "rpt1", rawId: "raw1" },
     body: {},
+  },
+  {
+    method: "GET",
+    path: "/api/reports/rpt1/referrer-raws/raw1/user-journey/jobs/job1",
+    action: "reports.getUserJourneyJobStatus",
+    params: { id: "rpt1", rawId: "raw1", jobId: "job1" },
   },
   { method: "GET", path: "/api/url-rules", action: "urlRules.list" },
   { method: "POST", path: "/api/url-rules", action: "urlRules.create", body: { name: "rule1" } },

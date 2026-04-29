@@ -13,6 +13,10 @@ import { api } from '../service';
 import { buildApiUrl } from '../service/http';
 import type { ReportDetailResponse } from '../service/reports';
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function ReportsDetail() {
   const { reportId } = useParams<{ reportId: string }>();
   const [payload, setPayload] = useState<ReportDetailResponse | null>(null);
@@ -182,18 +186,39 @@ export default function ReportsDetail() {
 
     try {
       setGeneratingJourneyEventId(selectedRow.eventId);
-      const response = await api.reports.generateUserJourney(reportId, selectedRow.eventId);
+      const start = await api.reports.generateUserJourney(reportId, selectedRow.eventId);
+      const timeoutMs = 2 * 60 * 1000;
+      const pollIntervalMs = 1500;
+      const deadline = Date.now() + timeoutMs;
+      let status = await api.reports.getGenerateUserJourneyJobStatus(reportId, selectedRow.eventId, start.jobId);
+
+      while (status.status === 'pending' || status.status === 'running') {
+        if (Date.now() >= deadline) {
+          throw new Error('Generate user journey is still running, please retry in a moment');
+        }
+        await sleep(pollIntervalMs);
+        status = await api.reports.getGenerateUserJourneyJobStatus(reportId, selectedRow.eventId, start.jobId);
+      }
+
+      if (status.status === 'failed') {
+        throw new Error(status.error || 'Generate user journey failed');
+      }
+
+      if (!status.userJourneyDoc) {
+        throw new Error('Generate user journey returned empty content');
+      }
+
       setPayload((prev) => {
         if (!prev) return prev;
-        const current = prev.eventDetails[response.rawId];
+        const current = prev.eventDetails[status.rawId];
         if (!current) return prev;
         return {
           ...prev,
           eventDetails: {
             ...prev.eventDetails,
-            [response.rawId]: {
+            [status.rawId]: {
               ...current,
-              userJourneyDoc: response.userJourneyDoc,
+              userJourneyDoc: status.userJourneyDoc,
             },
           },
         };

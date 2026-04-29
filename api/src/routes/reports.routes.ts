@@ -29,4 +29,7 @@ export const reportsRoutes = {
   '/api/reports/:id/referrer-raws/:rawId/user-journey/generate': {
     POST: reportsController.generateUserJourney,
   },
+  '/api/reports/:id/referrer-raws/:rawId/user-journey/jobs/:jobId': {
+    GET: reportsController.getUserJourneyJobStatus,
+  },
 };

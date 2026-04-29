@@ -2,6 +2,7 @@ import { clients, logs, referrerRaws, reports, urlRules } from '../../../../pack
 import { normalizeAttributionLogicMapping } from '../../config/attribution.config.js';
 import { formatCompactCount, normalizeReportTaskStatus } from '../../lib/reports-presentation.lib.js';
 import { getReportDetailPayload } from '../../services/reports-detail.service.js';
+import { getUserJourneyJob } from '../../services/reports-user-journey-jobs.service.js';
 import { endOfDay, startOfDay } from '../shared/date.helpers.js';
 import { getJsonValue } from '../shared/json.helpers.js';
 import {
@@ -172,4 +173,20 @@ export async function downloadUids(req: Request) {
       'Content-Disposition': `attachment; filename="report-${current.id}-uids.csv"`,
     },
   });
+}
+
+export async function getUserJourneyJobStatus(req: Request) {
+  const request = req as RequestWithParams<{ id: string; rawId: string; jobId: string }>;
+  const { id, rawId, jobId } = request.params;
+  const job = getUserJourneyJob(jobId);
+
+  if (!job) {
+    return Response.json({ error: 'User journey job not found' }, { status: 404 });
+  }
+
+  if (job.reportId !== id || job.rawId !== rawId) {
+    return Response.json({ error: 'User journey job does not match report/raw id' }, { status: 400 });
+  }
+
+  return Response.json(job);
 }
