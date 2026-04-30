@@ -32,3 +32,9 @@ export const updateStatusBodySchema = z
     progress: z.number().finite().optional(),
   })
   .strict();
+
+export const createExportJobBodySchema = z
+  .object({
+    selectedFields: z.array(z.string().min(1)).min(1),
+  })
+  .strict();

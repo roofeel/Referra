@@ -6,8 +6,10 @@ import {
   rerunReportTask,
 } from '../../services/reports-command-workflows.service.js';
 import { enqueueUserJourneyJob } from '../../services/reports-user-journey-jobs.service.js';
+import { enqueueReportExportJob } from '../../services/reports-export-jobs.service.js';
 import {
   attachRelatedEventsBodySchema,
+  createExportJobBodySchema,
   createReportBodySchema,
   updateStatusBodySchema,
 } from './command-schemas.js';
@@ -109,4 +111,17 @@ export async function remove(req: Request) {
 
   await reports.delete(request.params.id);
   return new Response(null, { status: 204 });
+}
+
+export async function createExportJob(req: Request) {
+  const request = req as RequestWithParams<{ id: string }>;
+  try {
+    const body = await parseJsonBody(req, createExportJobBodySchema);
+    const job = await enqueueReportExportJob(request.params.id, {
+      selectedFields: body.selectedFields,
+    });
+    return Response.json(job, { status: 202 });
+  } catch (error) {
+    return toServiceErrorResponse(error, 'Failed to create export job');
+  }
 }

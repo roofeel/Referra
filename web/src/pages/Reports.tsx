@@ -7,7 +7,14 @@ import { AttributedUploadDataDrawer } from '../components/reports/AttributedUplo
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
-import type { ReportLog, ReportTask, ReportTaskStatus, ReportsResponse } from '../service/reports';
+import type {
+  ReportExportFieldsResponse,
+  ReportExportJobResponse,
+  ReportLog,
+  ReportTask,
+  ReportTaskStatus,
+  ReportsResponse,
+} from '../service/reports';
 
 function statusStyles(status: ReportTaskStatus) {
   switch (status) {
@@ -73,6 +80,12 @@ export default function Reports() {
   const [logs, setLogs] = useState<ReportLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
+  const [exportTask, setExportTask] = useState<ReportTask | null>(null);
+  const [exportFields, setExportFields] = useState<ReportExportFieldsResponse | null>(null);
+  const [selectedExportFields, setSelectedExportFields] = useState<string[]>([]);
+  const [exportFieldsLoading, setExportFieldsLoading] = useState(false);
+  const [exportSubmitting, setExportSubmitting] = useState(false);
+  const [exportJob, setExportJob] = useState<ReportExportJobResponse | null>(null);
   const toast = useToast();
 
   const loadReports = useCallback(async () => {
@@ -261,6 +274,76 @@ export default function Reports() {
       setLogsError(error instanceof Error ? error.message : 'Failed to load logs');
     } finally {
       setLogsLoading(false);
+    }
+  }
+
+  async function handleOpenExport(task: ReportTask) {
+    setExportTask(task);
+    setExportJob(null);
+    setExportFields(null);
+    setSelectedExportFields([]);
+    setExportFieldsLoading(true);
+    try {
+      const fields = await api.reports.getExportFields(task.id);
+      setExportFields(fields);
+      setSelectedExportFields([
+        ...fields.fixedFields,
+        ...fields.referrerRawFields.map((key) => `raw.${key}`),
+      ]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load export fields');
+      setExportTask(null);
+    } finally {
+      setExportFieldsLoading(false);
+    }
+  }
+
+  function toggleExportField(field: string) {
+    setSelectedExportFields((prev) => (prev.includes(field) ? prev.filter((item) => item !== field) : [...prev, field]));
+  }
+
+  async function pollExportJob(reportId: string, jobId: string) {
+    for (let attempt = 0; attempt < 180; attempt += 1) {
+      const job = await api.reports.getExportJobStatus(reportId, jobId);
+      setExportJob(job);
+      if (job.status === 'completed' || job.status === 'failed') {
+        return job;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+    return null;
+  }
+
+  async function handleCreateExportJob() {
+    if (!exportTask) return;
+    if (selectedExportFields.length === 0) {
+      toast.error('Please select at least one export field');
+      return;
+    }
+
+    try {
+      setExportSubmitting(true);
+      const job = await api.reports.createExportJob(exportTask.id, {
+        selectedFields: selectedExportFields,
+      });
+      setExportJob(job);
+      const latest = await pollExportJob(exportTask.id, job.jobId);
+      if (!latest) {
+        toast.error('Export job timeout, please try again later');
+        return;
+      }
+      if (latest.status === 'failed') {
+        toast.error(latest.error || 'Export failed');
+        return;
+      }
+      if (latest.downloadUrl) {
+        window.open(latest.downloadUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Export is ready');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to export');
+    } finally {
+      setExportSubmitting(false);
     }
   }
 
@@ -492,6 +575,14 @@ export default function Reports() {
                                 </button>
                                 <button
                                   type="button"
+                                  onClick={() => void handleOpenExport(task)}
+                                  className="rounded p-1.5 text-emerald-700 hover:bg-white"
+                                  aria-label="Export report"
+                                >
+                                  <span className="material-symbols-outlined text-lg">download</span>
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => void handleDeleteTask(task)}
                                   disabled={deletingTaskId === task.id}
                                   className="rounded p-1.5 text-red-600 hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
@@ -566,6 +657,78 @@ export default function Reports() {
                       </div>
                     ))}
                   </div>
+                ) : null}
+              </div>
+            </aside>
+          </>
+        ) : null}
+        {exportTask ? (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setExportTask(null)} aria-hidden="true" />
+            <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl border-l border-slate-200 bg-white shadow-2xl">
+              <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Export CSV</p>
+                  <h3 className="text-sm font-bold text-slate-900">{exportTask.taskName}</h3>
+                </div>
+                <button
+                  type="button"
+                  className="rounded p-2 text-slate-500 hover:bg-slate-100"
+                  onClick={() => setExportTask(null)}
+                  aria-label="Close export drawer"
+                >
+                  <span className="material-symbols-outlined text-base">close</span>
+                </button>
+              </div>
+              <div className="h-[calc(100%-4rem)] overflow-y-auto p-4">
+                {exportFieldsLoading ? <p className="text-sm text-slate-500">Loading export fields...</p> : null}
+                {!exportFieldsLoading && exportFields ? (
+                  <>
+                    <p className="mb-2 text-xs font-semibold text-slate-700">Report fields</p>
+                    <div className="mb-4 grid grid-cols-2 gap-2">
+                      {exportFields.fixedFields.map((field) => (
+                        <label key={field} className="flex items-center gap-2 rounded border border-slate-200 p-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={selectedExportFields.includes(field)}
+                            onChange={() => toggleExportField(field)}
+                          />
+                          <span>{field}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mb-2 text-xs font-semibold text-slate-700">ReferrerRaw JSON fields</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {exportFields.referrerRawFields.map((field) => {
+                        const exportField = `raw.${field}`;
+                        return (
+                          <label key={field} className="flex items-center gap-2 rounded border border-slate-200 p-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={selectedExportFields.includes(exportField)}
+                              onChange={() => toggleExportField(exportField)}
+                            />
+                            <span>{field}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleCreateExportJob()}
+                        disabled={exportSubmitting}
+                        className="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+                      >
+                        {exportSubmitting ? 'Exporting...' : 'Start Export'}
+                      </button>
+                      {exportJob ? (
+                        <span className="text-xs text-slate-600">
+                          Job {exportJob.jobId}: {exportJob.status}
+                        </span>
+                      ) : null}
+                    </div>
+                  </>
                 ) : null}
               </div>
             </aside>

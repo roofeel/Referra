@@ -23,6 +23,15 @@ export const reportsRoutes = {
   '/api/reports/:id/uid-download': {
     GET: reportsController.downloadUids,
   },
+  '/api/reports/:id/exports/fields': {
+    GET: reportsController.getExportFields,
+  },
+  '/api/reports/:id/exports': {
+    POST: reportsController.createExportJob,
+  },
+  '/api/reports/:id/exports/jobs/:jobId': {
+    GET: reportsController.getExportJobStatus,
+  },
   '/api/reports/:id/attach-related-events': {
     POST: reportsController.attachRelatedEvents,
   },

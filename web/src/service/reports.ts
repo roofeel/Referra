@@ -99,6 +99,27 @@ export interface GenerateUserJourneyJobStatusResponse {
   updatedAt: string;
 }
 
+export interface ReportExportFieldsResponse {
+  fixedFields: string[];
+  referrerRawFields: string[];
+}
+
+export interface CreateReportExportJobPayload {
+  selectedFields: string[];
+}
+
+export interface ReportExportJobResponse {
+  jobId: string;
+  reportId: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  selectedFields: string[];
+  createdAt: string;
+  updatedAt: string;
+  fileKey?: string;
+  downloadUrl?: string;
+  error?: string;
+}
+
 export type CreateReportTaskPayload = {
   taskName: string;
   client: string;
@@ -208,6 +229,34 @@ export const reportsApi = {
       await throwApiError(response, 'Failed to fetch report logs');
     }
 
+    return response.json();
+  },
+
+  getExportFields: async (id: string): Promise<ReportExportFieldsResponse> => {
+    const response = await fetch(buildApiUrl(`/api/reports/${id}/exports/fields`));
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to fetch export fields');
+    }
+    return response.json();
+  },
+
+  createExportJob: async (id: string, payload: CreateReportExportJobPayload): Promise<ReportExportJobResponse> => {
+    const response = await fetch(buildApiUrl(`/api/reports/${id}/exports`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to create export job');
+    }
+    return response.json();
+  },
+
+  getExportJobStatus: async (id: string, jobId: string): Promise<ReportExportJobResponse> => {
+    const response = await fetch(buildApiUrl(`/api/reports/${id}/exports/jobs/${jobId}`));
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to fetch export job status');
+    }
     return response.json();
   },
 

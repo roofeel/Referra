@@ -3,6 +3,7 @@ import { normalizeAttributionLogicMapping } from '../../config/attribution.confi
 import { formatCompactCount, normalizeReportTaskStatus } from '../../lib/reports-presentation.lib.js';
 import { getReportDetailPayload } from '../../services/reports-detail.service.js';
 import { getUserJourneyJob } from '../../services/reports-user-journey-jobs.service.js';
+import { getReportExportJob, listExportableFields } from '../../services/reports-export-jobs.service.js';
 import { endOfDay, startOfDay } from '../shared/date.helpers.js';
 import { getJsonValue } from '../shared/json.helpers.js';
 import {
@@ -186,6 +187,33 @@ export async function getUserJourneyJobStatus(req: Request) {
 
   if (job.reportId !== id || job.rawId !== rawId) {
     return Response.json({ error: 'User journey job does not match report/raw id' }, { status: 400 });
+  }
+
+  return Response.json(job);
+}
+
+export async function getExportFields(req: Request) {
+  const request = req as RequestWithParams<{ id: string }>;
+  try {
+    const payload = await listExportableFields(request.params.id);
+    return Response.json(payload);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const status = message === 'Report task not found' ? 404 : 500;
+    return Response.json({ error: message }, { status });
+  }
+}
+
+export async function getExportJobStatus(req: Request) {
+  const request = req as RequestWithParams<{ id: string; jobId: string }>;
+  const job = getReportExportJob(request.params.jobId);
+
+  if (!job) {
+    return Response.json({ error: 'Export job not found' }, { status: 404 });
+  }
+
+  if (job.reportId !== request.params.id) {
+    return Response.json({ error: 'Export job does not match report id' }, { status: 400 });
   }
 
   return Response.json(job);

@@ -1,5 +1,5 @@
-import { create, attachRelatedEvents, generateUserJourney, updateStatus, rerun, remove } from './command-handlers.js';
-import { list, listLogs, detail, downloadUids, getUserJourneyJobStatus } from './query-handlers.js';
+import { create, attachRelatedEvents, createExportJob, generateUserJourney, updateStatus, rerun, remove } from './command-handlers.js';
+import { list, listLogs, detail, downloadUids, getExportFields, getExportJobStatus, getUserJourneyJobStatus } from './query-handlers.js';
 
 export const reportsController = {
   list,
@@ -7,10 +7,13 @@ export const reportsController = {
   listLogs,
   detail,
   downloadUids,
+  getExportFields,
+  getExportJobStatus,
   getUserJourneyJobStatus,
   attachRelatedEvents,
   generateUserJourney,
   updateStatus,
   rerun,
+  createExportJob,
   delete: remove,
 };
