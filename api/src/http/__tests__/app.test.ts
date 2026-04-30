@@ -194,7 +194,7 @@ const routeCases: RouteCase[] = [
     path: "/api/reports/rpt1/exports",
     action: "reports.createExportJob",
     params: { id: "rpt1" },
-    body: { selectedFields: ["id", "raw.uid"] },
+    body: { selectedFields: ["id", "uid"] },
   },
   {
     method: "GET",

@@ -253,7 +253,7 @@ export default function ReportsDetail() {
       setExportFields(fields);
       setSelectedExportFields([
         ...fields.fixedFields,
-        ...fields.referrerRawFields.map((key) => `raw.${key}`),
+        ...fields.referrerRawFields,
       ]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to load export fields');
@@ -509,7 +509,7 @@ export default function ReportsDetail() {
                   <p className="mb-2 text-xs font-semibold text-slate-700">ReferrerRaw JSON fields</p>
                   <div className="grid grid-cols-2 gap-2">
                     {exportFields.referrerRawFields.map((field) => {
-                      const exportField = `raw.${field}`;
+                      const exportField = field;
                       return (
                         <label key={field} className="flex items-center gap-2 rounded border border-slate-200 p-2 text-xs">
                           <input

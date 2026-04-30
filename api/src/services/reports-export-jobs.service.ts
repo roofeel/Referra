@@ -73,7 +73,10 @@ function getFieldValue(field: string, row: Record<string, unknown>, rawJson: Rec
   if (field.startsWith('raw.')) {
     return rawJson[field.slice(4)];
   }
-  return row[field];
+  if (field in row) {
+    return row[field];
+  }
+  return rawJson[field];
 }
 
 export async function listExportableFields(reportId: string) {
