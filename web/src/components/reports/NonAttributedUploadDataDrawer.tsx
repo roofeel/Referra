@@ -363,7 +363,7 @@ export function NonAttributedUploadDataDrawer({
                         value={selectedClient}
                         onChange={(event) => setSelectedClient(event.target.value)}
                         disabled={clientOptions.length === 0}
-                        className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                        className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                       >
                         {clientOptions.length === 0 ? (
                           <option value="">No clients available</option>
@@ -385,7 +385,7 @@ export function NonAttributedUploadDataDrawer({
                         value={taskName}
                         onChange={(event) => setTaskName(event.target.value)}
                         placeholder="e.g. Q4 Conversion Audit"
-                        className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                        className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                       />
                     </label>
 
@@ -399,7 +399,7 @@ export function NonAttributedUploadDataDrawer({
                         value={selectedRuleId}
                         onChange={(event) => setSelectedRuleId(event.target.value)}
                         disabled={rules.length === 0}
-                        className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                        className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                       >
                         {rules.length === 0 ? (
                           <option value="">No rules available</option>
@@ -419,7 +419,7 @@ export function NonAttributedUploadDataDrawer({
                         value={selectedAttributedReportId}
                         onChange={(event) => setSelectedAttributedReportId(event.target.value)}
                         disabled={attributedReports.length === 0}
-                        className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                        className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                       >
                         {attributedReports.length === 0 ? (
                           <option value="">No attributed reports available</option>
@@ -441,7 +441,7 @@ export function NonAttributedUploadDataDrawer({
                         value={uidParamName}
                         onChange={(event) => setUidParamName(event.target.value)}
                         placeholder="e.g. uid"
-                        className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                        className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                       />
                     </label>
 
@@ -567,7 +567,7 @@ export function NonAttributedUploadDataDrawer({
                     type="button"
                     disabled={!isFormComplete || isSubmitting}
                     onClick={handleStartAnalysis}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-blue-700 to-blue-600 py-3 text-sm font-bold text-white shadow-lg transition-all hover:scale-[1.01] active:scale-100 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-500 disabled:shadow-none disabled:hover:scale-100"
+                    className="flex w-full items-center justify-center gap-1.5 rounded-md bg-gradient-to-br from-blue-700 to-blue-600 py-2 text-xs font-bold text-white shadow-lg transition-all hover:scale-[1.01] active:scale-100 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-500 disabled:shadow-none disabled:hover:scale-100"
                   >
                     <span className="material-symbols-outlined text-base">rocket_launch</span>
                     {isSubmitting ? 'Starting...' : 'Start Analysis'}

@@ -286,7 +286,7 @@ export default function Reports() {
           <button
             type="button"
             onClick={() => setIsUploadDrawerOpen(true)}
-            className="flex items-center gap-2 rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-800"
+            className="flex items-center gap-1.5 rounded-md bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-800"
           >
             <span className="material-symbols-outlined text-base">upload</span>
             Upload Attributed Data
