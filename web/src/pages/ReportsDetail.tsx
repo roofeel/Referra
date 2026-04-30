@@ -11,7 +11,7 @@ import { AttachRelatedEventsDrawer } from '../components/reports/AttachRelatedEv
 import type { TableRow } from '../components/dashboard/dashboardData';
 import { api } from '../service';
 import { buildApiUrl } from '../service/http';
-import type { ReportDetailResponse } from '../service/reports';
+import type { ReportDetailResponse, ReportExportFieldsResponse, ReportExportJobResponse } from '../service/reports';
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -26,6 +26,12 @@ export default function ReportsDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isAttachDrawerOpen, setIsAttachDrawerOpen] = useState(false);
   const [isAttachingRelatedEvents, setIsAttachingRelatedEvents] = useState(false);
+  const [exportFields, setExportFields] = useState<ReportExportFieldsResponse | null>(null);
+  const [selectedExportFields, setSelectedExportFields] = useState<string[]>([]);
+  const [exportFieldsLoading, setExportFieldsLoading] = useState(false);
+  const [exportSubmitting, setExportSubmitting] = useState(false);
+  const [exportJob, setExportJob] = useState<ReportExportJobResponse | null>(null);
+  const [isExportDrawerOpen, setIsExportDrawerOpen] = useState(false);
   const [generatingJourneyEventId, setGeneratingJourneyEventId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [draftStartDate, setDraftStartDate] = useState('');
@@ -232,6 +238,78 @@ export default function ReportsDetail() {
     }
   };
 
+  async function openExportDrawer() {
+    if (!reportId) {
+      toast.error('Missing report id');
+      return;
+    }
+    setIsExportDrawerOpen(true);
+    setExportJob(null);
+    setExportFields(null);
+    setSelectedExportFields([]);
+    setExportFieldsLoading(true);
+    try {
+      const fields = await api.reports.getExportFields(reportId);
+      setExportFields(fields);
+      setSelectedExportFields([
+        ...fields.fixedFields,
+        ...fields.referrerRawFields.map((key) => `raw.${key}`),
+      ]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to load export fields');
+      setIsExportDrawerOpen(false);
+    } finally {
+      setExportFieldsLoading(false);
+    }
+  }
+
+  function toggleExportField(field: string) {
+    setSelectedExportFields((prev) => (prev.includes(field) ? prev.filter((item) => item !== field) : [...prev, field]));
+  }
+
+  async function pollExportJob(targetReportId: string, jobId: string) {
+    for (let attempt = 0; attempt < 180; attempt += 1) {
+      const job = await api.reports.getExportJobStatus(targetReportId, jobId);
+      setExportJob(job);
+      if (job.status === 'completed' || job.status === 'failed') return job;
+      await sleep(2000);
+    }
+    return null;
+  }
+
+  async function handleCreateExportJob() {
+    if (!reportId) {
+      toast.error('Missing report id');
+      return;
+    }
+    if (selectedExportFields.length === 0) {
+      toast.error('Please select at least one export field');
+      return;
+    }
+    try {
+      setExportSubmitting(true);
+      const job = await api.reports.createExportJob(reportId, { selectedFields: selectedExportFields });
+      setExportJob(job);
+      const latest = await pollExportJob(reportId, job.jobId);
+      if (!latest) {
+        toast.error('Export job timeout, please try again later');
+        return;
+      }
+      if (latest.status === 'failed') {
+        toast.error(latest.error || 'Export failed');
+        return;
+      }
+      if (latest.downloadUrl) {
+        window.open(latest.downloadUrl, '_blank', 'noopener,noreferrer');
+        toast.success('Export is ready');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to export');
+    } finally {
+      setExportSubmitting(false);
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#f2f4f6] text-slate-900 antialiased">
       <AppSidebar activeItem="reports" ariaLabel="Reports Detail Navigation" />
@@ -303,6 +381,9 @@ export default function ReportsDetail() {
                   setAppliedFirstPageLoadToRegistrationHours(draftFirstPageLoadToRegistrationHours);
                   setAppliedDurationFilterOperator(draftDurationFilterOperator);
                   setPage(1);
+                }}
+                onExport={() => {
+                  void openExportDrawer();
                 }}
                 onReset={() => {
                   setDraftStartDate('');
@@ -394,6 +475,74 @@ export default function ReportsDetail() {
           }
         }}
       />
+      {isExportDrawerOpen ? (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setIsExportDrawerOpen(false)} aria-hidden="true" />
+          <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl border-l border-slate-200 bg-white shadow-2xl">
+            <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Export CSV</p>
+                <h3 className="text-sm font-bold text-slate-900">{reportTitle}</h3>
+              </div>
+              <button
+                type="button"
+                className="rounded p-2 text-slate-500 hover:bg-slate-100"
+                onClick={() => setIsExportDrawerOpen(false)}
+                aria-label="Close export drawer"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+            <div className="h-[calc(100%-4rem)] overflow-y-auto p-4">
+              {exportFieldsLoading ? <p className="text-sm text-slate-500">Loading export fields...</p> : null}
+              {!exportFieldsLoading && exportFields ? (
+                <>
+                  <p className="mb-2 text-xs font-semibold text-slate-700">Report fields</p>
+                  <div className="mb-4 grid grid-cols-2 gap-2">
+                    {exportFields.fixedFields.map((field) => (
+                      <label key={field} className="flex items-center gap-2 rounded border border-slate-200 p-2 text-xs">
+                        <input type="checkbox" checked={selectedExportFields.includes(field)} onChange={() => toggleExportField(field)} />
+                        <span>{field}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="mb-2 text-xs font-semibold text-slate-700">ReferrerRaw JSON fields</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {exportFields.referrerRawFields.map((field) => {
+                      const exportField = `raw.${field}`;
+                      return (
+                        <label key={field} className="flex items-center gap-2 rounded border border-slate-200 p-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={selectedExportFields.includes(exportField)}
+                            onChange={() => toggleExportField(exportField)}
+                          />
+                          <span>{field}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleCreateExportJob()}
+                      disabled={exportSubmitting}
+                      className="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+                    >
+                      {exportSubmitting ? 'Exporting...' : 'Start Export'}
+                    </button>
+                    {exportJob ? (
+                      <span className="text-xs text-slate-600">
+                        Job {exportJob.jobId}: {exportJob.status}
+                      </span>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </aside>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -32,6 +32,7 @@ type DashboardFiltersProps = {
   onDurationFilterOperatorChange?: (value: 'and' | 'or') => void;
   onReferrerTypeChange?: (value: string) => void;
   onApply: () => void;
+  onExport?: () => void;
   onReset: () => void;
 };
 
@@ -65,6 +66,7 @@ export function DashboardFilters({
   onDurationFilterOperatorChange,
   onReferrerTypeChange,
   onApply,
+  onExport,
   onReset,
 }: DashboardFiltersProps) {
   const reportTypeLabel = getReportTypeLabel(reportType);
@@ -252,6 +254,15 @@ export function DashboardFilters({
           >
             Apply
           </button>
+          {onExport ? (
+            <button
+              type="button"
+              onClick={onExport}
+              className="rounded-lg bg-emerald-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
+            >
+              Export
+            </button>
+          ) : null}
         </div>
       </div>
       {isAdvancedDrawerOpen ? (
