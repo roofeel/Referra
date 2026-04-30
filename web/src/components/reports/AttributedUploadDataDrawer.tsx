@@ -251,8 +251,8 @@ export function AttributedUploadDataDrawer({
         aria-modal="true"
         aria-labelledby="upload-data-title"
         aria-hidden={!isOpen}
-        className={`fixed inset-y-0 right-0 z-50 w-full max-w-[1120px] border-l border-slate-200 bg-slate-50 shadow-2xl transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
+        className={`fixed inset-y-0 right-0 z-50 w-full max-w-[1120px] border-l border-slate-200 bg-slate-50 transition-transform duration-300 ${
+          isOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full shadow-none'
         }`}
       >
         <div className="flex h-full flex-col overflow-hidden">
