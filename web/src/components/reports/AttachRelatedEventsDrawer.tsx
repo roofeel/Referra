@@ -224,7 +224,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
                     id={idFieldId}
                     value={idField}
                     onChange={(event) => setIdField(event.target.value)}
-                    className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                    className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                     disabled={csvHeaders.length === 0}
                   >
                     <option value="">Select header</option>
@@ -242,7 +242,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
                     id={timeFieldId}
                     value={timeField}
                     onChange={(event) => setTimeField(event.target.value)}
-                    className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                    className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                     disabled={csvHeaders.length === 0}
                   >
                     <option value="">Select header</option>
@@ -260,7 +260,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
                     id={eventFieldId}
                     value={eventField}
                     onChange={(event) => setEventField(event.target.value)}
-                    className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                    className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                     disabled={csvHeaders.length === 0}
                   >
                     <option value="">Select header</option>
@@ -278,7 +278,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
                     id={eventUrlFieldId}
                     value={eventUrlField}
                     onChange={(event) => setEventUrlField(event.target.value)}
-                    className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
+                    className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-blue-100"
                     disabled={csvHeaders.length === 0}
                   >
                     <option value="">Select header</option>
@@ -297,7 +297,7 @@ export function AttachRelatedEventsDrawer({ isOpen, onClose, onSubmit, uidDownlo
                 type="button"
                 disabled={!isFormComplete || isSubmitting}
                 onClick={handleSubmit}
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-br from-blue-700 to-blue-600 py-3 text-sm font-bold text-white shadow-lg transition-all hover:scale-[1.01] active:scale-100 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-500 disabled:shadow-none disabled:hover:scale-100"
+                className="flex w-full items-center justify-center gap-1.5 rounded-md bg-gradient-to-br from-blue-700 to-blue-600 py-2 text-xs font-bold text-white shadow-lg transition-all hover:scale-[1.01] active:scale-100 disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:text-slate-500 disabled:shadow-none disabled:hover:scale-100"
               >
                 <span className="material-symbols-outlined text-base">link</span>
                 {isSubmitting ? 'Attaching...' : 'Attach Related Events'}

@@ -95,6 +95,72 @@ export function DashboardFilters({
     if (to) return `Start - ${formatHumanDate(to)}`;
     return 'Select date range';
   }, [endDate, startDate]);
+  const advancedFilterHints = useMemo(() => {
+    const hints: string[] = [];
+    hints.push(`Cohort: ${cohortMode}`);
+
+    if (!showFirstPageLoadFilters) {
+      if (showCohortWindowFilters) {
+        hints.push(`Window <= ${windowHours}h`);
+      }
+      return hints;
+    }
+
+    const durationHints: string[] = [];
+    if (visibleDurationFilters.base && baseDurationEnabled) {
+      durationHints.push(`Impression->Registration <= ${windowHours}h`);
+    }
+    if (visibleDurationFilters.impressionToFirstPageLoad && impressionToFirstPageLoadEnabled) {
+      durationHints.push(`Impression->First Page Load <= ${impressionToFirstPageLoadHours || '24'}h`);
+    }
+    if (visibleDurationFilters.firstPageLoadToRegistration && firstPageLoadToRegistrationEnabled) {
+      durationHints.push(`First Page Load->Registration <= ${firstPageLoadToRegistrationHours || '24'}h`);
+    }
+    if (durationHints.length > 0) {
+      hints.push(`Match: ${durationFilterOperator.toUpperCase()}`);
+      hints.push(...durationHints);
+    }
+    return hints;
+  }, [
+    baseDurationEnabled,
+    cohortMode,
+    durationFilterOperator,
+    firstPageLoadToRegistrationEnabled,
+    firstPageLoadToRegistrationHours,
+    impressionToFirstPageLoadEnabled,
+    impressionToFirstPageLoadHours,
+    showCohortWindowFilters,
+    showFirstPageLoadFilters,
+    visibleDurationFilters.base,
+    visibleDurationFilters.firstPageLoadToRegistration,
+    visibleDurationFilters.impressionToFirstPageLoad,
+    windowHours,
+  ]);
+  const durationAdvancedHints = useMemo(() => {
+    if (!showFirstPageLoadFilters) return [];
+    const hints: string[] = [];
+    if (visibleDurationFilters.base && baseDurationEnabled) {
+      hints.push(`Impression->Registration <= ${windowHours}h`);
+    }
+    if (visibleDurationFilters.impressionToFirstPageLoad && impressionToFirstPageLoadEnabled) {
+      hints.push(`Impression->First Page Load <= ${impressionToFirstPageLoadHours || '24'}h`);
+    }
+    if (visibleDurationFilters.firstPageLoadToRegistration && firstPageLoadToRegistrationEnabled) {
+      hints.push(`First Page Load->Registration <= ${firstPageLoadToRegistrationHours || '24'}h`);
+    }
+    return hints;
+  }, [
+    baseDurationEnabled,
+    firstPageLoadToRegistrationEnabled,
+    firstPageLoadToRegistrationHours,
+    impressionToFirstPageLoadEnabled,
+    impressionToFirstPageLoadHours,
+    showFirstPageLoadFilters,
+    visibleDurationFilters.base,
+    visibleDurationFilters.firstPageLoadToRegistration,
+    visibleDurationFilters.impressionToFirstPageLoad,
+    windowHours,
+  ]);
 
   useEffect(() => {
     if (!isDatePickerOpen) return undefined;
@@ -169,11 +235,11 @@ export function DashboardFilters({
       <div className="flex flex-wrap items-end gap-6">
         <div className="w-auto min-w-[220px] flex-none">
           <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Client</label>
-          <div className="flex h-10 items-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800">
+          <div className="flex h-8 items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-800">
             {clientName || 'Unknown Client'}
           </div>
         </div>
-        <div className="w-auto min-w-[340px] flex-none">
+        <div className="w-auto min-w-[220px] flex-none">
           <label className="mb-2 flex h-4 items-center text-[10px] font-bold uppercase text-slate-500">Date Range</label>
           <div className="relative" ref={datePickerRef}>
             <input
@@ -193,7 +259,7 @@ export function DashboardFilters({
             <button
               type="button"
               onClick={() => setIsDatePickerOpen((prev) => !prev)}
-              className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800 outline-none transition-colors hover:border-slate-300"
+              className="flex h-8 w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-800 outline-none transition-colors hover:border-slate-300"
             >
               <span className="material-symbols-outlined text-sm text-slate-500">calendar_today</span>
               <span className="flex-1 text-left">{dateRangeLabel}</span>
@@ -218,7 +284,7 @@ export function DashboardFilters({
                 id={referrerTypeId}
                 value={referrerType}
                 onChange={(event) => onReferrerTypeChange?.(event.target.value)}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-900 outline-none focus:border-blue-300"
+                className="h-8 w-full rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-900 outline-none focus:border-blue-300"
               >
                 <option value="">All</option>
                 {referrerTypeOptions.map((item) => (
@@ -230,39 +296,70 @@ export function DashboardFilters({
             </div>
           </>
         ) : null}
-        <div className="ml-auto flex items-center gap-2">
-          {showCohortWindowFilters ? (
+                  {showCohortWindowFilters ? (
+            <div className="w-full flex flex-wrap items-center justify-start gap-1.5 self-stretch">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Advanced filters:</span>
+              {advancedFilterHints.length === 0 ? (
+                <span className="text-xs text-slate-400">None</span>
+              ) : (
+                <>
+                  {advancedFilterHints
+                    .filter((hint) => !hint.startsWith('Match:') && !hint.includes('->'))
+                    .map((hint) => (
+                      <span key={hint} className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
+                        {hint}
+                      </span>
+                    ))}
+                  {durationAdvancedHints.map((hint, index) => (
+                    <span key={hint} className="contents">
+                      {index > 0 ? (
+                        <span className="px-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          {durationFilterOperator.toUpperCase()}
+                        </span>
+                      ) : null}
+                      <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">{hint}</span>
+                    </span>
+                  ))}
+                </>
+              )}
+            </div>
+          ) : null}
+        <div className="ml-auto flex flex-col items-end gap-1.5">
+
+          <div className="flex items-center gap-1.5 self-end">
+            {showCohortWindowFilters ? (
+              <button
+                type="button"
+                onClick={() => setIsAdvancedDrawerOpen(true)}
+                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Advances
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={() => setIsAdvancedDrawerOpen(true)}
-              className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              onClick={onReset}
+              className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
             >
-              Advances
+              Reset
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={onReset}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            onClick={onApply}
-            className="rounded-lg bg-blue-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-600"
-          >
-            Apply
-          </button>
-          {onExport ? (
             <button
               type="button"
-              onClick={onExport}
-              className="rounded-lg bg-emerald-700 px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-emerald-600"
+              onClick={onApply}
+              className="rounded-md bg-blue-700 px-3.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-blue-600"
             >
-              Export
+              Apply
             </button>
-          ) : null}
+            {onExport ? (
+              <button
+                type="button"
+                onClick={onExport}
+                className="rounded-md bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-600"
+              >
+                Export
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
       {isAdvancedDrawerOpen ? (

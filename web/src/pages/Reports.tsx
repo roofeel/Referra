@@ -309,11 +309,11 @@ export default function Reports() {
           <section className="rounded-xl border border-slate-200/70 bg-white p-4">
             <div className="flex flex-wrap items-end gap-4">
               <label className="min-w-[180px] text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                Client Account
+                Client
                 <select
                   value={draftFilters.client}
                   onChange={(event) => setDraftFilters((prev) => ({ ...prev, client: event.target.value }))}
-                  className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
+                  className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
                 >
                   <option value="">All Clients</option>
                   {(payload?.clients || []).map((client) => (
@@ -325,11 +325,11 @@ export default function Reports() {
               </label>
 
               <label className="min-w-[160px] text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                Task Status
+                Report Status
                 <select
                   value={draftFilters.status}
                   onChange={(event) => setDraftFilters((prev) => ({ ...prev, status: event.target.value }))}
-                  className="mt-1 h-10 w-full rounded-lg border-none bg-slate-100 px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
+                  className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
                 >
                   <option value="">All Statuses</option>
                   <option value="Running">Running</option>
@@ -345,7 +345,7 @@ export default function Reports() {
                   <button
                     type="button"
                     onClick={() => setIsDatePickerOpen((prev) => !prev)}
-                    className="flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-800 outline-none transition-colors hover:border-slate-300"
+                    className="flex h-8 w-full items-center justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-800 outline-none transition-colors hover:border-slate-300"
                   >
                     <span className="material-symbols-outlined text-sm text-slate-500">calendar_today</span>
                     <span className="flex-1 truncate text-left">{dateRangeLabel}</span>
@@ -361,18 +361,18 @@ export default function Reports() {
                 </div>
               </label>
 
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="px-4 py-2 text-sm font-semibold text-slate-500 hover:text-slate-800"
+                  className="rounded-md px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800"
                 >
                   Reset
                 </button>
                 <button
                   type="button"
                   onClick={applyFilters}
-                  className="rounded-lg bg-slate-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  className="rounded-md bg-slate-700 px-3.5 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
                 >
                   Apply Filters
                 </button>

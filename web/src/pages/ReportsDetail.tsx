@@ -324,7 +324,7 @@ export default function ReportsDetail() {
             <button
               type="button"
               onClick={() => setIsAttachDrawerOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
             >
               <span className="material-symbols-outlined text-base">link</span>
               Attach Related Events

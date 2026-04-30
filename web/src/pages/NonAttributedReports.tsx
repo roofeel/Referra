@@ -311,7 +311,7 @@ export default function NonAttributedReports() {
           <section className="rounded-xl border border-slate-200/70 bg-white p-4">
             <div className="flex flex-wrap items-end gap-4">
               <label className="min-w-[180px] text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                Client Account
+                Client
                 <select
                   value={draftFilters.client}
                   onChange={(event) => setDraftFilters((prev) => ({ ...prev, client: event.target.value }))}
@@ -327,7 +327,7 @@ export default function NonAttributedReports() {
               </label>
 
               <label className="min-w-[160px] text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                Task Status
+                Report Status
                 <select
                   value={draftFilters.status}
                   onChange={(event) => setDraftFilters((prev) => ({ ...prev, status: event.target.value }))}
