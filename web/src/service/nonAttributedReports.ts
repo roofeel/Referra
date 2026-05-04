@@ -1,5 +1,11 @@
 import { buildApiUrl, throwApiError } from './http';
-import type { CreateReportTaskPayload, ReportDetailResponse, ReportLog, ReportTask, ReportTaskStatus } from './reports';
+import type {
+  CreateReportTaskPayload,
+  LogsListResponse,
+  ReportDetailResponse,
+  ReportTask,
+  ReportTaskStatus,
+} from './reports';
 
 export interface NonAttributedReportsResponse {
   metrics: {
@@ -96,8 +102,22 @@ export const nonAttributedReportsApi = {
     }
   },
 
-  listLogs: async (id: string): Promise<ReportLog[]> => {
-    const response = await fetch(buildApiUrl(`/api/non-attributed-reports/${id}/logs`));
+  listLogs: async (
+    id: string,
+    options?: {
+      page?: number;
+      pageSize?: number;
+    },
+  ): Promise<LogsListResponse> => {
+    const params = new URLSearchParams();
+    if (typeof options?.page === 'number' && Number.isFinite(options.page)) {
+      params.set('page', String(Math.max(1, Math.floor(options.page))));
+    }
+    if (typeof options?.pageSize === 'number' && Number.isFinite(options.pageSize)) {
+      params.set('pageSize', String(Math.max(1, Math.floor(options.pageSize))));
+    }
+    const query = params.toString();
+    const response = await fetch(buildApiUrl(`/api/non-attributed-reports/${id}/logs${query ? `?${query}` : ''}`));
 
     if (!response.ok) {
       await throwApiError(response, 'Failed to fetch non-attributed report logs');

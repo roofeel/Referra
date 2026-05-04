@@ -73,6 +73,10 @@ export default function Reports() {
   const [logs, setLogs] = useState<ReportLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState<string | null>(null);
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsTotalPages, setLogsTotalPages] = useState(1);
+  const [logsTotalRows, setLogsTotalRows] = useState(0);
+  const logsPageSize = 50;
   const toast = useToast();
 
   const loadReports = useCallback(async () => {
@@ -251,12 +255,22 @@ export default function Reports() {
 
   async function handleViewLogs(task: ReportTask) {
     setLogsTask(task);
+    setLogsPage(1);
+    setLogsTotalPages(1);
+    setLogsTotalRows(0);
+    setLogsError(null);
+    await loadLogs(task, 1);
+  }
+
+  async function loadLogs(task: ReportTask, page: number) {
     setLogs([]);
     setLogsLoading(true);
-    setLogsError(null);
     try {
-      const items = await api.reports.listLogs(task.id);
-      setLogs(items);
+      const payload = await api.reports.listLogs(task.id, { page, pageSize: logsPageSize });
+      setLogs(payload.items);
+      setLogsPage(payload.pagination.page);
+      setLogsTotalPages(payload.pagination.totalPages);
+      setLogsTotalRows(payload.pagination.totalRows);
     } catch (error) {
       setLogsError(error instanceof Error ? error.message : 'Failed to load logs');
     } finally {
@@ -523,7 +537,14 @@ export default function Reports() {
         />
         {logsTask ? (
           <>
-            <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setLogsTask(null)} aria-hidden="true" />
+            <div
+              className="fixed inset-0 z-40 bg-black/30"
+              onClick={() => {
+                setLogsTask(null);
+                setLogs([]);
+              }}
+              aria-hidden="true"
+            />
             <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl border-l border-slate-200 bg-white shadow-2xl">
               <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
                 <div>
@@ -546,27 +567,44 @@ export default function Reports() {
                   <p className="text-sm text-slate-500">No logs yet.</p>
                 ) : null}
                 {!logsLoading && !logsError && logs.length > 0 ? (
-                  <div className="space-y-2">
-                    {logs.map((log) => (
-                      <div key={log.id} className="rounded border border-slate-200 bg-slate-50 p-3">
-                        <div className="flex items-center justify-between">
-                          <span
-                            className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
-                              log.level === 'error'
-                                ? 'bg-red-100 text-red-700'
-                                : log.level === 'warn'
-                                  ? 'bg-amber-100 text-amber-700'
-                                  : 'bg-blue-100 text-blue-700'
-                            }`}
-                          >
-                            {log.level}
-                          </span>
-                          <span className="text-[11px] text-slate-500">{new Date(log.createdAt).toLocaleString()}</span>
+                  <>
+                    <div className="space-y-2">
+                      {logs.map((log) => (
+                        <div key={log.id} className="rounded border border-slate-200 bg-slate-50 p-3">
+                          <div className="flex items-center justify-between">
+                            <span
+                              className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest ${
+                                log.level === 'error'
+                                  ? 'bg-red-100 text-red-700'
+                                  : log.level === 'warn'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-blue-100 text-blue-700'
+                              }`}
+                            >
+                              {log.level}
+                            </span>
+                            <span className="text-[11px] text-slate-500">{new Date(log.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p className="mt-2 break-all font-mono text-xs text-slate-700">{log.message}</p>
                         </div>
-                        <p className="mt-2 break-all font-mono text-xs text-slate-700">{log.message}</p>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                    <div className="mt-4">
+                      <TablePagination
+                        summary={
+                          logsTotalRows === 0
+                            ? 'Showing 0 logs'
+                            : `Showing ${(logsPage - 1) * logsPageSize + 1}-${Math.min(logsPage * logsPageSize, logsTotalRows)} of ${logsTotalRows} logs`
+                        }
+                        page={logsPage}
+                        totalPages={logsTotalPages}
+                        onPageChange={(nextPage) => {
+                          if (!logsTask || nextPage === logsPage || logsLoading) return;
+                          void loadLogs(logsTask, nextPage);
+                        }}
+                      />
+                    </div>
+                  </>
                 ) : null}
               </div>
             </aside>

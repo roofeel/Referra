@@ -879,10 +879,24 @@ export const logs = {
     });
   },
 
-  async listByReport(reportId: string) {
+  async listByReport(
+    reportId: string,
+    options?: {
+      skip?: number;
+      take?: number;
+    },
+  ) {
     return await (db as any).log.findMany({
       where: { reportId },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
+      skip: options?.skip,
+      take: options?.take,
+    });
+  },
+
+  async countByReport(reportId: string) {
+    return await (db as any).log.count({
+      where: { reportId },
     });
   },
 };
@@ -908,10 +922,24 @@ export const nonAttributedLogs = {
     });
   },
 
-  async listByReport(nonAttributedReportId: string) {
+  async listByReport(
+    nonAttributedReportId: string,
+    options?: {
+      skip?: number;
+      take?: number;
+    },
+  ) {
     return await (db as any).nonAttributedLog.findMany({
       where: { nonAttributedReportId },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
+      skip: options?.skip,
+      take: options?.take,
+    });
+  },
+
+  async countByReport(nonAttributedReportId: string) {
+    return await (db as any).nonAttributedLog.count({
+      where: { nonAttributedReportId },
     });
   },
 };

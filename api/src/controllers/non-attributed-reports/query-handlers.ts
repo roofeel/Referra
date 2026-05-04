@@ -96,14 +96,32 @@ export async function list(req: Request) {
 
 export async function listLogs(req: Request) {
   const request = req as RequestWithParams<{ id: string }>;
+  const url = new URL(req.url);
+  const pageRaw = Number(url.searchParams.get('page') || '1');
+  const pageSizeRaw = Number(url.searchParams.get('pageSize') || '50');
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
+  const pageSize = Number.isFinite(pageSizeRaw) && pageSizeRaw > 0 ? Math.min(200, Math.floor(pageSizeRaw)) : 50;
+  const skip = (page - 1) * pageSize;
   const current = await nonAttributedReports.findById(request.params.id);
 
   if (!current) {
     return Response.json({ error: 'Non-attributed report task not found' }, { status: 404 });
   }
 
-  const items = await nonAttributedLogs.listByReport(request.params.id);
-  return Response.json(items.map((item: any) => toLog(item)));
+  const [items, totalRows] = await Promise.all([
+    nonAttributedLogs.listByReport(request.params.id, { skip, take: pageSize }),
+    nonAttributedLogs.countByReport(request.params.id),
+  ]);
+
+  return Response.json({
+    items: items.map((item: any) => toLog(item)),
+    pagination: {
+      page,
+      pageSize,
+      totalRows,
+      totalPages: totalRows > 0 ? Math.ceil(totalRows / pageSize) : 1,
+    },
+  });
 }
 
 export async function detail(req: Request) {
