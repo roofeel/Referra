@@ -641,29 +641,31 @@ export const referrerRaws = {
       firstPageLoadDuration?: number | null;
     }>,
   ) {
-    return await (db as any).$transaction(async (tx: any) => {
-      await tx.referrerRaw.deleteMany({
-        where: { reportId },
-      });
-
-      if (data.length === 0) {
-        return { count: 0 };
-      }
-
-      return await tx.referrerRaw.createMany({
-        data: data.map((item) => ({
-          reportId,
-          referrerType: item.referrerType,
-          referrerDesc: item.referrerDesc,
-          duration: item.duration,
-          uid: item.uid ?? null,
-          json: item.json,
-          journeyLogs: item.journeyLogs ?? null,
-          userJourneyDoc: item.userJourneyDoc ?? null,
-          firstPageLoadDuration: item.firstPageLoadDuration ?? null,
-        })),
-      });
+    const deleteQuery = (db as any).referrerRaw.deleteMany({
+      where: { reportId },
     });
+
+    if (data.length === 0) {
+      await (db as any).$transaction([deleteQuery]);
+      return { count: 0 };
+    }
+
+    const createQuery = (db as any).referrerRaw.createMany({
+      data: data.map((item) => ({
+        reportId,
+        referrerType: item.referrerType,
+        referrerDesc: item.referrerDesc,
+        duration: item.duration,
+        uid: item.uid ?? null,
+        json: item.json,
+        journeyLogs: item.journeyLogs ?? null,
+        userJourneyDoc: item.userJourneyDoc ?? null,
+        firstPageLoadDuration: item.firstPageLoadDuration ?? null,
+      })),
+    });
+
+    const [, created] = await (db as any).$transaction([deleteQuery, createQuery]) as [unknown, { count: number }];
+    return created;
   },
 
   async listByReport(
@@ -805,25 +807,27 @@ export const nonAttributedRaws = {
       json: unknown;
     }>,
   ) {
-    return await (db as any).$transaction(async (tx: any) => {
-      await tx.nonAttributedRaw.deleteMany({
-        where: { nonAttributedReportId },
-      });
-
-      if (data.length === 0) {
-        return { count: 0 };
-      }
-
-      return await tx.nonAttributedRaw.createMany({
-        data: data.map((item) => ({
-          nonAttributedReportId,
-          referrerType: item.referrerType,
-          referrerDesc: item.referrerDesc,
-          duration: item.duration,
-          json: item.json,
-        })),
-      });
+    const deleteQuery = (db as any).nonAttributedRaw.deleteMany({
+      where: { nonAttributedReportId },
     });
+
+    if (data.length === 0) {
+      await (db as any).$transaction([deleteQuery]);
+      return { count: 0 };
+    }
+
+    const createQuery = (db as any).nonAttributedRaw.createMany({
+      data: data.map((item) => ({
+        nonAttributedReportId,
+        referrerType: item.referrerType,
+        referrerDesc: item.referrerDesc,
+        duration: item.duration,
+        json: item.json,
+      })),
+    });
+
+    const [, created] = await (db as any).$transaction([deleteQuery, createQuery]) as [unknown, { count: number }];
+    return created;
   },
 
   async listByReport(
