@@ -10,13 +10,12 @@ export function parseUrl(rawValue: string) {
   const value = rawValue.trim();
   if (!value) return null;
 
-  const decoded = safeDecode(value);
-
   try {
-    return new URL(decoded);
+    return new URL(value);
   } catch {
     try {
-      return new URL(value);
+      const decoded = safeDecode(value);
+      return new URL(decoded);
     } catch {
       return null;
     }
