@@ -327,6 +327,15 @@ export function DashboardFilters({
         <div className="ml-auto flex flex-col items-end gap-1.5">
 
           <div className="flex items-center gap-1.5 self-end">
+            {onExport ? (
+              <button
+                type="button"
+                onClick={onExport}
+                className="rounded-md bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-600"
+              >
+                Export
+              </button>
+            ) : null}
             {showCohortWindowFilters ? (
               <button
                 type="button"
@@ -350,15 +359,6 @@ export function DashboardFilters({
             >
               Apply
             </button>
-            {onExport ? (
-              <button
-                type="button"
-                onClick={onExport}
-                className="rounded-md bg-emerald-700 px-3.5 py-1.5 text-xs font-bold text-white transition-colors hover:bg-emerald-600"
-              >
-                Export
-              </button>
-            ) : null}
           </div>
         </div>
       </div>
