@@ -121,13 +121,18 @@ describe('ReportsDetail', () => {
       </MemoryRouter>,
     );
 
-    await user.click(await screen.findByText('u_001'));
+    const [uidCell] = await screen.findAllByText('u_001');
+    await user.click(uidCell);
 
     expect(screen.getByRole('dialog', { name: 'Event Detail' })).toBeInTheDocument();
     expect(screen.getByText('Checkout Rule')).toBeInTheDocument();
     expect(screen.getByText('Day 1')).toBeInTheDocument();
     expect(screen.getByText(/10:00:00:/)).toBeInTheDocument();
     expect(screen.getByText('Registration Submitted')).toBeInTheDocument();
+    expect(screen.queryByText('https://example.com?utm_source=google&uid=u_001')).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('URL Context').closest('button') as HTMLButtonElement);
+    expect(screen.getByText('https://example.com?utm_source=google&uid=u_001')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Close Event Detail' }));
 

@@ -440,6 +440,7 @@ export default function ReportsDetail() {
 
       <DashboardDetailDrawer
         detail={selectedDetail}
+        selectedRow={selectedRow}
         canGenerateUserJourney={Boolean(reportId && selectedRow?.eventId)}
         isGeneratingUserJourney={isGeneratingUserJourney}
         onGenerateUserJourney={() => {

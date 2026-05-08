@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import type { EventDetail } from './dashboardData';
+import { useMemo, useState, type ReactNode } from 'react';
+import type { EventDetail, TableRow } from './dashboardData';
 
 type InlineToken = {
   text: string;
@@ -11,12 +11,109 @@ type InlineToken = {
 
 type DashboardDetailDrawerProps = {
   detail: EventDetail | null;
+  selectedRow?: TableRow | null;
   canGenerateUserJourney?: boolean;
   isGeneratingUserJourney?: boolean;
   onGenerateUserJourney?: () => void;
   isOpen: boolean;
   onClose: () => void;
 };
+
+type ParameterDefinition = {
+  key: string;
+  label: string;
+  meaning: string;
+};
+
+type ParameterCategory = {
+  title: string;
+  descriptions: string[];
+  items: ParameterDefinition[];
+};
+
+const PARAMETER_CATEGORIES: ParameterCategory[] = [
+  {
+    title: 'Device / Browser',
+    descriptions: [],
+    items: [
+      { key: 'BN', label: 'Browser Name', meaning: 'Browser name/version' },
+      { key: 'UA', label: 'User-Agent', meaning: 'Full UA for device, fraud, and fingerprinting' },
+      { key: 'SR', label: 'Screen Resolution', meaning: 'Screen size' },
+      { key: 'VP', label: 'Viewport', meaning: 'Viewport size' },
+      { key: 'CD', label: 'Color Depth', meaning: 'Color depth (usually 24-bit)' },
+      { key: 'TZ', label: 'Timezone Offset', meaning: 'Offset in minutes (e.g. 240 = UTC-4)' },
+      { key: 'DE', label: 'Document Encoding', meaning: 'Page encoding' },
+      { key: 'MD', label: 'Mobile Device', meaning: 'Mobile device flag' },
+    ],
+  },
+  {
+    title: 'Page',
+    descriptions: [],
+    items: [
+      { key: 'DL', label: 'Document Location', meaning: 'Current page URL (often conversion page)' },
+      { key: 'DT', label: 'Document Title', meaning: 'Page title' },
+      { key: 'RL', label: 'Referrer / Redirect Location', meaning: 'Previous hop URL with callback/verification params' },
+    ],
+  },
+  {
+    title: 'Attribution',
+    descriptions: [],
+    items: [
+      { key: 'ID', label: 'Client ID', meaning: 'Client Matching Key' },
+      { key: 'UID', label: 'User ID', meaning: 'Unique User ID' },
+      { key: 'V', label: 'Protocol Version', meaning: 'Tracking protocol version' },
+      { key: 'ACTION', label: 'Action', meaning: 'Conversion action' },
+    ],
+  },
+  {
+    title: 'Ad Attribution',
+    descriptions: [],
+    items: [
+      { key: 'UTM_CAMPAIGN', label: 'UTM Campaign', meaning: 'Campaign name' },
+      { key: 'UTM_SOURCE', label: 'UTM Source', meaning: 'Traffic source' },
+      { key: 'UTM_MEDIUM', label: 'UTM Medium', meaning: 'Traffic medium' },
+      { key: 'UTM_CONTENT', label: 'UTM Content', meaning: 'Creative/content id' },
+      { key: 'UTM_TERM', label: 'UTM Term', meaning: 'Keyword term' },
+      { key: 'UTM_PARTNER', label: 'UTM Partner', meaning: 'Partner name' },
+    ],
+  }
+];
+
+function tryParseUrl(urlValue: string) {
+  try {
+    return new URL(urlValue);
+  } catch {
+    return null;
+  }
+}
+
+function collectUrlContextParams(urlValue: string) {
+  const result = new Map<string, string>();
+  const parsed = tryParseUrl(urlValue);
+  if (!parsed) return result;
+
+  parsed.searchParams.forEach((value, key) => {
+    const upperKey = key.toUpperCase();
+    if (!result.has(upperKey)) {
+      result.set(upperKey, value);
+    }
+  });
+
+  const rlRaw = result.get('RL');
+  if (rlRaw) {
+    const parsedRl = tryParseUrl(rlRaw);
+    if (parsedRl) {
+      parsedRl.searchParams.forEach((value, key) => {
+        const upperKey = key.toUpperCase();
+        if (!result.has(upperKey)) {
+          result.set(upperKey, value);
+        }
+      });
+    }
+  }
+
+  return result;
+}
 
 function renderInlineMarkdown(text: string) {
   const tokens: InlineToken[] = [];
@@ -188,12 +285,16 @@ function renderJourneyMarkdown(markdown: string) {
 
 export function DashboardDetailDrawer({
   detail,
+  selectedRow = null,
   canGenerateUserJourney = false,
   isGeneratingUserJourney = false,
   onGenerateUserJourney,
   isOpen,
   onClose,
 }: DashboardDetailDrawerProps) {
+  const [isFullLinkExpanded, setIsFullLinkExpanded] = useState(false);
+  const urlContextParams = useMemo(() => collectUrlContextParams(detail?.url || ''), [detail?.url]);
+
   if (!detail) {
     return null;
   }
@@ -234,19 +335,103 @@ export function DashboardDetailDrawer({
 
           <div className="space-y-8">
             <div>
-              <h3 className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500">
-                <span className="material-symbols-outlined text-sm">link</span>
-                URL Context
-              </h3>
-              <div className="break-all rounded-lg bg-slate-100 p-3">
-                <p className="font-mono text-[11px] leading-relaxed text-slate-700">{detail.url}</p>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500">
+                  <span className="material-symbols-outlined text-sm">tune</span>
+                  URL Parameter
+                </h3>
+                <button
+                  type="button"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-blue-700 hover:text-blue-800"
+                  onClick={() => setIsFullLinkExpanded((prev) => !prev)}
+                  aria-expanded={isFullLinkExpanded}
+                >
+                  {isFullLinkExpanded ? 'Hide full link' : 'Show full link'}
+                </button>
+              </div>
+              {isFullLinkExpanded ? (
+                <div className="mb-3 break-all rounded-lg bg-slate-100 p-3">
+                  <p className="font-mono text-[11px] leading-relaxed text-slate-700">{detail.url}</p>
+                </div>
+              ) : null}
+              <div className="space-y-3">
+                {PARAMETER_CATEGORIES.map((category) => {
+                  const isDeviceBrowser = category.title === 'Device / Browser';
+                  const isAttribution = category.title === 'Attribution';
+                  const isAdAttribution = category.title === 'Ad Attribution';
+                  const orderedItems = isDeviceBrowser
+                    ? [...category.items.filter((item) => item.key !== 'UA'), ...category.items.filter((item) => item.key === 'UA')]
+                    : category.items;
+                  const hasAnyAdAttributionValue = isAdAttribution
+                    ? category.items.some((item) => {
+                        const value = urlContextParams.get(item.key);
+                        return Boolean(value && value.trim());
+                      })
+                    : true;
+
+                  if (isAdAttribution && !hasAnyAdAttributionValue) {
+                    return null;
+                  }
+
+                  return (
+                    <section
+                      key={category.title}
+                      className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/40"
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-[11px] font-semibold text-slate-900">{category.title}</p>
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                          {category.items.length} fields
+                        </span>
+                      </div>
+                      {category.descriptions.length > 0 ? (
+                        <div className="px-3 pt-2">
+                          {category.descriptions.map((description) => (
+                            <p key={description} className="text-[10px] text-slate-500">
+                              {description}
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div
+                        className={
+                          isDeviceBrowser || isAttribution || isAdAttribution
+                            ? 'grid grid-cols-1 gap-1.5 p-2 sm:grid-cols-2'
+                            : 'space-y-1.5 p-2'
+                        }
+                      >
+                        {orderedItems.map((item) => (
+                          <div
+                            key={item.key}
+                            className={`rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 transition-colors hover:bg-slate-100 ${
+                              isDeviceBrowser && item.key === 'UA' ? 'sm:col-span-2' : ''
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="text-[10px] font-semibold text-slate-800">{item.label}</p>
+                                <p className="text-[10px] text-slate-500">{item.meaning}</p>
+                              </div>
+                              <span className="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-white">
+                                {item.key}
+                              </span>
+                            </div>
+                            <p className="mt-1.5 break-all rounded bg-white px-2 py-1 font-mono text-[10px] text-slate-700">
+                              {urlContextParams.get(item.key) || '--'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  );
+                })}
               </div>
             </div>
 
             <div>
               <h3 className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500">
                 <span className="material-symbols-outlined text-sm">rule_folder</span>
-                Rule Analysis
+                Refferr Categroy Rule
               </h3>
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-xs">
@@ -257,15 +442,23 @@ export function DashboardDetailDrawer({
             </div>
 
             <div>
-              <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">Extracted Parameters</h3>
-              <div className="space-y-2">
-                {detail.extractedParameters.map(([key, value]) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <span className="w-16 text-[10px] font-bold text-slate-400">{key}</span>
-                    <div className="h-0 flex-1 border-b border-dotted border-slate-300" />
-                    <span className="text-xs font-bold text-slate-900">{value}</span>
-                  </div>
-                ))}
+              <h3 className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase text-slate-500">
+                <span className="material-symbols-outlined text-sm">timeline</span>
+                Timeline
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">impression_time</span>
+                  <span className="font-bold text-slate-900">{selectedRow?.sourceTs || '--'}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">registration_time</span>
+                  <span className="font-bold text-slate-900">{selectedRow?.ts || '--'}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500">duration</span>
+                  <span className="font-mono font-bold text-slate-900">{selectedRow?.duration || '--'}</span>
+                </div>
               </div>
             </div>
 

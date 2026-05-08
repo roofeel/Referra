@@ -181,7 +181,12 @@ export default function NonAttributedReportsDetail() {
         </div>
       </main>
 
-      <DashboardDetailDrawer detail={selectedDetail} isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} />
+      <DashboardDetailDrawer
+        detail={selectedDetail}
+        selectedRow={selectedRow}
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+      />
     </div>
   );
 }
