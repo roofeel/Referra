@@ -294,6 +294,10 @@ export function DashboardDetailDrawer({
 }: DashboardDetailDrawerProps) {
   const [isFullLinkExpanded, setIsFullLinkExpanded] = useState(false);
   const urlContextParams = useMemo(() => collectUrlContextParams(detail?.url || ''), [detail?.url]);
+  const hasJourneyLogs = Boolean(detail?.journey && detail.journey.rows.length > 0);
+  const isGenerateUserJourneyDisabled =
+    !canGenerateUserJourney || isGeneratingUserJourney || !hasJourneyLogs;
+  const generateUserJourneyTooltip = !hasJourneyLogs ? 'journey logs empty' : undefined;
 
   if (!detail) {
     return null;
@@ -508,17 +512,19 @@ export function DashboardDetailDrawer({
 
             <div>
               <h3 className="mb-3 text-[10px] font-bold uppercase text-slate-500">User Journey</h3>
-              <button
-                type="button"
-                onClick={onGenerateUserJourney}
-                disabled={!canGenerateUserJourney || isGeneratingUserJourney}
-                className="mb-3 inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                <span className="material-symbols-outlined text-sm">
-                  {isGeneratingUserJourney ? 'progress_activity' : 'auto_awesome'}
-                </span>
-                {isGeneratingUserJourney ? 'Generating...' : 'Generate User Journey'}
-              </button>
+              <div className="mb-3 inline-block" title={generateUserJourneyTooltip}>
+                <button
+                  type="button"
+                  onClick={onGenerateUserJourney}
+                  disabled={isGenerateUserJourneyDisabled}
+                  className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {isGeneratingUserJourney ? 'progress_activity' : 'auto_awesome'}
+                  </span>
+                  {isGeneratingUserJourney ? 'Generating...' : 'Generate User Journey'}
+                </button>
+              </div>
               {detail.userJourneyDoc ? (
                 <div className="max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="space-y-2">{renderJourneyMarkdown(detail.userJourneyDoc)}</div>
