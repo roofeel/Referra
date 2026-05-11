@@ -5,6 +5,7 @@ type SidebarItemKey =
   | 'dashboard'
   | 'url-rules'
   | 'reports'
+  | 'manual-attributed'
   | 'non-attributed-reports'
   | 'mcp-docs';
 
@@ -22,6 +23,10 @@ const primarySidebarItems: SidebarItem[] = [
 const referrerTypeAnalysisItems: SidebarItem[] = [
   { key: 'reports', label: 'Attributed', icon: 'analytics', to: '/reports' },
   { key: 'non-attributed-reports', label: 'NonAttributed', icon: 'dataset', to: '/non-attributed-reports' },
+];
+
+const manualAttributionItems: SidebarItem[] = [
+  { key: 'manual-attributed', label: 'Attributed', icon: 'play_circle', to: '/manual-attribution/attributed' },
 ];
 
 const settingSidebarItems: SidebarItem[] = [
@@ -85,6 +90,35 @@ export function AppSidebar({ activeItem, ariaLabel }: AppSidebarProps) {
           <p className="px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">Referrer Type Anlysis</p>
           <div className="mt-1 space-y-1">
             {referrerTypeAnalysisItems.map((item) => {
+              const isActive = item.key === activeItem;
+
+              return (
+                <Link
+                  key={item.key}
+                  to={item.to}
+                  className={`flex items-center gap-3 py-2 pl-12 pr-6 transition-all ${
+                    isActive
+                      ? 'border-r-2 border-blue-500 bg-blue-700/20 text-white'
+                      : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
+                  }`}
+                >
+                  <span
+                    className={`material-symbols-outlined text-[18px] ${isActive ? 'text-blue-400' : ''}`}
+                    style={isActive ? { fontVariationSettings: "'FILL' 1" } : undefined}
+                  >
+                    {item.icon}
+                  </span>
+                  <span className="text-sm leading-relaxed">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <p className="px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">Manual Attribution</p>
+          <div className="mt-1 space-y-1">
+            {manualAttributionItems.map((item) => {
               const isActive = item.key === activeItem;
 
               return (
