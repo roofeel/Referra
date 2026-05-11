@@ -42,6 +42,10 @@ export const manualAttributionApi = {
     const query = params.toString();
     const response = await fetch(buildApiUrl(`/api/manual-attribution/attributed/jobs${query ? `?${query}` : ''}`));
 
+    if (response.status === 404) {
+      return { tasks: [] };
+    }
+
     if (!response.ok) {
       await throwApiError(response, 'Failed to list manual attribution jobs');
     }

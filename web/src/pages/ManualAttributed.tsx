@@ -188,6 +188,8 @@ export default function ManualAttributed() {
               <div className="p-8 text-sm text-slate-500">Loading manual attribution tasks...</div>
             ) : error ? (
               <div className="p-8 text-sm text-red-600">{error}</div>
+            ) : tasks.length === 0 ? (
+              <div className="p-8 text-sm text-slate-500">No manual attribution tasks yet. Click "New Manual Query" to create one.</div>
             ) : (
               <>
                 <div className="overflow-x-auto">
