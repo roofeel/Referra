@@ -20,8 +20,8 @@ export interface ManualAttributedJob {
 
 export interface CreateManualAttributedJobPayload {
   sqlTemplate: string;
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
   database?: string;
   workgroup?: string;
   resultS3?: string;

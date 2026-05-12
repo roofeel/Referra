@@ -17,10 +17,6 @@ function statusClass(status: ManualAttributedJob['status']) {
   return 'bg-slate-100 text-slate-700';
 }
 
-function todayYmd() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export default function ManualAttributed() {
   const toast = useToast();
   const [filters, setFilters] = useState({ search: '', status: '', startDate: '', endDate: '' });
@@ -29,8 +25,6 @@ export default function ManualAttributed() {
   const [error, setError] = useState<string | null>(null);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [startDate, setStartDate] = useState(todayYmd());
-  const [endDate, setEndDate] = useState(todayYmd());
   const [database, setDatabase] = useState('');
   const [workgroup, setWorkgroup] = useState('primary');
   const [resultS3, setResultS3] = useState('');
@@ -71,12 +65,8 @@ export default function ManualAttributed() {
   }, [loadTasks, tasks]);
 
   const renderedPreview = useMemo(() => {
-    return sqlTemplate
-      .replaceAll('{{start_date}}', startDate)
-      .replaceAll('{{end_date}}', endDate)
-      .replaceAll('{{start_ts}}', `${startDate} 00:00:00`)
-      .replaceAll('{{end_ts}}', `${endDate} 23:59:59`);
-  }, [endDate, sqlTemplate, startDate]);
+    return sqlTemplate;
+  }, [sqlTemplate]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -85,8 +75,6 @@ export default function ManualAttributed() {
     try {
       await api.manualAttribution.createAttributedJob({
         sqlTemplate,
-        startDate,
-        endDate,
         database: database || undefined,
         workgroup: workgroup || undefined,
         resultS3: resultS3 || undefined,
@@ -259,17 +247,10 @@ export default function ManualAttributed() {
                 <p className="text-xs text-slate-500">
                   Variables: <code>{'{{start_date}}'}</code>, <code>{'{{end_date}}'}</code>, <code>{'{{start_ts}}'}</code>, <code>{'{{end_ts}}'}</code>
                 </p>
+                <p className="mt-1 text-xs text-amber-700">
+                  Use template variables in SQL for dynamic execution. Keep these placeholders and inject actual dates at runtime.
+                </p>
                 <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="text-sm text-slate-700">
-                      Start Date
-                      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 h-9 w-full rounded border border-slate-300 px-3" required />
-                    </label>
-                    <label className="text-sm text-slate-700">
-                      End Date
-                      <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 h-9 w-full rounded border border-slate-300 px-3" required />
-                    </label>
-                  </div>
                   <div className="grid gap-4 md:grid-cols-3">
                     <label className="text-sm text-slate-700">
                       Athena Database

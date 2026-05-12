@@ -23,8 +23,8 @@ export type ManualAttributedJob = {
 
 type CreateManualAttributedJobOptions = {
   sqlTemplate: string;
-  startDate: string;
-  endDate: string;
+  startDate?: string;
+  endDate?: string;
   database: string;
   workgroup: string;
   resultS3: string;
@@ -46,7 +46,8 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function assertDate(dateValue: string, field: string) {
+function assertDate(dateValue: string | undefined, field: string) {
+  if (!dateValue) return;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
     throw new Error(`${field} must be YYYY-MM-DD`);
   }
@@ -96,12 +97,25 @@ function buildAwsClients() {
   };
 }
 
-function renderSql(template: string, startDate: string, endDate: string) {
-  return template
-    .replaceAll('{{start_date}}', startDate)
-    .replaceAll('{{end_date}}', endDate)
-    .replaceAll('{{start_ts}}', `${startDate} 00:00:00`)
-    .replaceAll('{{end_ts}}', `${endDate} 23:59:59`);
+function replaceToken(sql: string, token: string, value?: string) {
+  if (!value) return sql;
+  return sql.replaceAll(token, value);
+}
+
+function renderSql(template: string, startDate?: string, endDate?: string) {
+  return replaceToken(
+    replaceToken(
+      replaceToken(
+        replaceToken(template, '{{start_date}}', startDate),
+        '{{end_date}}',
+        endDate,
+      ),
+      '{{start_ts}}',
+      startDate ? `${startDate} 00:00:00` : undefined,
+    ),
+    '{{end_ts}}',
+    endDate ? `${endDate} 23:59:59` : undefined,
+  );
 }
 
 async function runJob(jobId: string) {
@@ -180,8 +194,8 @@ export function enqueueManualAttributedJob(options: CreateManualAttributedJobOpt
     status: 'pending',
     createdAt: now,
     updatedAt: now,
-    startDate: options.startDate,
-    endDate: options.endDate,
+    startDate: options.startDate || '',
+    endDate: options.endDate || '',
     database: options.database.trim(),
     workgroup: options.workgroup.trim(),
     resultS3: normalizeS3Uri(options.resultS3),

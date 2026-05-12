@@ -9,8 +9,8 @@ type RequestWithParams<T extends Record<string, string>> = Request & { params: T
 
 const createJobBodySchema = z.object({
   sqlTemplate: z.string().min(1),
-  startDate: z.string().min(1),
-  endDate: z.string().min(1),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   database: z.string().optional(),
   workgroup: z.string().optional(),
   resultS3: z.string().optional(),
