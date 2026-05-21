@@ -26,8 +26,6 @@ export type ManualAttributedJob = {
 type CreateManualAttributedJobOptions = {
   name?: string;
   sqlTemplate: string;
-  startDate?: string;
-  endDate?: string;
   database: string;
   workgroup: string;
   resultS3: string;
@@ -53,13 +51,6 @@ function buildDefaultJobName() {
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function assertDate(dateValue: string | undefined, field: string) {
-  if (!dateValue) return;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
-    throw new Error(`${field} must be YYYY-MM-DD`);
-  }
 }
 
 function normalizeS3Uri(raw: string) {
@@ -106,25 +97,8 @@ function buildAwsClients() {
   };
 }
 
-function replaceToken(sql: string, token: string, value?: string) {
-  if (!value) return sql;
-  return sql.replaceAll(token, value);
-}
-
-function renderSql(template: string, startDate?: string, endDate?: string) {
-  return replaceToken(
-    replaceToken(
-      replaceToken(
-        replaceToken(template, '{{start_date}}', startDate),
-        '{{end_date}}',
-        endDate,
-      ),
-      '{{start_ts}}',
-      startDate ? `${startDate} 00:00:00` : undefined,
-    ),
-    '{{end_ts}}',
-    endDate ? `${endDate} 23:59:59` : undefined,
-  );
+function renderSql(template: string) {
+  return template;
 }
 
 async function runJob(jobId: string) {
@@ -192,8 +166,6 @@ function validateJobOptions(options: CreateManualAttributedJobOptions) {
   const sqlTemplate = options.sqlTemplate.trim();
   if (name.length > 120) throw new Error('name must be 120 characters or less');
   if (!sqlTemplate) throw new Error('sqlTemplate is required');
-  assertDate(options.startDate, 'startDate');
-  assertDate(options.endDate, 'endDate');
   if (!options.database.trim()) throw new Error('database is required');
   if (!options.workgroup.trim()) throw new Error('workgroup is required');
   normalizeS3Uri(options.resultS3);
@@ -201,8 +173,8 @@ function validateJobOptions(options: CreateManualAttributedJobOptions) {
   return {
     name,
     sqlTemplate,
-    startDate: options.startDate || '',
-    endDate: options.endDate || '',
+    startDate: '',
+    endDate: '',
     database: options.database.trim(),
     workgroup: options.workgroup.trim(),
     resultS3: normalizeS3Uri(options.resultS3),
@@ -226,7 +198,7 @@ export function createManualAttributedJob(options: CreateManualAttributedJobOpti
     workgroup: validated.workgroup,
     resultS3: validated.resultS3,
     sqlTemplate: validated.sqlTemplate,
-    renderedSql: renderSql(validated.sqlTemplate, validated.startDate, validated.endDate),
+    renderedSql: renderSql(validated.sqlTemplate),
   };
   jobs.set(jobId, job);
 
@@ -240,16 +212,12 @@ export function updateManualAttributedJob(jobId: string, options: UpdateManualAt
   const next = validateJobOptions({
     name: options.name ?? existing.name,
     sqlTemplate: options.sqlTemplate ?? existing.sqlTemplate,
-    startDate: options.startDate ?? existing.startDate,
-    endDate: options.endDate ?? existing.endDate,
     database: options.database ?? existing.database,
     workgroup: options.workgroup ?? existing.workgroup,
     resultS3: options.resultS3 ?? existing.resultS3,
   });
   const executionInputsChanged =
     next.sqlTemplate !== existing.sqlTemplate ||
-    next.startDate !== existing.startDate ||
-    next.endDate !== existing.endDate ||
     next.database !== existing.database ||
     next.workgroup !== existing.workgroup ||
     next.resultS3 !== existing.resultS3;
@@ -261,7 +229,7 @@ export function updateManualAttributedJob(jobId: string, options: UpdateManualAt
     queryExecutionId: executionInputsChanged ? undefined : existing.queryExecutionId,
     downloadUrl: executionInputsChanged ? undefined : existing.downloadUrl,
     error: executionInputsChanged ? undefined : existing.error,
-    renderedSql: renderSql(next.sqlTemplate, next.startDate, next.endDate),
+    renderedSql: renderSql(next.sqlTemplate),
     updatedAt: nowIso(),
   };
   jobs.set(jobId, updated);

@@ -12,8 +12,6 @@ type RequestWithParams<T extends Record<string, string>> = Request & { params: T
 const createJobBodySchema = z.object({
   name: z.string().trim().max(120).optional(),
   sqlTemplate: z.string().min(1),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
   database: z.string().optional(),
   workgroup: z.string().optional(),
   resultS3: z.string().optional(),
@@ -22,8 +20,6 @@ const createJobBodySchema = z.object({
 const updateJobBodySchema = z.object({
   name: z.string().trim().max(120).optional(),
   sqlTemplate: z.string().min(1).optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
   database: z.string().optional(),
   workgroup: z.string().optional(),
   resultS3: z.string().optional(),
@@ -67,8 +63,6 @@ export const manualAttributedController = {
       const job = createManualAttributedJob({
         name: body.name,
         sqlTemplate: body.sqlTemplate,
-        startDate: body.startDate,
-        endDate: body.endDate,
         ...defaults,
       });
       return Response.json(job, { status: 201 });

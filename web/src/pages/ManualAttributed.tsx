@@ -7,7 +7,6 @@ import type { ManualAttributedJob } from '../service/manualAttribution';
 
 const DEFAULT_SQL_TEMPLATE = `SELECT *
 FROM your_database.your_table
-WHERE date(event_time) BETWEEN date '{{start_date}}' AND date '{{end_date}}'
 LIMIT 1000`;
 
 function statusClass(status: ManualAttributedJob['status']) {
@@ -27,8 +26,6 @@ export default function ManualAttributed() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<ManualAttributedJob | null>(null);
   const [jobName, setJobName] = useState('');
-  const [jobStartDate, setJobStartDate] = useState('');
-  const [jobEndDate, setJobEndDate] = useState('');
   const [database, setDatabase] = useState('default');
   const [workgroup, setWorkgroup] = useState('primary');
   const [resultS3, setResultS3] = useState('');
@@ -69,19 +66,11 @@ export default function ManualAttributed() {
     return () => window.clearInterval(timer);
   }, [loadTasks, tasks]);
 
-  const renderedPreview = useMemo(() => {
-    return sqlTemplate
-      .replaceAll('{{start_date}}', jobStartDate)
-      .replaceAll('{{end_date}}', jobEndDate)
-      .replaceAll('{{start_ts}}', jobStartDate ? `${jobStartDate} 00:00:00` : '')
-      .replaceAll('{{end_ts}}', jobEndDate ? `${jobEndDate} 23:59:59` : '');
-  }, [jobEndDate, jobStartDate, sqlTemplate]);
+  const renderedPreview = useMemo(() => sqlTemplate, [sqlTemplate]);
 
   function resetForm() {
     setEditingJob(null);
     setJobName('');
-    setJobStartDate('');
-    setJobEndDate('');
     setDatabase('default');
     setWorkgroup('primary');
     setResultS3('');
@@ -96,8 +85,6 @@ export default function ManualAttributed() {
   function handleOpenEdit(job: ManualAttributedJob) {
     setEditingJob(job);
     setJobName(job.name || '');
-    setJobStartDate(job.startDate || '');
-    setJobEndDate(job.endDate || '');
     setDatabase(job.database || 'default');
     setWorkgroup(job.workgroup || 'primary');
     setResultS3(job.resultS3 || '');
@@ -123,8 +110,6 @@ export default function ManualAttributed() {
       const payload = {
         name,
         sqlTemplate,
-        startDate: jobStartDate || undefined,
-        endDate: jobEndDate || undefined,
         database: database || undefined,
         workgroup: workgroup || undefined,
         resultS3: resultS3 || undefined,
@@ -333,12 +318,6 @@ export default function ManualAttributed() {
                 </button>
               </div>
               <div className="h-[calc(100%-4rem)] overflow-y-auto p-6">
-                <p className="text-xs text-slate-500">
-                  Variables: <code>{'{{start_date}}'}</code>, <code>{'{{end_date}}'}</code>, <code>{'{{start_ts}}'}</code>, <code>{'{{end_ts}}'}</code>
-                </p>
-                <p className="mt-1 text-xs text-amber-700">
-                  Use template variables in SQL for dynamic execution. Keep these placeholders and inject actual dates at runtime.
-                </p>
                 <details className="mt-3 rounded border border-sky-200 bg-sky-50 p-3">
                   <summary className="cursor-pointer text-sm font-semibold text-sky-900">Table Naming Rule (Monthly)</summary>
                   <div className="mt-2 space-y-2 text-xs text-slate-700">
@@ -382,16 +361,6 @@ JOIN (
                     <label className="text-sm text-slate-700">
                       Athena Result S3
                       <input value={resultS3} onChange={(e) => setResultS3(e.target.value)} placeholder="s3://bucket/prefix/" className="mt-1 h-9 w-full rounded border border-slate-300 px-3" />
-                    </label>
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="text-sm text-slate-700">
-                      Start Date
-                      <input type="date" value={jobStartDate} onChange={(e) => setJobStartDate(e.target.value)} className="mt-1 h-9 w-full rounded border border-slate-300 px-3" />
-                    </label>
-                    <label className="text-sm text-slate-700">
-                      End Date
-                      <input type="date" value={jobEndDate} onChange={(e) => setJobEndDate(e.target.value)} className="mt-1 h-9 w-full rounded border border-slate-300 px-3" />
                     </label>
                   </div>
                   <label className="block text-sm text-slate-700">
