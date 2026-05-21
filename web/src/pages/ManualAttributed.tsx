@@ -86,12 +86,12 @@ export default function ManualAttributed() {
         workgroup: workgroup || undefined,
         resultS3: resultS3 || undefined,
       });
-      toast.success('Athena job started');
+      toast.success('Manual attribution job saved');
       setJobName('');
       setIsCreateOpen(false);
       await loadTasks();
     } catch (submitError) {
-      toast.error(submitError instanceof Error ? submitError.message : 'Failed to start Athena job');
+      toast.error(submitError instanceof Error ? submitError.message : 'Failed to save manual attribution job');
     } finally {
       setIsSubmitting(false);
     }
@@ -205,8 +205,6 @@ export default function ManualAttributed() {
                         <tr key={task.jobId} className="transition-colors hover:bg-slate-50">
                           <td className="px-6 py-4">
                             <p className="text-sm font-bold text-slate-900">{task.name || task.jobId}</p>
-                            <p className="text-[10px] text-slate-500">ID: {task.jobId}</p>
-                            <p className="text-[10px] text-slate-500">DB: {task.database}</p>
                           </td>
                           <td className="px-6 py-4 text-xs text-slate-600">
                             <p>QueryExecutionId: {task.queryExecutionId || '-'}</p>
@@ -313,7 +311,7 @@ JOIN (
                     <pre className="mt-3 overflow-auto whitespace-pre-wrap rounded bg-slate-900 p-3 text-xs text-slate-100">{renderedPreview}</pre>
                   </details>
                   <button disabled={isSubmitting} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-                    {isSubmitting ? 'Starting...' : 'Start Async Fetch'}
+                    {isSubmitting ? 'Saving...' : 'Save'}
                   </button>
                 </form>
               </div>
