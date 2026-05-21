@@ -18,7 +18,7 @@ const createJobBodySchema = z.object({
 });
 
 function resolveDefaults(body: z.infer<typeof createJobBodySchema>) {
-  const database = (body.database || process.env.ATHENA_DATABASE || '').trim();
+  const database = (body.database || process.env.ATHENA_DATABASE || 'default').trim();
   const workgroup = (body.workgroup || process.env.ATHENA_WORKGROUP || 'primary').trim();
   const resultS3 = (body.resultS3 || process.env.ATHENA_OUTPUT_LOCATION || '').trim();
 

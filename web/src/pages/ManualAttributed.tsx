@@ -26,7 +26,7 @@ export default function ManualAttributed() {
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [jobName, setJobName] = useState('');
-  const [database, setDatabase] = useState('');
+  const [database, setDatabase] = useState('default');
   const [workgroup, setWorkgroup] = useState('primary');
   const [resultS3, setResultS3] = useState('');
   const [sqlTemplate, setSqlTemplate] = useState(DEFAULT_SQL_TEMPLATE);
