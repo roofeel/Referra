@@ -273,7 +273,7 @@ JOIN (
                   <div className="grid gap-4 md:grid-cols-3">
                     <label className="text-sm text-slate-700">
                       Athena Database
-                      <input value={database} onChange={(e) => setDatabase(e.target.value)} placeholder="ATHENA_DATABASE" className="mt-1 h-9 w-full rounded border border-slate-300 px-3" />
+                      <input value={database} onChange={(e) => setDatabase(e.target.value)} className="mt-1 h-9 w-full rounded border border-slate-300 px-3" />
                     </label>
                     <label className="text-sm text-slate-700">
                       Workgroup
