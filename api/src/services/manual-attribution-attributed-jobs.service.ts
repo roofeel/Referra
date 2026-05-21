@@ -3,7 +3,7 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-export type ManualAttributedJobStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type ManualAttributedJobStatus = 'draft' | 'pending' | 'running' | 'completed' | 'failed';
 
 export type ManualAttributedJob = {
   jobId: string;
@@ -189,7 +189,7 @@ export function createManualAttributedJob(options: CreateManualAttributedJobOpti
   const job: ManualAttributedJob = {
     jobId,
     name: validated.name,
-    status: 'pending',
+    status: 'draft',
     createdAt: now,
     updatedAt: now,
     startDate: validated.startDate,
@@ -225,7 +225,7 @@ export function updateManualAttributedJob(jobId: string, options: UpdateManualAt
   const updated: ManualAttributedJob = {
     ...existing,
     ...next,
-    status: executionInputsChanged ? 'pending' : existing.status,
+    status: executionInputsChanged ? 'draft' : existing.status,
     queryExecutionId: executionInputsChanged ? undefined : existing.queryExecutionId,
     downloadUrl: executionInputsChanged ? undefined : existing.downloadUrl,
     error: executionInputsChanged ? undefined : existing.error,

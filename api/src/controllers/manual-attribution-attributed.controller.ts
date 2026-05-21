@@ -45,7 +45,7 @@ export const manualAttributedController = {
     const url = new URL(req.url);
     const statusRaw = (url.searchParams.get('status') || '').trim().toLowerCase();
     const status =
-      statusRaw === 'pending' || statusRaw === 'running' || statusRaw === 'completed' || statusRaw === 'failed'
+      statusRaw === 'draft' || statusRaw === 'pending' || statusRaw === 'running' || statusRaw === 'completed' || statusRaw === 'failed'
         ? statusRaw
         : undefined;
     const search = url.searchParams.get('search')?.trim() || '';

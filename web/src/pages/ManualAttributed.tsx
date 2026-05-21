@@ -10,6 +10,7 @@ FROM your_database.your_table
 LIMIT 1000`;
 
 function statusClass(status: ManualAttributedJob['status']) {
+  if (status === 'draft') return 'bg-amber-100 text-amber-700';
   if (status === 'completed') return 'bg-emerald-100 text-emerald-700';
   if (status === 'failed') return 'bg-red-100 text-red-700';
   if (status === 'running') return 'bg-blue-100 text-blue-700';
@@ -185,6 +186,7 @@ export default function ManualAttributed() {
                   className="mt-1 h-8 w-full rounded-md border-none bg-slate-100 px-2.5 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
                 >
                   <option value="">All Statuses</option>
+                  <option value="draft">Draft</option>
                   <option value="pending">Pending</option>
                   <option value="running">Running</option>
                   <option value="completed">Completed</option>

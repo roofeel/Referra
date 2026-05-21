@@ -1,6 +1,6 @@
 import { buildApiUrl, throwApiError } from './http';
 
-export type ManualAttributedJobStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type ManualAttributedJobStatus = 'draft' | 'pending' | 'running' | 'completed' | 'failed';
 
 export interface ManualAttributedJob {
   jobId: string;
