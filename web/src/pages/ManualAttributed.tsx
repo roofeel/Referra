@@ -25,12 +25,16 @@ export default function ManualAttributed() {
   const [error, setError] = useState<string | null>(null);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingJob, setEditingJob] = useState<ManualAttributedJob | null>(null);
   const [jobName, setJobName] = useState('');
+  const [jobStartDate, setJobStartDate] = useState('');
+  const [jobEndDate, setJobEndDate] = useState('');
   const [database, setDatabase] = useState('default');
   const [workgroup, setWorkgroup] = useState('primary');
   const [resultS3, setResultS3] = useState('');
   const [sqlTemplate, setSqlTemplate] = useState(DEFAULT_SQL_TEMPLATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
     setIsLoading(true);
@@ -66,8 +70,45 @@ export default function ManualAttributed() {
   }, [loadTasks, tasks]);
 
   const renderedPreview = useMemo(() => {
-    return sqlTemplate;
-  }, [sqlTemplate]);
+    return sqlTemplate
+      .replaceAll('{{start_date}}', jobStartDate)
+      .replaceAll('{{end_date}}', jobEndDate)
+      .replaceAll('{{start_ts}}', jobStartDate ? `${jobStartDate} 00:00:00` : '')
+      .replaceAll('{{end_ts}}', jobEndDate ? `${jobEndDate} 23:59:59` : '');
+  }, [jobEndDate, jobStartDate, sqlTemplate]);
+
+  function resetForm() {
+    setEditingJob(null);
+    setJobName('');
+    setJobStartDate('');
+    setJobEndDate('');
+    setDatabase('default');
+    setWorkgroup('primary');
+    setResultS3('');
+    setSqlTemplate(DEFAULT_SQL_TEMPLATE);
+  }
+
+  function handleOpenCreate() {
+    resetForm();
+    setIsCreateOpen(true);
+  }
+
+  function handleOpenEdit(job: ManualAttributedJob) {
+    setEditingJob(job);
+    setJobName(job.name || '');
+    setJobStartDate(job.startDate || '');
+    setJobEndDate(job.endDate || '');
+    setDatabase(job.database || 'default');
+    setWorkgroup(job.workgroup || 'primary');
+    setResultS3(job.resultS3 || '');
+    setSqlTemplate(job.sqlTemplate || job.renderedSql || DEFAULT_SQL_TEMPLATE);
+    setIsCreateOpen(true);
+  }
+
+  function handleCloseDrawer() {
+    setIsCreateOpen(false);
+    resetForm();
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -79,21 +120,47 @@ export default function ManualAttributed() {
     setIsSubmitting(true);
 
     try {
-      await api.manualAttribution.createAttributedJob({
+      const payload = {
         name,
         sqlTemplate,
+        startDate: jobStartDate || undefined,
+        endDate: jobEndDate || undefined,
         database: database || undefined,
         workgroup: workgroup || undefined,
         resultS3: resultS3 || undefined,
-      });
-      toast.success('Manual attribution job saved');
-      setJobName('');
-      setIsCreateOpen(false);
+      };
+      if (editingJob) {
+        await api.manualAttribution.updateAttributedJob(editingJob.jobId, payload);
+        toast.success('Manual attribution job updated');
+      } else {
+        await api.manualAttribution.createAttributedJob(payload);
+        toast.success('Manual attribution job saved');
+      }
+      handleCloseDrawer();
       await loadTasks();
     } catch (submitError) {
       toast.error(submitError instanceof Error ? submitError.message : 'Failed to save manual attribution job');
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleDelete(job: ManualAttributedJob) {
+    const confirmed = window.confirm(`Delete "${job.name || job.jobId}"?`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingJobId(job.jobId);
+      await api.manualAttribution.deleteAttributedJob(job.jobId);
+      setTasks((prev) => prev.filter((item) => item.jobId !== job.jobId));
+      if (editingJob?.jobId === job.jobId) {
+        handleCloseDrawer();
+      }
+      toast.success('Manual attribution job deleted');
+    } catch (deleteError) {
+      toast.error(deleteError instanceof Error ? deleteError.message : 'Failed to delete manual attribution job');
+    } finally {
+      setDeletingJobId(null);
     }
   }
 
@@ -114,7 +181,7 @@ export default function ManualAttributed() {
           </div>
           <button
             type="button"
-            onClick={() => setIsCreateOpen(true)}
+            onClick={handleOpenCreate}
             className="flex items-center gap-1.5 rounded-md bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-800"
           >
             <span className="material-symbols-outlined text-base">add</span>
@@ -218,13 +285,28 @@ export default function ManualAttributed() {
                           <td className="px-6 py-4 text-xs text-slate-700">{task.startDate} ~ {task.endDate}</td>
                           <td className="px-6 py-4 text-xs text-slate-500">{new Date(task.createdAt).toLocaleString()}</td>
                           <td className="px-6 py-4 text-right">
-                            {task.downloadUrl ? (
-                              <a href={task.downloadUrl} target="_blank" rel="noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">
-                                Download
-                              </a>
-                            ) : (
-                              <span className="text-xs text-slate-400">-</span>
-                            )}
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEdit(task)}
+                                className="rounded bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                disabled={deletingJobId === task.jobId}
+                                onClick={() => void handleDelete(task)}
+                                className="rounded bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60"
+                              >
+                                {deletingJobId === task.jobId ? 'Deleting...' : 'Delete'}
+                              </button>
+                              {task.downloadUrl ? (
+                                <a href={task.downloadUrl} target="_blank" rel="noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">
+                                  Download
+                                </a>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -239,14 +321,14 @@ export default function ManualAttributed() {
 
         {isCreateOpen ? (
           <>
-            <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setIsCreateOpen(false)} aria-hidden="true" />
+            <div className="fixed inset-0 z-40 bg-black/30" onClick={handleCloseDrawer} aria-hidden="true" />
             <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-3xl border-l border-slate-200 bg-white shadow-2xl">
               <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Manual Attribution</p>
-                  <h3 className="text-sm font-bold text-slate-900">Create Manual Attribution Job</h3>
+                  <h3 className="text-sm font-bold text-slate-900">{editingJob ? 'Edit Manual Attribution Job' : 'Create Manual Attribution Job'}</h3>
                 </div>
-                <button type="button" className="rounded p-2 text-slate-500 hover:bg-slate-100" onClick={() => setIsCreateOpen(false)} aria-label="Close drawer">
+                <button type="button" className="rounded p-2 text-slate-500 hover:bg-slate-100" onClick={handleCloseDrawer} aria-label="Close drawer">
                   <span className="material-symbols-outlined text-base">close</span>
                 </button>
               </div>
@@ -300,6 +382,16 @@ JOIN (
                     <label className="text-sm text-slate-700">
                       Athena Result S3
                       <input value={resultS3} onChange={(e) => setResultS3(e.target.value)} placeholder="s3://bucket/prefix/" className="mt-1 h-9 w-full rounded border border-slate-300 px-3" />
+                    </label>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="text-sm text-slate-700">
+                      Start Date
+                      <input type="date" value={jobStartDate} onChange={(e) => setJobStartDate(e.target.value)} className="mt-1 h-9 w-full rounded border border-slate-300 px-3" />
+                    </label>
+                    <label className="text-sm text-slate-700">
+                      End Date
+                      <input type="date" value={jobEndDate} onChange={(e) => setJobEndDate(e.target.value)} className="mt-1 h-9 w-full rounded border border-slate-300 px-3" />
                     </label>
                   </div>
                   <label className="block text-sm text-slate-700">

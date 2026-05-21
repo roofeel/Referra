@@ -7,5 +7,7 @@ export const manualAttributionRoutes = {
   },
   '/api/manual-attribution/attributed/jobs/:jobId': {
     GET: manualAttributedController.getJob,
+    PUT: manualAttributedController.updateJob,
+    DELETE: manualAttributedController.deleteJob,
   },
 };

@@ -16,6 +16,7 @@ export type ManualAttributedJob = {
   database: string;
   workgroup: string;
   resultS3: string;
+  sqlTemplate: string;
   renderedSql: string;
   queryExecutionId?: string;
   downloadUrl?: string;
@@ -31,6 +32,8 @@ type CreateManualAttributedJobOptions = {
   workgroup: string;
   resultS3: string;
 };
+
+type UpdateManualAttributedJobOptions = Partial<CreateManualAttributedJobOptions>;
 
 const PRESIGNED_TTL_SECONDS = 60 * 60 * 24;
 const POLL_INTERVAL_MS = 2000;
@@ -184,7 +187,7 @@ async function runJob(jobId: string) {
   }
 }
 
-export function enqueueManualAttributedJob(options: CreateManualAttributedJobOptions) {
+function validateJobOptions(options: CreateManualAttributedJobOptions) {
   const name = options.name?.trim() || buildDefaultJobName();
   const sqlTemplate = options.sqlTemplate.trim();
   if (name.length > 120) throw new Error('name must be 120 characters or less');
@@ -195,25 +198,78 @@ export function enqueueManualAttributedJob(options: CreateManualAttributedJobOpt
   if (!options.workgroup.trim()) throw new Error('workgroup is required');
   normalizeS3Uri(options.resultS3);
 
-  const jobId = buildJobId();
-  const now = nowIso();
-  const job: ManualAttributedJob = {
-    jobId,
+  return {
     name,
-    status: 'pending',
-    createdAt: now,
-    updatedAt: now,
+    sqlTemplate,
     startDate: options.startDate || '',
     endDate: options.endDate || '',
     database: options.database.trim(),
     workgroup: options.workgroup.trim(),
     resultS3: normalizeS3Uri(options.resultS3),
-    renderedSql: renderSql(sqlTemplate, options.startDate, options.endDate),
+  };
+}
+
+export function createManualAttributedJob(options: CreateManualAttributedJobOptions) {
+  const validated = validateJobOptions(options);
+
+  const jobId = buildJobId();
+  const now = nowIso();
+  const job: ManualAttributedJob = {
+    jobId,
+    name: validated.name,
+    status: 'pending',
+    createdAt: now,
+    updatedAt: now,
+    startDate: validated.startDate,
+    endDate: validated.endDate,
+    database: validated.database,
+    workgroup: validated.workgroup,
+    resultS3: validated.resultS3,
+    sqlTemplate: validated.sqlTemplate,
+    renderedSql: renderSql(validated.sqlTemplate, validated.startDate, validated.endDate),
   };
   jobs.set(jobId, job);
-  void runJob(jobId);
 
   return job;
+}
+
+export function updateManualAttributedJob(jobId: string, options: UpdateManualAttributedJobOptions) {
+  const existing = jobs.get(jobId);
+  if (!existing) return null;
+
+  const next = validateJobOptions({
+    name: options.name ?? existing.name,
+    sqlTemplate: options.sqlTemplate ?? existing.sqlTemplate,
+    startDate: options.startDate ?? existing.startDate,
+    endDate: options.endDate ?? existing.endDate,
+    database: options.database ?? existing.database,
+    workgroup: options.workgroup ?? existing.workgroup,
+    resultS3: options.resultS3 ?? existing.resultS3,
+  });
+  const executionInputsChanged =
+    next.sqlTemplate !== existing.sqlTemplate ||
+    next.startDate !== existing.startDate ||
+    next.endDate !== existing.endDate ||
+    next.database !== existing.database ||
+    next.workgroup !== existing.workgroup ||
+    next.resultS3 !== existing.resultS3;
+
+  const updated: ManualAttributedJob = {
+    ...existing,
+    ...next,
+    status: executionInputsChanged ? 'pending' : existing.status,
+    queryExecutionId: executionInputsChanged ? undefined : existing.queryExecutionId,
+    downloadUrl: executionInputsChanged ? undefined : existing.downloadUrl,
+    error: executionInputsChanged ? undefined : existing.error,
+    renderedSql: renderSql(next.sqlTemplate, next.startDate, next.endDate),
+    updatedAt: nowIso(),
+  };
+  jobs.set(jobId, updated);
+  return updated;
+}
+
+export function deleteManualAttributedJob(jobId: string) {
+  return jobs.delete(jobId);
 }
 
 export function getManualAttributedJob(jobId: string) {

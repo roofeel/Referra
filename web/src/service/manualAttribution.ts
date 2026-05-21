@@ -13,6 +13,7 @@ export interface ManualAttributedJob {
   database: string;
   workgroup: string;
   resultS3: string;
+  sqlTemplate: string;
   renderedSql: string;
   queryExecutionId?: string;
   downloadUrl?: string;
@@ -28,6 +29,8 @@ export interface CreateManualAttributedJobPayload {
   workgroup?: string;
   resultS3?: string;
 }
+
+export type UpdateManualAttributedJobPayload = Partial<CreateManualAttributedJobPayload>;
 
 export const manualAttributionApi = {
   listAttributedJobs: async (options?: {
@@ -77,5 +80,29 @@ export const manualAttributionApi = {
     }
 
     return response.json();
+  },
+
+  updateAttributedJob: async (jobId: string, payload: UpdateManualAttributedJobPayload): Promise<ManualAttributedJob> => {
+    const response = await fetch(buildApiUrl(`/api/manual-attribution/attributed/jobs/${jobId}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to update manual attribution job');
+    }
+
+    return response.json();
+  },
+
+  deleteAttributedJob: async (jobId: string): Promise<void> => {
+    const response = await fetch(buildApiUrl(`/api/manual-attribution/attributed/jobs/${jobId}`), {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to delete manual attribution job');
+    }
   },
 };

@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import {
-  enqueueManualAttributedJob,
+  createManualAttributedJob,
+  deleteManualAttributedJob,
   listManualAttributedJobs,
   getManualAttributedJob,
+  updateManualAttributedJob,
 } from '../services/manual-attribution-attributed-jobs.service.js';
 
 type RequestWithParams<T extends Record<string, string>> = Request & { params: T };
@@ -10,6 +12,16 @@ type RequestWithParams<T extends Record<string, string>> = Request & { params: T
 const createJobBodySchema = z.object({
   name: z.string().trim().max(120).optional(),
   sqlTemplate: z.string().min(1),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  database: z.string().optional(),
+  workgroup: z.string().optional(),
+  resultS3: z.string().optional(),
+});
+
+const updateJobBodySchema = z.object({
+  name: z.string().trim().max(120).optional(),
+  sqlTemplate: z.string().min(1).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   database: z.string().optional(),
@@ -52,14 +64,14 @@ export const manualAttributedController = {
     try {
       const body = createJobBodySchema.parse(await req.json());
       const defaults = resolveDefaults(body);
-      const job = enqueueManualAttributedJob({
+      const job = createManualAttributedJob({
         name: body.name,
         sqlTemplate: body.sqlTemplate,
         startDate: body.startDate,
         endDate: body.endDate,
         ...defaults,
       });
-      return Response.json(job, { status: 202 });
+      return Response.json(job, { status: 201 });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create manual attribution job';
       return Response.json({ error: message }, { status: 400 });
@@ -73,5 +85,38 @@ export const manualAttributedController = {
       return Response.json({ error: 'Job not found' }, { status: 404 });
     }
     return Response.json(job);
+  },
+
+  updateJob: async (req: Request) => {
+    const request = req as RequestWithParams<{ jobId: string }>;
+    try {
+      const body = updateJobBodySchema.parse(await req.json());
+      const current = getManualAttributedJob(request.params.jobId);
+      if (!current) {
+        return Response.json({ error: 'Job not found' }, { status: 404 });
+      }
+
+      const resolved = {
+        ...body,
+        database: body.database === undefined ? current.database : body.database,
+        workgroup: body.workgroup === undefined ? current.workgroup : body.workgroup,
+        resultS3: body.resultS3 === undefined ? current.resultS3 : body.resultS3,
+        sqlTemplate: body.sqlTemplate === undefined ? current.sqlTemplate : body.sqlTemplate,
+      };
+      const updated = updateManualAttributedJob(request.params.jobId, resolved);
+      return Response.json(updated);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to update manual attribution job';
+      return Response.json({ error: message }, { status: 400 });
+    }
+  },
+
+  deleteJob: async (req: Request) => {
+    const request = req as RequestWithParams<{ jobId: string }>;
+    const deleted = deleteManualAttributedJob(request.params.jobId);
+    if (!deleted) {
+      return Response.json({ error: 'Job not found' }, { status: 404 });
+    }
+    return new Response(null, { status: 204 });
   },
 };
