@@ -4,6 +4,7 @@ export type ManualAttributedJobStatus = 'pending' | 'running' | 'completed' | 'f
 
 export interface ManualAttributedJob {
   jobId: string;
+  name: string;
   status: ManualAttributedJobStatus;
   createdAt: string;
   updatedAt: string;
@@ -19,6 +20,7 @@ export interface ManualAttributedJob {
 }
 
 export interface CreateManualAttributedJobPayload {
+  name?: string;
   sqlTemplate: string;
   startDate?: string;
   endDate?: string;

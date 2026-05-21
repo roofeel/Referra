@@ -7,6 +7,7 @@ export type ManualAttributedJobStatus = 'pending' | 'running' | 'completed' | 'f
 
 export type ManualAttributedJob = {
   jobId: string;
+  name: string;
   status: ManualAttributedJobStatus;
   createdAt: string;
   updatedAt: string;
@@ -22,6 +23,7 @@ export type ManualAttributedJob = {
 };
 
 type CreateManualAttributedJobOptions = {
+  name?: string;
   sqlTemplate: string;
   startDate?: string;
   endDate?: string;
@@ -40,6 +42,10 @@ function nowIso() {
 
 function buildJobId() {
   return `manual_attr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildDefaultJobName() {
+  return `Manual Attribution ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`;
 }
 
 function sleep(ms: number) {
@@ -179,7 +185,9 @@ async function runJob(jobId: string) {
 }
 
 export function enqueueManualAttributedJob(options: CreateManualAttributedJobOptions) {
+  const name = options.name?.trim() || buildDefaultJobName();
   const sqlTemplate = options.sqlTemplate.trim();
+  if (name.length > 120) throw new Error('name must be 120 characters or less');
   if (!sqlTemplate) throw new Error('sqlTemplate is required');
   assertDate(options.startDate, 'startDate');
   assertDate(options.endDate, 'endDate');
@@ -191,6 +199,7 @@ export function enqueueManualAttributedJob(options: CreateManualAttributedJobOpt
   const now = nowIso();
   const job: ManualAttributedJob = {
     jobId,
+    name,
     status: 'pending',
     createdAt: now,
     updatedAt: now,
@@ -228,6 +237,7 @@ export function listManualAttributedJobs(options?: {
       if (search) {
         const hit =
           job.jobId.toLowerCase().includes(search) ||
+          (job.name || '').toLowerCase().includes(search) ||
           (job.queryExecutionId || '').toLowerCase().includes(search) ||
           job.database.toLowerCase().includes(search);
         if (!hit) return false;

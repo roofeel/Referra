@@ -25,6 +25,7 @@ export default function ManualAttributed() {
   const [error, setError] = useState<string | null>(null);
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [jobName, setJobName] = useState('');
   const [database, setDatabase] = useState('');
   const [workgroup, setWorkgroup] = useState('primary');
   const [resultS3, setResultS3] = useState('');
@@ -70,16 +71,23 @@ export default function ManualAttributed() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const name = jobName.trim();
+    if (!name) {
+      toast.error('Job name is required');
+      return;
+    }
     setIsSubmitting(true);
 
     try {
       await api.manualAttribution.createAttributedJob({
+        name,
         sqlTemplate,
         database: database || undefined,
         workgroup: workgroup || undefined,
         resultS3: resultS3 || undefined,
       });
       toast.success('Athena job started');
+      setJobName('');
       setIsCreateOpen(false);
       await loadTasks();
     } catch (submitError) {
@@ -100,7 +108,7 @@ export default function ManualAttributed() {
               type="text"
               value={filters.search}
               onChange={(event) => setFilters((prev) => ({ ...prev, search: event.target.value }))}
-              placeholder="Search by jobId / queryExecutionId / database"
+              placeholder="Search by name / jobId / queryExecutionId / database"
               className="h-10 w-full rounded-lg border-none bg-slate-100 py-2 pl-10 pr-4 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
             />
           </div>
@@ -184,7 +192,7 @@ export default function ManualAttributed() {
                   <table className="w-full min-w-[980px] border-collapse text-left">
                     <thead>
                       <tr className="bg-slate-100">
-                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Job ID</th>
+                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Job</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Athena</th>
                         <th className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Date Range</th>
@@ -196,7 +204,8 @@ export default function ManualAttributed() {
                       {tasks.map((task) => (
                         <tr key={task.jobId} className="transition-colors hover:bg-slate-50">
                           <td className="px-6 py-4">
-                            <p className="text-sm font-bold text-slate-900">{task.jobId}</p>
+                            <p className="text-sm font-bold text-slate-900">{task.name || task.jobId}</p>
+                            <p className="text-[10px] text-slate-500">ID: {task.jobId}</p>
                             <p className="text-[10px] text-slate-500">DB: {task.database}</p>
                           </td>
                           <td className="px-6 py-4 text-xs text-slate-600">
@@ -270,6 +279,17 @@ JOIN (
                   </div>
                 </details>
                 <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
+                  <label className="block text-sm text-slate-700">
+                    Job Name
+                    <input
+                      value={jobName}
+                      onChange={(e) => setJobName(e.target.value)}
+                      maxLength={120}
+                      placeholder="e.g. May SKAN manual attribution backfill"
+                      className="mt-1 h-9 w-full rounded border border-slate-300 px-3"
+                      required
+                    />
+                  </label>
                   <div className="grid gap-4 md:grid-cols-3">
                     <label className="text-sm text-slate-700">
                       Athena Database

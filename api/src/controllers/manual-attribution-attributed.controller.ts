@@ -8,6 +8,7 @@ import {
 type RequestWithParams<T extends Record<string, string>> = Request & { params: T };
 
 const createJobBodySchema = z.object({
+  name: z.string().trim().max(120).optional(),
   sqlTemplate: z.string().min(1),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -52,6 +53,7 @@ export const manualAttributedController = {
       const body = createJobBodySchema.parse(await req.json());
       const defaults = resolveDefaults(body);
       const job = enqueueManualAttributedJob({
+        name: body.name,
         sqlTemplate: body.sqlTemplate,
         startDate: body.startDate,
         endDate: body.endDate,
