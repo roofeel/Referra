@@ -155,3 +155,24 @@ model NonAttributedLog {
   @@index([nonAttributedReportId])
   @@index([createdAt])
 }
+
+model ManualAttributedJob {
+  jobId            String   @id
+  name             String
+  status           String   @default("draft")
+  startDate        String   @default("")
+  endDate          String   @default("")
+  database         String
+  workgroup        String
+  resultS3         String
+  sqlTemplate      String
+  renderedSql      String
+  queryExecutionId String?
+  downloadUrl      String?
+  error            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

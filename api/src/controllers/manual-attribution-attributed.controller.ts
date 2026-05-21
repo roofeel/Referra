@@ -52,7 +52,7 @@ export const manualAttributedController = {
     const startDate = url.searchParams.get('startDate')?.trim() || '';
     const endDate = url.searchParams.get('endDate')?.trim() || '';
 
-    const jobs = listManualAttributedJobs({ status, search, startDate, endDate });
+    const jobs = await listManualAttributedJobs({ status, search, startDate, endDate });
     return Response.json({ tasks: jobs });
   },
 
@@ -60,7 +60,7 @@ export const manualAttributedController = {
     try {
       const body = createJobBodySchema.parse(await req.json());
       const defaults = resolveDefaults(body);
-      const job = createManualAttributedJob({
+      const job = await createManualAttributedJob({
         name: body.name,
         sqlTemplate: body.sqlTemplate,
         ...defaults,
@@ -74,7 +74,7 @@ export const manualAttributedController = {
 
   getJob: async (req: Request) => {
     const request = req as RequestWithParams<{ jobId: string }>;
-    const job = getManualAttributedJob(request.params.jobId);
+    const job = await getManualAttributedJob(request.params.jobId);
     if (!job) {
       return Response.json({ error: 'Job not found' }, { status: 404 });
     }
@@ -85,7 +85,7 @@ export const manualAttributedController = {
     const request = req as RequestWithParams<{ jobId: string }>;
     try {
       const body = updateJobBodySchema.parse(await req.json());
-      const current = getManualAttributedJob(request.params.jobId);
+      const current = await getManualAttributedJob(request.params.jobId);
       if (!current) {
         return Response.json({ error: 'Job not found' }, { status: 404 });
       }
@@ -97,7 +97,7 @@ export const manualAttributedController = {
         resultS3: body.resultS3 === undefined ? current.resultS3 : body.resultS3,
         sqlTemplate: body.sqlTemplate === undefined ? current.sqlTemplate : body.sqlTemplate,
       };
-      const updated = updateManualAttributedJob(request.params.jobId, resolved);
+      const updated = await updateManualAttributedJob(request.params.jobId, resolved);
       return Response.json(updated);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update manual attribution job';
@@ -107,7 +107,7 @@ export const manualAttributedController = {
 
   deleteJob: async (req: Request) => {
     const request = req as RequestWithParams<{ jobId: string }>;
-    const deleted = deleteManualAttributedJob(request.params.jobId);
+    const deleted = await deleteManualAttributedJob(request.params.jobId);
     if (!deleted) {
       return Response.json({ error: 'Job not found' }, { status: 404 });
     }

@@ -2,6 +2,7 @@ import { AthenaClient, GetQueryExecutionCommand, StartQueryExecutionCommand } fr
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { db } from '../../../packages/db/index.js';
 
 export type ManualAttributedJobStatus = 'draft' | 'pending' | 'running' | 'completed' | 'failed';
 
@@ -35,11 +36,6 @@ type UpdateManualAttributedJobOptions = Partial<CreateManualAttributedJobOptions
 
 const PRESIGNED_TTL_SECONDS = 60 * 60 * 24;
 const POLL_INTERVAL_MS = 2000;
-const jobs = new Map<string, ManualAttributedJob>();
-
-function nowIso() {
-  return new Date().toISOString();
-}
 
 function buildJobId() {
   return `manual_attr_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
@@ -101,31 +97,57 @@ function renderSql(template: string) {
   return template;
 }
 
+function toJob(row: any): ManualAttributedJob {
+  return {
+    jobId: row.jobId,
+    name: row.name,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    startDate: row.startDate,
+    endDate: row.endDate,
+    database: row.database,
+    workgroup: row.workgroup,
+    resultS3: row.resultS3,
+    sqlTemplate: row.sqlTemplate,
+    renderedSql: row.renderedSql,
+    queryExecutionId: row.queryExecutionId ?? undefined,
+    downloadUrl: row.downloadUrl ?? undefined,
+    error: row.error ?? undefined,
+  };
+}
+
 async function runJob(jobId: string) {
-  const current = jobs.get(jobId);
+  const current = await (db as any).manualAttributedJob.findUnique({ where: { jobId } });
   if (!current) return;
 
-  current.status = 'running';
-  current.updatedAt = nowIso();
-  jobs.set(jobId, current);
+  const running = await (db as any).manualAttributedJob.update({
+    where: { jobId },
+    data: {
+      status: 'running',
+    },
+  });
 
   try {
     const { athena, s3 } = buildAwsClients();
     const startResp = await athena.send(
       new StartQueryExecutionCommand({
-        QueryString: current.renderedSql,
-        QueryExecutionContext: { Database: current.database },
-        ResultConfiguration: { OutputLocation: normalizeS3Uri(current.resultS3) },
-        WorkGroup: current.workgroup,
+        QueryString: running.renderedSql,
+        QueryExecutionContext: { Database: running.database },
+        ResultConfiguration: { OutputLocation: normalizeS3Uri(running.resultS3) },
+        WorkGroup: running.workgroup,
       }),
     );
 
     const queryExecutionId = startResp.QueryExecutionId;
     if (!queryExecutionId) throw new Error('Failed to start Athena query');
 
-    current.queryExecutionId = queryExecutionId;
-    current.updatedAt = nowIso();
-    jobs.set(jobId, current);
+    await (db as any).manualAttributedJob.update({
+      where: { jobId },
+      data: {
+        queryExecutionId,
+      },
+    });
 
     while (true) {
       await sleep(POLL_INTERVAL_MS);
@@ -139,25 +161,27 @@ async function runJob(jobId: string) {
       }
     }
 
-    const { bucket, prefix } = parseS3Uri(current.resultS3);
+    const { bucket, prefix } = parseS3Uri(running.resultS3);
     const key = `${prefix}${queryExecutionId}.csv`;
     const downloadUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), {
       expiresIn: PRESIGNED_TTL_SECONDS,
     });
 
-    const completed = jobs.get(jobId);
-    if (!completed) return;
-    completed.status = 'completed';
-    completed.downloadUrl = downloadUrl;
-    completed.updatedAt = nowIso();
-    jobs.set(jobId, completed);
+    await (db as any).manualAttributedJob.update({
+      where: { jobId },
+      data: {
+        status: 'completed',
+        downloadUrl,
+      },
+    });
   } catch (error) {
-    const failed = jobs.get(jobId);
-    if (!failed) return;
-    failed.status = 'failed';
-    failed.error = error instanceof Error ? error.message : String(error);
-    failed.updatedAt = nowIso();
-    jobs.set(jobId, failed);
+    await (db as any).manualAttributedJob.updateMany({
+      where: { jobId },
+      data: {
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
   }
 }
 
@@ -181,32 +205,29 @@ function validateJobOptions(options: CreateManualAttributedJobOptions) {
   };
 }
 
-export function createManualAttributedJob(options: CreateManualAttributedJobOptions) {
+export async function createManualAttributedJob(options: CreateManualAttributedJobOptions) {
   const validated = validateJobOptions(options);
 
-  const jobId = buildJobId();
-  const now = nowIso();
-  const job: ManualAttributedJob = {
-    jobId,
-    name: validated.name,
-    status: 'draft',
-    createdAt: now,
-    updatedAt: now,
-    startDate: validated.startDate,
-    endDate: validated.endDate,
-    database: validated.database,
-    workgroup: validated.workgroup,
-    resultS3: validated.resultS3,
-    sqlTemplate: validated.sqlTemplate,
-    renderedSql: renderSql(validated.sqlTemplate),
-  };
-  jobs.set(jobId, job);
+  const created = await (db as any).manualAttributedJob.create({
+    data: {
+      jobId: buildJobId(),
+      name: validated.name,
+      status: 'draft',
+      startDate: validated.startDate,
+      endDate: validated.endDate,
+      database: validated.database,
+      workgroup: validated.workgroup,
+      resultS3: validated.resultS3,
+      sqlTemplate: validated.sqlTemplate,
+      renderedSql: renderSql(validated.sqlTemplate),
+    },
+  });
 
-  return job;
+  return toJob(created);
 }
 
-export function updateManualAttributedJob(jobId: string, options: UpdateManualAttributedJobOptions) {
-  const existing = jobs.get(jobId);
+export async function updateManualAttributedJob(jobId: string, options: UpdateManualAttributedJobOptions) {
+  const existing = await (db as any).manualAttributedJob.findUnique({ where: { jobId } });
   if (!existing) return null;
 
   const next = validateJobOptions({
@@ -222,53 +243,76 @@ export function updateManualAttributedJob(jobId: string, options: UpdateManualAt
     next.workgroup !== existing.workgroup ||
     next.resultS3 !== existing.resultS3;
 
-  const updated: ManualAttributedJob = {
-    ...existing,
-    ...next,
-    status: executionInputsChanged ? 'draft' : existing.status,
-    queryExecutionId: executionInputsChanged ? undefined : existing.queryExecutionId,
-    downloadUrl: executionInputsChanged ? undefined : existing.downloadUrl,
-    error: executionInputsChanged ? undefined : existing.error,
-    renderedSql: renderSql(next.sqlTemplate),
-    updatedAt: nowIso(),
-  };
-  jobs.set(jobId, updated);
-  return updated;
+  const updated = await (db as any).manualAttributedJob.update({
+    where: { jobId },
+    data: {
+      name: next.name,
+      sqlTemplate: next.sqlTemplate,
+      database: next.database,
+      workgroup: next.workgroup,
+      resultS3: next.resultS3,
+      startDate: next.startDate,
+      endDate: next.endDate,
+      renderedSql: renderSql(next.sqlTemplate),
+      status: executionInputsChanged ? 'draft' : existing.status,
+      queryExecutionId: executionInputsChanged ? null : existing.queryExecutionId,
+      downloadUrl: executionInputsChanged ? null : existing.downloadUrl,
+      error: executionInputsChanged ? null : existing.error,
+    },
+  });
+
+  return toJob(updated);
 }
 
-export function deleteManualAttributedJob(jobId: string) {
-  return jobs.delete(jobId);
+export async function deleteManualAttributedJob(jobId: string) {
+  const deleted = await (db as any).manualAttributedJob.deleteMany({ where: { jobId } });
+  return deleted.count > 0;
 }
 
-export function getManualAttributedJob(jobId: string) {
-  return jobs.get(jobId) || null;
+export async function getManualAttributedJob(jobId: string) {
+  const row = await (db as any).manualAttributedJob.findUnique({ where: { jobId } });
+  return row ? toJob(row) : null;
 }
 
-export function listManualAttributedJobs(options?: {
+export async function listManualAttributedJobs(options?: {
   status?: ManualAttributedJobStatus;
   search?: string;
   startDate?: string;
   endDate?: string;
 }) {
   const status = options?.status;
-  const search = options?.search?.trim().toLowerCase() || '';
+  const search = options?.search?.trim() || '';
   const startDate = options?.startDate?.trim() || '';
   const endDate = options?.endDate?.trim() || '';
+  const where: any = {};
 
-  return Array.from(jobs.values())
-    .filter((job) => {
-      if (status && job.status !== status) return false;
-      if (search) {
-        const hit =
-          job.jobId.toLowerCase().includes(search) ||
-          (job.name || '').toLowerCase().includes(search) ||
-          (job.queryExecutionId || '').toLowerCase().includes(search) ||
-          job.database.toLowerCase().includes(search);
-        if (!hit) return false;
-      }
-      if (startDate && job.createdAt.slice(0, 10) < startDate) return false;
-      if (endDate && job.createdAt.slice(0, 10) > endDate) return false;
-      return true;
-    })
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  if (status) {
+    where.status = status;
+  }
+
+  if (search) {
+    where.OR = [
+      { jobId: { contains: search, mode: 'insensitive' } },
+      { name: { contains: search, mode: 'insensitive' } },
+      { queryExecutionId: { contains: search, mode: 'insensitive' } },
+      { database: { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  if (startDate || endDate) {
+    where.createdAt = {};
+    if (startDate) {
+      where.createdAt.gte = new Date(`${startDate}T00:00:00.000Z`);
+    }
+    if (endDate) {
+      where.createdAt.lte = new Date(`${endDate}T23:59:59.999Z`);
+    }
+  }
+
+  const rows = await (db as any).manualAttributedJob.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return rows.map(toJob);
 }
