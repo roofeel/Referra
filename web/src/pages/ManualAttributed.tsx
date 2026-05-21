@@ -250,6 +250,25 @@ export default function ManualAttributed() {
                 <p className="mt-1 text-xs text-amber-700">
                   Use template variables in SQL for dynamic execution. Keep these placeholders and inject actual dates at runtime.
                 </p>
+                <details className="mt-3 rounded border border-sky-200 bg-sky-50 p-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-sky-900">Table Naming Rule (Monthly)</summary>
+                  <div className="mt-2 space-y-2 text-xs text-slate-700">
+                    <p>
+                      Table names are <span className="font-semibold">not auto-generated</span>. Fill monthly tables manually in SQL.
+                    </p>
+                    <p>
+                      Pattern: <code>impression_waf_logs_YYYYMM</code>, <code>pixel_waf_logs_YYYYMM</code>
+                    </p>
+                    <p>Examples: <code>impression_waf_logs_202604</code>, <code>impression_waf_logs_202605</code>, <code>pixel_waf_logs_202605</code></p>
+                    <p>For cross-month windows (for example a 14-day lookback), include all related monthly impression tables with <code>UNION ALL</code>.</p>
+                    <pre className="overflow-auto whitespace-pre-wrap rounded bg-slate-900 p-2 text-[11px] text-slate-100">{`FROM your_database.pixel_waf_logs_202605 p
+JOIN (
+  SELECT * FROM your_database.impression_waf_logs_202604
+  UNION ALL
+  SELECT * FROM your_database.impression_waf_logs_202605
+) i ON ...`}</pre>
+                  </div>
+                </details>
                 <form className="mt-4 space-y-4" onSubmit={handleSubmit}>
                   <div className="grid gap-4 md:grid-cols-3">
                     <label className="text-sm text-slate-700">
