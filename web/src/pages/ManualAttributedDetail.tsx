@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
-import type { ManualAttributedExecution, ManualAttributedJob } from '../service/manualAttribution';
+import type { ManualAttributedJob } from '../service/manualAttribution';
 
 function statusClass(status: ManualAttributedJob['status']) {
   if (status === 'draft') return 'bg-amber-100 text-amber-700';
@@ -11,16 +11,6 @@ function statusClass(status: ManualAttributedJob['status']) {
   if (status === 'failed') return 'bg-red-100 text-red-700';
   if (status === 'running') return 'bg-blue-100 text-blue-700';
   return 'bg-slate-100 text-slate-700';
-}
-
-function groupExecutionsByDay(executions: ManualAttributedExecution[]) {
-  const grouped: Record<string, ManualAttributedExecution[]> = {};
-  for (const execution of executions) {
-    const day = execution.createdAt.slice(0, 10);
-    grouped[day] ||= [];
-    grouped[day].push(execution);
-  }
-  return Object.entries(grouped).sort(([a], [b]) => (a > b ? -1 : a < b ? 1 : 0));
 }
 
 export default function ManualAttributedDetail() {
@@ -34,8 +24,6 @@ export default function ManualAttributedDetail() {
   const [isExecuteOpen, setIsExecuteOpen] = useState(false);
   const [templateVariables, setTemplateVariables] = useState<string[]>([]);
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
-  const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
-  const [expandedExecutions, setExpandedExecutions] = useState<Record<string, boolean>>({});
 
   const loadJob = useCallback(async () => {
     if (!decodedJobId) return;
@@ -62,8 +50,6 @@ export default function ManualAttributedDetail() {
     }, 2000);
     return () => window.clearInterval(timer);
   }, [job, loadJob]);
-
-  const groupedExecutions = groupExecutionsByDay(job?.executions || []);
 
   async function handleOpenExecute() {
     if (!job) return;
@@ -170,67 +156,53 @@ export default function ManualAttributedDetail() {
 
               <section className="rounded-xl border border-slate-200/70 bg-white p-5">
                 <h2 className="text-sm font-bold text-slate-900">Execute Logs</h2>
-                {groupedExecutions.length === 0 ? (
+                {!job.executions || job.executions.length === 0 ? (
                   <div className="mt-3 text-xs text-slate-500">No execute logs available</div>
                 ) : (
-                  <div className="mt-3 space-y-2">
-                    {groupedExecutions.map(([day, executions]) => {
-                      const dayKey = `${job.jobId}:${day}`;
-                      const isDayExpanded = !!expandedDays[dayKey];
-                      return (
-                        <div key={dayKey} className="rounded border border-slate-200 bg-white">
-                          <button
-                            type="button"
-                            onClick={() => setExpandedDays((prev) => ({ ...prev, [dayKey]: !prev[dayKey] }))}
-                            className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold text-slate-700"
-                          >
-                            <span>{day}</span>
-                            <span>{executions.length} 次</span>
-                          </button>
-                          {isDayExpanded ? (
-                            <div className="space-y-2 border-t border-slate-200 p-3">
-                              {executions.map((execution) => {
-                                const isExecutionExpanded = !!expandedExecutions[execution.executionId];
-                                return (
-                                  <div key={execution.executionId} className="rounded border border-slate-200 bg-slate-50">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setExpandedExecutions((prev) => ({ ...prev, [execution.executionId]: !prev[execution.executionId] }))
-                                      }
-                                      className="flex w-full items-center justify-between px-3 py-2 text-left text-xs text-slate-700"
-                                    >
-                                      <span>{new Date(execution.createdAt).toLocaleString()}</span>
-                                      <span className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${statusClass(execution.status)}`}>
-                                        {execution.status}
-                                      </span>
-                                    </button>
-                                    {isExecutionExpanded ? (
-                                      <div className="space-y-1 border-t border-slate-200 px-3 py-2 text-xs text-slate-600">
-                                        <p>Execution ID: {execution.executionId}</p>
-                                        <p>QueryExecutionId: {execution.queryExecutionId || '-'}</p>
-                                        <p>结果文件路径: {execution.resultFilePath || '-'}</p>
-                                        {execution.error ? <p className="text-red-600">Error: {execution.error}</p> : null}
-                                        {execution.downloadUrl ? (
-                                          <a
-                                            href={execution.downloadUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-block rounded bg-emerald-600 px-2 py-1 font-semibold text-white"
-                                          >
-                                            Download Result
-                                          </a>
-                                        ) : null}
-                                      </div>
-                                    ) : null}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full min-w-[980px] border-collapse text-left text-xs">
+                      <thead>
+                        <tr className="bg-slate-100">
+                          <th className="px-3 py-2 font-black uppercase tracking-widest text-slate-500">Created At</th>
+                          <th className="px-3 py-2 font-black uppercase tracking-widest text-slate-500">Status</th>
+                          <th className="px-3 py-2 font-black uppercase tracking-widest text-slate-500">Execution ID</th>
+                          <th className="px-3 py-2 font-black uppercase tracking-widest text-slate-500">QueryExecutionId</th>
+                          <th className="px-3 py-2 font-black uppercase tracking-widest text-slate-500">Result File</th>
+                          <th className="px-3 py-2 font-black uppercase tracking-widest text-slate-500">Error</th>
+                          <th className="px-3 py-2 font-black uppercase tracking-widest text-slate-500">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {job.executions.map((execution) => (
+                          <tr key={execution.executionId} className="align-top">
+                            <td className="px-3 py-2 text-slate-700">{new Date(execution.createdAt).toLocaleString()}</td>
+                            <td className="px-3 py-2">
+                              <span className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${statusClass(execution.status)}`}>
+                                {execution.status}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 font-mono text-[11px] text-slate-700">{execution.executionId}</td>
+                            <td className="px-3 py-2 font-mono text-[11px] text-slate-700">{execution.queryExecutionId || '-'}</td>
+                            <td className="px-3 py-2 font-mono text-[11px] text-slate-700">{execution.resultFilePath || '-'}</td>
+                            <td className="px-3 py-2 text-red-600">{execution.error || '-'}</td>
+                            <td className="px-3 py-2">
+                              {execution.downloadUrl ? (
+                                <a
+                                  href={execution.downloadUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-block rounded bg-emerald-600 px-2 py-1 font-semibold text-white"
+                                >
+                                  Download
+                                </a>
+                              ) : (
+                                <span className="text-slate-400">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </section>

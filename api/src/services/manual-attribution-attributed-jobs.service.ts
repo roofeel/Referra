@@ -261,20 +261,25 @@ async function runJob(jobId: string, executionId: string) {
       },
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[manual-attributed] execution failed jobId=${jobId} executionId=${executionId}: ${message}`, error);
+
     await (db as any).manualAttributedJob.updateMany({
       where: { jobId },
       data: {
         status: 'failed',
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
       },
     });
     await (db as any).manualAttributedExecution.updateMany({
       where: { executionId },
       data: {
         status: 'failed',
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
       },
     });
+
+    throw error;
   }
 }
 

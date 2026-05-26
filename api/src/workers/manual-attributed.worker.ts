@@ -39,7 +39,7 @@ worker.on('ready', () => {
 
 worker.on('failed', (job, err) => {
   console.error(
-    `[bullmq] manual-attributed job failed id=${job?.id || 'unknown'} attempts=${job?.attemptsMade ?? 0}: ${err.message}`,
+    `[bullmq] manual-attributed job failed id=${job?.id || 'unknown'} attempts=${job?.attemptsMade ?? 0}: ${err.message}\n${err.stack || ''}`,
   );
 });
 
