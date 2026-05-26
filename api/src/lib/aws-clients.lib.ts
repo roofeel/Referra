@@ -1,6 +1,7 @@
 import { AthenaClient } from '@aws-sdk/client-athena';
 import { S3Client } from '@aws-sdk/client-s3';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import type { AwsCredentialIdentityProvider } from '@aws-sdk/types';
 
 function getAwsRegion() {
   return process.env.AWS_REGION?.trim() || process.env.AWS_DEFAULT_REGION?.trim() || 'us-east-1';
@@ -17,6 +18,12 @@ function getStaticCredentialsFromEnv() {
 
   if (!accessKeyId || !secretAccessKey) return null;
 
+  if (accessKeyId.startsWith('ASIA') && !sessionToken) {
+    throw new Error(
+      'AWS_SESSION_TOKEN is required when AWS_ACCESS_KEY_ID is temporary credentials (ASIA...)',
+    );
+  }
+
   return {
     accessKeyId,
     secretAccessKey,
@@ -24,10 +31,20 @@ function getStaticCredentialsFromEnv() {
   };
 }
 
+function withTemporaryCredentialGuard(credentials: AwsCredentialIdentityProvider): AwsCredentialIdentityProvider {
+  return async () => {
+    const resolved = await credentials();
+    if (resolved.accessKeyId?.startsWith('ASIA') && !resolved.sessionToken) {
+      throw new Error('Resolved temporary AWS credentials are missing session token');
+    }
+    return resolved;
+  };
+}
+
 export function resolveAwsCredentialConfig() {
   // Production defaults to IAM role/provider chain for centralized, safer runtime behavior.
   if ((process.env.NODE_ENV || '').trim().toLowerCase() === 'production') {
-    return { credentials: fromNodeProviderChain() };
+    return { credentials: withTemporaryCredentialGuard(fromNodeProviderChain()) };
   }
 
   const staticCredentials = getStaticCredentialsFromEnv();
@@ -35,7 +52,7 @@ export function resolveAwsCredentialConfig() {
     return { credentials: staticCredentials };
   }
 
-  return { credentials: fromNodeProviderChain() };
+  return { credentials: withTemporaryCredentialGuard(fromNodeProviderChain()) };
 }
 
 export function createAthenaClient() {
