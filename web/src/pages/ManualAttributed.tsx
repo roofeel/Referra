@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
+import { ManualExecuteDrawer } from '../components/manual_attribution/ManualExecuteDrawer';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
 import type { ManualAttributedJob } from '../service/manualAttribution';
@@ -448,52 +449,16 @@ JOIN (
           </>
         ) : null}
 
-        {executingJob ? (
-          <>
-            <div className="fixed inset-0 z-40 bg-black/30" onClick={handleCloseExecute} aria-hidden="true" />
-            <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-lg border-l border-slate-200 bg-white shadow-2xl">
-              <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Manual Execute</p>
-                  <h3 className="text-sm font-bold text-slate-900">{executingJob.name || executingJob.jobId}</h3>
-                </div>
-                <button type="button" className="rounded p-2 text-slate-500 hover:bg-slate-100" onClick={handleCloseExecute} aria-label="Close execute drawer">
-                  <span className="material-symbols-outlined text-base">close</span>
-                </button>
-              </div>
-              <div className="h-[calc(100%-4rem)] overflow-y-auto p-6">
-                <form className="space-y-4" onSubmit={handleExecuteSubmit}>
-                  {templateVariables.length === 0 ? (
-                    <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                      No template variables detected. Execution will use the SQL template as-is.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {templateVariables.map((name) => (
-                        <label key={name} className="block text-sm text-slate-700">
-                          {name}
-                          <input
-                            value={variableValues[name] || ''}
-                            onChange={(event) => setVariableValues((prev) => ({ ...prev, [name]: event.target.value }))}
-                            className="mt-1 h-9 w-full rounded border border-slate-300 px-3"
-                            placeholder={name}
-                            required
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                  <button
-                    disabled={isExecuting}
-                    className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-                  >
-                    {isExecuting ? 'Executing...' : 'Execute Now'}
-                  </button>
-                </form>
-              </div>
-            </aside>
-          </>
-        ) : null}
+        <ManualExecuteDrawer
+          open={!!executingJob}
+          title={executingJob?.name || executingJob?.jobId || ''}
+          templateVariables={templateVariables}
+          variableValues={variableValues}
+          isExecuting={isExecuting}
+          onClose={handleCloseExecute}
+          onChangeVariable={(name, value) => setVariableValues((prev) => ({ ...prev, [name]: value }))}
+          onSubmit={handleExecuteSubmit}
+        />
       </main>
     </div>
   );

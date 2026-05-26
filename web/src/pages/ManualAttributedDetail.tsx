@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AppSidebar } from '../components/common/AppSidebar';
+import { ManualExecuteDrawer } from '../components/manual_attribution/ManualExecuteDrawer';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
 import type { ManualAttributedJob } from '../service/manualAttribution';
@@ -210,45 +211,16 @@ export default function ManualAttributedDetail() {
           ) : null}
         </div>
       </main>
-      {isExecuteOpen ? (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 z-40 bg-black/30" onClick={handleCloseExecute} aria-hidden="true" />
-          <aside className="relative z-50 ml-auto h-full w-full max-w-md overflow-y-auto border-l border-slate-200 bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Manual Execute</p>
-                <h2 className="text-sm font-bold text-slate-900">{job?.name || job?.jobId}</h2>
-              </div>
-              <button type="button" className="rounded p-2 text-slate-500 hover:bg-slate-100" onClick={handleCloseExecute} aria-label="Close execute drawer">
-                ✕
-              </button>
-            </div>
-            <div className="mt-6">
-              <form className="space-y-4" onSubmit={handleExecuteSubmit}>
-                {templateVariables.length === 0 ? <p className="text-xs text-slate-500">No template variables detected. Execute will run directly.</p> : null}
-                {templateVariables.map((name) => (
-                  <label key={name} className="block text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                    {name}
-                    <input
-                      type="text"
-                      value={variableValues[name] || ''}
-                      onChange={(event) => setVariableValues((prev) => ({ ...prev, [name]: event.target.value }))}
-                      className="mt-1 h-9 w-full rounded-md border-none bg-slate-100 px-3 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-100"
-                    />
-                  </label>
-                ))}
-                <button
-                  type="submit"
-                  disabled={isExecuting}
-                  className="h-9 rounded-md bg-blue-700 px-4 text-xs font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {isExecuting ? 'Queueing...' : 'Execute Now'}
-                </button>
-              </form>
-            </div>
-          </aside>
-        </div>
-      ) : null}
+      <ManualExecuteDrawer
+        open={isExecuteOpen}
+        title={job?.name || job?.jobId || ''}
+        templateVariables={templateVariables}
+        variableValues={variableValues}
+        isExecuting={isExecuting}
+        onClose={handleCloseExecute}
+        onChangeVariable={(name, value) => setVariableValues((prev) => ({ ...prev, [name]: value }))}
+        onSubmit={handleExecuteSubmit}
+      />
     </div>
   );
 }
