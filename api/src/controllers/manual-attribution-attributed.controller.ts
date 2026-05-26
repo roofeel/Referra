@@ -2,6 +2,8 @@ import { z } from 'zod';
 import {
   createManualAttributedJob,
   deleteManualAttributedJob,
+  executeManualAttributedJob,
+  getManualAttributedTemplateVariables,
   listManualAttributedJobs,
   getManualAttributedJob,
   updateManualAttributedJob,
@@ -23,6 +25,10 @@ const updateJobBodySchema = z.object({
   database: z.string().optional(),
   workgroup: z.string().optional(),
   resultS3: z.string().optional(),
+});
+
+const executeJobBodySchema = z.object({
+  variables: z.record(z.string(), z.string()).optional(),
 });
 
 function resolveDefaults(body: z.infer<typeof createJobBodySchema>) {
@@ -112,5 +118,31 @@ export const manualAttributedController = {
       return Response.json({ error: 'Job not found' }, { status: 404 });
     }
     return new Response(null, { status: 204 });
+  },
+
+  getTemplateVariables: async (req: Request) => {
+    const request = req as RequestWithParams<{ jobId: string }>;
+    const variables = await getManualAttributedTemplateVariables(request.params.jobId);
+    if (!variables) {
+      return Response.json({ error: 'Job not found' }, { status: 404 });
+    }
+    return Response.json({ variables });
+  },
+
+  executeJob: async (req: Request) => {
+    const request = req as RequestWithParams<{ jobId: string }>;
+    try {
+      const body = executeJobBodySchema.parse(await req.json());
+      const updated = await executeManualAttributedJob(request.params.jobId, {
+        variables: body.variables,
+      });
+      if (!updated) {
+        return Response.json({ error: 'Job not found' }, { status: 404 });
+      }
+      return Response.json(updated);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to execute manual attribution job';
+      return Response.json({ error: message }, { status: 400 });
+    }
   },
 };

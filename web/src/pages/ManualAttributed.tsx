@@ -32,7 +32,11 @@ export default function ManualAttributed() {
   const [resultS3, setResultS3] = useState('');
   const [sqlTemplate, setSqlTemplate] = useState(DEFAULT_SQL_TEMPLATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
+  const [executingJob, setExecutingJob] = useState<ManualAttributedJob | null>(null);
+  const [templateVariables, setTemplateVariables] = useState<string[]>([]);
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
 
   const loadTasks = useCallback(async () => {
     setIsLoading(true);
@@ -147,6 +151,57 @@ export default function ManualAttributed() {
       toast.error(deleteError instanceof Error ? deleteError.message : 'Failed to delete manual attribution job');
     } finally {
       setDeletingJobId(null);
+    }
+  }
+
+  async function handleOpenExecute(job: ManualAttributedJob) {
+    try {
+      const payload = await api.manualAttribution.getAttributedJobTemplateVariables(job.jobId);
+      const variables = payload.variables || [];
+      const nextValues: Record<string, string> = {};
+      for (const name of variables) {
+        nextValues[name] = variableValues[name] || '';
+      }
+      setExecutingJob(job);
+      setTemplateVariables(variables);
+      setVariableValues(nextValues);
+    } catch (executeError) {
+      toast.error(executeError instanceof Error ? executeError.message : 'Failed to load template variables');
+    }
+  }
+
+  function handleCloseExecute() {
+    setExecutingJob(null);
+    setTemplateVariables([]);
+    setVariableValues({});
+  }
+
+  async function handleExecuteSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!executingJob) return;
+
+    const variables: Record<string, string> = {};
+    for (const name of templateVariables) {
+      const value = (variableValues[name] || '').trim();
+      if (!value) {
+        toast.error(`Variable ${name} is required`);
+        return;
+      }
+      variables[name] = value;
+    }
+
+    setIsExecuting(true);
+    try {
+      await api.manualAttribution.executeAttributedJob(executingJob.jobId, {
+        variables,
+      });
+      toast.success('Manual attribution execution started');
+      handleCloseExecute();
+      await loadTasks();
+    } catch (executeError) {
+      toast.error(executeError instanceof Error ? executeError.message : 'Failed to execute manual attribution job');
+    } finally {
+      setIsExecuting(false);
     }
   }
 
@@ -282,6 +337,14 @@ export default function ManualAttributed() {
                               </button>
                               <button
                                 type="button"
+                                onClick={() => void handleOpenExecute(task)}
+                                disabled={task.status === 'pending' || task.status === 'running' || isExecuting}
+                                className="rounded bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:opacity-60"
+                              >
+                                Execute
+                              </button>
+                              <button
+                                type="button"
                                 disabled={deletingJobId === task.jobId}
                                 onClick={() => void handleDelete(task)}
                                 className="rounded bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60"
@@ -324,18 +387,18 @@ export default function ManualAttributed() {
                   <summary className="cursor-pointer text-sm font-semibold text-sky-900">Table Naming Rule (Monthly)</summary>
                   <div className="mt-2 space-y-2 text-xs text-slate-700">
                     <p>
-                      Table names are <span className="font-semibold">not auto-generated</span>. Fill monthly tables manually in SQL.
+                      Use template placeholders and pass values at execution time.
                     </p>
                     <p>
-                      Pattern: <code>impression_waf_logs_YYYYMM</code>, <code>pixel_waf_logs_YYYYMM</code>
+                      Variables: <code>{'{{impression_table_prev}}'}</code>, <code>{'{{impression_table_curr}}'}</code>, <code>{'{{pixel_table_curr}}'}</code>
                     </p>
-                    <p>Examples: <code>impression_waf_logs_202604</code>, <code>impression_waf_logs_202605</code>, <code>pixel_waf_logs_202605</code></p>
-                    <p>For cross-month windows (for example a 14-day lookback), include all related monthly impression tables with <code>UNION ALL</code>.</p>
-                    <pre className="overflow-auto whitespace-pre-wrap rounded bg-slate-900 p-2 text-[11px] text-slate-100">{`FROM your_database.pixel_waf_logs_202605 p
+                    <p>Example values: <code>impression_waf_logs_202604</code>, <code>impression_waf_logs_202605</code>, <code>pixel_waf_logs_202605</code></p>
+                    <p>For cross-month windows, union previous and current impression tables.</p>
+                    <pre className="overflow-auto whitespace-pre-wrap rounded bg-slate-900 p-2 text-[11px] text-slate-100">{`FROM your_database.{{pixel_table_curr}} p
 JOIN (
-  SELECT * FROM your_database.impression_waf_logs_202604
+  SELECT * FROM your_database.{{impression_table_prev}}
   UNION ALL
-  SELECT * FROM your_database.impression_waf_logs_202605
+  SELECT * FROM your_database.{{impression_table_curr}}
 ) i ON ...`}</pre>
                   </div>
                 </details>
@@ -375,6 +438,53 @@ JOIN (
                   </details>
                   <button disabled={isSubmitting} className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
                     {isSubmitting ? 'Saving...' : 'Save'}
+                  </button>
+                </form>
+              </div>
+            </aside>
+          </>
+        ) : null}
+
+        {executingJob ? (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/30" onClick={handleCloseExecute} aria-hidden="true" />
+            <aside className="fixed inset-y-0 right-0 z-50 w-full max-w-lg border-l border-slate-200 bg-white shadow-2xl">
+              <div className="flex h-16 items-center justify-between border-b border-slate-200 px-6">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Manual Execute</p>
+                  <h3 className="text-sm font-bold text-slate-900">{executingJob.name || executingJob.jobId}</h3>
+                </div>
+                <button type="button" className="rounded p-2 text-slate-500 hover:bg-slate-100" onClick={handleCloseExecute} aria-label="Close execute drawer">
+                  <span className="material-symbols-outlined text-base">close</span>
+                </button>
+              </div>
+              <div className="h-[calc(100%-4rem)] overflow-y-auto p-6">
+                <form className="space-y-4" onSubmit={handleExecuteSubmit}>
+                  {templateVariables.length === 0 ? (
+                    <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                      No template variables detected. Execution will use the SQL template as-is.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {templateVariables.map((name) => (
+                        <label key={name} className="block text-sm text-slate-700">
+                          {name}
+                          <input
+                            value={variableValues[name] || ''}
+                            onChange={(event) => setVariableValues((prev) => ({ ...prev, [name]: event.target.value }))}
+                            className="mt-1 h-9 w-full rounded border border-slate-300 px-3"
+                            placeholder={`Value for ${name}`}
+                            required
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    disabled={isExecuting}
+                    className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                  >
+                    {isExecuting ? 'Executing...' : 'Execute Now'}
                   </button>
                 </form>
               </div>

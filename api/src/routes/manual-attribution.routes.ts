@@ -10,4 +10,10 @@ export const manualAttributionRoutes = {
     PUT: manualAttributedController.updateJob,
     DELETE: manualAttributedController.deleteJob,
   },
+  '/api/manual-attribution/attributed/jobs/:jobId/template-variables': {
+    GET: manualAttributedController.getTemplateVariables,
+  },
+  '/api/manual-attribution/attributed/jobs/:jobId/execute': {
+    POST: manualAttributedController.executeJob,
+  },
 };

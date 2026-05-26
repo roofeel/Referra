@@ -33,6 +33,9 @@ type CreateManualAttributedJobOptions = {
 };
 
 type UpdateManualAttributedJobOptions = Partial<CreateManualAttributedJobOptions>;
+type ExecuteManualAttributedJobOptions = {
+  variables?: Record<string, string>;
+};
 
 const PRESIGNED_TTL_SECONDS = 60 * 60 * 24;
 const POLL_INTERVAL_MS = 2000;
@@ -93,8 +96,38 @@ function buildAwsClients() {
   };
 }
 
-function renderSql(template: string) {
-  return template;
+function extractTemplateVariables(template: string) {
+  const regex = /{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}/g;
+  const names = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(template)) !== null) {
+    const name = match[1];
+    if (name) {
+      names.add(name);
+    }
+  }
+  return Array.from(names.values());
+}
+
+function renderSql(template: string, variables?: Record<string, string>) {
+  const names = extractTemplateVariables(template);
+  if (names.length === 0) {
+    return template;
+  }
+
+  const source = variables || {};
+  const missing = names.filter((name) => !(name in source));
+  if (missing.length > 0) {
+    throw new Error(`Missing template variables: ${missing.join(', ')}`);
+  }
+
+  return template.replace(/{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}/g, (_all, name: string) => {
+    const raw = source[name];
+    if (raw === undefined) {
+      throw new Error(`Missing template variable: ${name}`);
+    }
+    return String(raw);
+  });
 }
 
 function toJob(row: any): ManualAttributedJob {
@@ -219,7 +252,7 @@ export async function createManualAttributedJob(options: CreateManualAttributedJ
       workgroup: validated.workgroup,
       resultS3: validated.resultS3,
       sqlTemplate: validated.sqlTemplate,
-      renderedSql: renderSql(validated.sqlTemplate),
+      renderedSql: validated.sqlTemplate,
     },
   });
 
@@ -253,7 +286,7 @@ export async function updateManualAttributedJob(jobId: string, options: UpdateMa
       resultS3: next.resultS3,
       startDate: next.startDate,
       endDate: next.endDate,
-      renderedSql: renderSql(next.sqlTemplate),
+      renderedSql: next.sqlTemplate,
       status: executionInputsChanged ? 'draft' : existing.status,
       queryExecutionId: executionInputsChanged ? null : existing.queryExecutionId,
       downloadUrl: executionInputsChanged ? null : existing.downloadUrl,
@@ -315,4 +348,37 @@ export async function listManualAttributedJobs(options?: {
   });
 
   return rows.map(toJob);
+}
+
+export async function getManualAttributedTemplateVariables(jobId: string) {
+  const row = await (db as any).manualAttributedJob.findUnique({
+    where: { jobId },
+    select: { sqlTemplate: true },
+  });
+  if (!row) return null;
+  return extractTemplateVariables(row.sqlTemplate);
+}
+
+export async function executeManualAttributedJob(jobId: string, options?: ExecuteManualAttributedJobOptions) {
+  const existing = await (db as any).manualAttributedJob.findUnique({ where: { jobId } });
+  if (!existing) {
+    return null;
+  }
+
+  const renderedSql = renderSql(existing.sqlTemplate, options?.variables);
+
+  const updated = await (db as any).manualAttributedJob.update({
+    where: { jobId },
+    data: {
+      status: 'pending',
+      renderedSql,
+      queryExecutionId: null,
+      downloadUrl: null,
+      error: null,
+    },
+  });
+
+  void runJob(jobId);
+
+  return toJob(updated);
 }

@@ -30,6 +30,10 @@ export interface CreateManualAttributedJobPayload {
 
 export type UpdateManualAttributedJobPayload = Partial<CreateManualAttributedJobPayload>;
 
+export interface ExecuteManualAttributedJobPayload {
+  variables?: Record<string, string>;
+}
+
 export const manualAttributionApi = {
   listAttributedJobs: async (options?: {
     status?: string;
@@ -102,5 +106,29 @@ export const manualAttributionApi = {
     if (!response.ok) {
       await throwApiError(response, 'Failed to delete manual attribution job');
     }
+  },
+
+  getAttributedJobTemplateVariables: async (jobId: string): Promise<{ variables: string[] }> => {
+    const response = await fetch(buildApiUrl(`/api/manual-attribution/attributed/jobs/${jobId}/template-variables`));
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to fetch template variables');
+    }
+
+    return response.json();
+  },
+
+  executeAttributedJob: async (jobId: string, payload?: ExecuteManualAttributedJobPayload): Promise<ManualAttributedJob> => {
+    const response = await fetch(buildApiUrl(`/api/manual-attribution/attributed/jobs/${jobId}/execute`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    });
+
+    if (!response.ok) {
+      await throwApiError(response, 'Failed to execute manual attribution job');
+    }
+
+    return response.json();
   },
 };
