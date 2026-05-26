@@ -2,6 +2,19 @@ import { buildApiUrl, throwApiError } from './http';
 
 export type ManualAttributedJobStatus = 'draft' | 'pending' | 'running' | 'completed' | 'failed';
 
+export interface ManualAttributedExecution {
+  executionId: string;
+  jobId: string;
+  status: ManualAttributedJobStatus;
+  renderedSql: string;
+  queryExecutionId?: string;
+  resultFilePath?: string;
+  downloadUrl?: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ManualAttributedJob {
   jobId: string;
   name: string;
@@ -18,6 +31,7 @@ export interface ManualAttributedJob {
   queryExecutionId?: string;
   downloadUrl?: string;
   error?: string;
+  executions: ManualAttributedExecution[];
 }
 
 export interface CreateManualAttributedJobPayload {

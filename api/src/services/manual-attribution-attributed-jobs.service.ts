@@ -22,6 +22,20 @@ export type ManualAttributedJob = {
   queryExecutionId?: string;
   downloadUrl?: string;
   error?: string;
+  executions: ManualAttributedExecution[];
+};
+
+export type ManualAttributedExecution = {
+  executionId: string;
+  jobId: string;
+  status: ManualAttributedJobStatus;
+  renderedSql: string;
+  queryExecutionId?: string;
+  resultFilePath?: string;
+  downloadUrl?: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type CreateManualAttributedJobOptions = {
@@ -46,6 +60,10 @@ function buildJobId() {
 
 function buildDefaultJobName() {
   return `Manual Attribution ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`;
+}
+
+function buildExecutionId() {
+  return `manual_attr_exec_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function sleep(ms: number) {
@@ -147,18 +165,39 @@ function toJob(row: any): ManualAttributedJob {
     queryExecutionId: row.queryExecutionId ?? undefined,
     downloadUrl: row.downloadUrl ?? undefined,
     error: row.error ?? undefined,
+    executions: Array.isArray(row.executions) ? row.executions.map(toExecution) : [],
   };
 }
 
-async function runJob(jobId: string) {
+function toExecution(row: any): ManualAttributedExecution {
+  return {
+    executionId: row.executionId,
+    jobId: row.jobId,
+    status: row.status,
+    renderedSql: row.renderedSql,
+    queryExecutionId: row.queryExecutionId ?? undefined,
+    resultFilePath: row.resultFilePath ?? undefined,
+    downloadUrl: row.downloadUrl ?? undefined,
+    error: row.error ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+async function runJob(jobId: string, executionId: string) {
   const current = await (db as any).manualAttributedJob.findUnique({ where: { jobId } });
-  if (!current) return;
+  const execution = await (db as any).manualAttributedExecution.findUnique({ where: { executionId } });
+  if (!current || !execution) return;
 
   const running = await (db as any).manualAttributedJob.update({
     where: { jobId },
     data: {
       status: 'running',
     },
+  });
+  await (db as any).manualAttributedExecution.update({
+    where: { executionId },
+    data: { status: 'running' },
   });
 
   try {
@@ -181,6 +220,10 @@ async function runJob(jobId: string) {
         queryExecutionId,
       },
     });
+    await (db as any).manualAttributedExecution.update({
+      where: { executionId },
+      data: { queryExecutionId },
+    });
 
     while (true) {
       await sleep(POLL_INTERVAL_MS);
@@ -196,6 +239,7 @@ async function runJob(jobId: string) {
 
     const { bucket, prefix } = parseS3Uri(running.resultS3);
     const key = `${prefix}${queryExecutionId}.csv`;
+    const resultFilePath = `s3://${bucket}/${key}`;
     const downloadUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), {
       expiresIn: PRESIGNED_TTL_SECONDS,
     });
@@ -207,9 +251,24 @@ async function runJob(jobId: string) {
         downloadUrl,
       },
     });
+    await (db as any).manualAttributedExecution.update({
+      where: { executionId },
+      data: {
+        status: 'completed',
+        resultFilePath,
+        downloadUrl,
+      },
+    });
   } catch (error) {
     await (db as any).manualAttributedJob.updateMany({
       where: { jobId },
+      data: {
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+    await (db as any).manualAttributedExecution.updateMany({
+      where: { executionId },
       data: {
         status: 'failed',
         error: error instanceof Error ? error.message : String(error),
@@ -254,6 +313,9 @@ export async function createManualAttributedJob(options: CreateManualAttributedJ
       sqlTemplate: validated.sqlTemplate,
       renderedSql: validated.sqlTemplate,
     },
+    include: {
+      executions: { orderBy: { createdAt: 'desc' } },
+    },
   });
 
   return toJob(created);
@@ -292,6 +354,9 @@ export async function updateManualAttributedJob(jobId: string, options: UpdateMa
       downloadUrl: executionInputsChanged ? null : existing.downloadUrl,
       error: executionInputsChanged ? null : existing.error,
     },
+    include: {
+      executions: { orderBy: { createdAt: 'desc' } },
+    },
   });
 
   return toJob(updated);
@@ -303,7 +368,10 @@ export async function deleteManualAttributedJob(jobId: string) {
 }
 
 export async function getManualAttributedJob(jobId: string) {
-  const row = await (db as any).manualAttributedJob.findUnique({ where: { jobId } });
+  const row = await (db as any).manualAttributedJob.findUnique({
+    where: { jobId },
+    include: { executions: { orderBy: { createdAt: 'desc' } } },
+  });
   return row ? toJob(row) : null;
 }
 
@@ -345,6 +413,7 @@ export async function listManualAttributedJobs(options?: {
   const rows = await (db as any).manualAttributedJob.findMany({
     where,
     orderBy: { createdAt: 'desc' },
+    include: { executions: { orderBy: { createdAt: 'desc' } } },
   });
 
   return rows.map(toJob);
@@ -367,6 +436,17 @@ export async function executeManualAttributedJob(jobId: string, options?: Execut
 
   const renderedSql = renderSql(existing.sqlTemplate, options?.variables);
 
+  const executionId = buildExecutionId();
+
+  await (db as any).manualAttributedExecution.create({
+    data: {
+      executionId,
+      jobId,
+      status: 'pending',
+      renderedSql,
+    },
+  });
+
   const updated = await (db as any).manualAttributedJob.update({
     where: { jobId },
     data: {
@@ -376,9 +456,12 @@ export async function executeManualAttributedJob(jobId: string, options?: Execut
       downloadUrl: null,
       error: null,
     },
+    include: {
+      executions: { orderBy: { createdAt: 'desc' } },
+    },
   });
 
-  void runJob(jobId);
+  void runJob(jobId, executionId);
 
   return toJob(updated);
 }

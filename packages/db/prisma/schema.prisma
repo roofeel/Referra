@@ -172,7 +172,25 @@ model ManualAttributedJob {
   error            String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  executions       ManualAttributedExecution[]
 
   @@index([status])
   @@index([createdAt])
+}
+
+model ManualAttributedExecution {
+  executionId      String   @id
+  jobId            String
+  job              ManualAttributedJob @relation(fields: [jobId], references: [jobId], onDelete: Cascade)
+  status           String   @default("pending")
+  renderedSql      String
+  queryExecutionId String?
+  resultFilePath   String?
+  downloadUrl      String?
+  error            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([jobId, createdAt])
+  @@index([status])
 }

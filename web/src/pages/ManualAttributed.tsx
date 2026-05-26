@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
 import { useToast } from '../components/ToastProvider';
 import { api } from '../service';
-import type { ManualAttributedJob } from '../service/manualAttribution';
+import type { ManualAttributedExecution, ManualAttributedJob } from '../service/manualAttribution';
 
 const DEFAULT_SQL_TEMPLATE = `SELECT *
 FROM your_database.your_table
@@ -37,6 +37,9 @@ export default function ManualAttributed() {
   const [executingJob, setExecutingJob] = useState<ManualAttributedJob | null>(null);
   const [templateVariables, setTemplateVariables] = useState<string[]>([]);
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [expandedJobs, setExpandedJobs] = useState<Record<string, boolean>>({});
+  const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
+  const [expandedExecutions, setExpandedExecutions] = useState<Record<string, boolean>>({});
 
   const loadTasks = useCallback(async () => {
     setIsLoading(true);
@@ -205,6 +208,16 @@ export default function ManualAttributed() {
     }
   }
 
+  function groupExecutionsByDay(executions: ManualAttributedExecution[]) {
+    const grouped: Record<string, ManualAttributedExecution[]> = {};
+    for (const execution of executions) {
+      const day = execution.createdAt.slice(0, 10);
+      grouped[day] ||= [];
+      grouped[day].push(execution);
+    }
+    return Object.entries(grouped).sort(([a], [b]) => (a > b ? -1 : a < b ? 1 : 0));
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-[#f7f9fb] text-slate-900 antialiased">
       <AppSidebar activeItem="manual-attributed" ariaLabel="Manual Attribution Navigation" />
@@ -304,62 +317,142 @@ export default function ManualAttributed() {
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Job</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Athena</th>
                         <th className="px-6 py-4 text-center text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
-                        <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Date Range</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Created At</th>
                         <th className="px-6 py-4 text-right text-[10px] font-black uppercase tracking-widest text-slate-500">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
-                      {tasks.map((task) => (
-                        <tr key={task.jobId} className="transition-colors hover:bg-slate-50">
-                          <td className="px-6 py-4">
-                            <p className="text-sm font-bold text-slate-900">{task.name || task.jobId}</p>
-                          </td>
-                          <td className="px-6 py-4 text-xs text-slate-600">
-                            <p>QueryExecutionId: {task.queryExecutionId || '-'}</p>
-                            <p className="mt-1">Workgroup: {task.workgroup}</p>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <span className={`inline-flex rounded px-2 py-1 text-[10px] font-black uppercase tracking-widest ${statusClass(task.status)}`}>
-                              {task.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-xs text-slate-700">{task.startDate} ~ {task.endDate}</td>
-                          <td className="px-6 py-4 text-xs text-slate-500">{new Date(task.createdAt).toLocaleString()}</td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(task)}
-                                className="rounded bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void handleOpenExecute(task)}
-                                disabled={task.status === 'pending' || task.status === 'running' || isExecuting}
-                                className="rounded bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:opacity-60"
-                              >
-                                Execute
-                              </button>
-                              <button
-                                type="button"
-                                disabled={deletingJobId === task.jobId}
-                                onClick={() => void handleDelete(task)}
-                                className="rounded bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60"
-                              >
-                                {deletingJobId === task.jobId ? 'Deleting...' : 'Delete'}
-                              </button>
-                              {task.downloadUrl ? (
-                                <a href={task.downloadUrl} target="_blank" rel="noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">
-                                  Download
-                                </a>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {tasks.map((task) => {
+                        const isJobExpanded = !!expandedJobs[task.jobId];
+                        const groupedExecutions = groupExecutionsByDay(task.executions || []);
+                        return (
+                          <Fragment key={task.jobId}>
+                            <tr className="transition-colors hover:bg-slate-50">
+                              <td className="px-6 py-4">
+                                <p className="text-sm font-bold text-slate-900">{task.name || task.jobId}</p>
+                              </td>
+                              <td className="px-6 py-4 text-xs text-slate-600">
+                                <p>QueryExecutionId: {task.queryExecutionId || '-'}</p>
+                                <p className="mt-1">Workgroup: {task.workgroup}</p>
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                <span className={`inline-flex rounded px-2 py-1 text-[10px] font-black uppercase tracking-widest ${statusClass(task.status)}`}>
+                                  {task.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 text-xs text-slate-500">{new Date(task.createdAt).toLocaleString()}</td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedJobs((prev) => ({ ...prev, [task.jobId]: !prev[task.jobId] }))}
+                                    className="rounded bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                                  >
+                                    执行记录 ({task.executions?.length || 0})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEdit(task)}
+                                    className="rounded bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleOpenExecute(task)}
+                                    disabled={task.status === 'pending' || task.status === 'running' || isExecuting}
+                                    className="rounded bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:opacity-60"
+                                  >
+                                    Execute
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={deletingJobId === task.jobId}
+                                    onClick={() => void handleDelete(task)}
+                                    className="rounded bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:opacity-60"
+                                  >
+                                    {deletingJobId === task.jobId ? 'Deleting...' : 'Delete'}
+                                  </button>
+                                  {task.downloadUrl ? (
+                                    <a href={task.downloadUrl} target="_blank" rel="noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">
+                                      Download
+                                    </a>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                            {isJobExpanded ? (
+                              <tr>
+                                <td colSpan={5} className="bg-slate-50 px-6 py-4">
+                                  {groupedExecutions.length === 0 ? (
+                                    <div className="text-xs text-slate-500">暂无执行记录</div>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {groupedExecutions.map(([day, executions]) => {
+                                        const dayKey = `${task.jobId}:${day}`;
+                                        const isDayExpanded = !!expandedDays[dayKey];
+                                        return (
+                                          <div key={dayKey} className="rounded border border-slate-200 bg-white">
+                                            <button
+                                              type="button"
+                                              onClick={() => setExpandedDays((prev) => ({ ...prev, [dayKey]: !prev[dayKey] }))}
+                                              className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold text-slate-700"
+                                            >
+                                              <span>{day}</span>
+                                              <span>{executions.length} 次</span>
+                                            </button>
+                                            {isDayExpanded ? (
+                                              <div className="space-y-2 border-t border-slate-200 p-3">
+                                                {executions.map((execution) => {
+                                                  const isExecutionExpanded = !!expandedExecutions[execution.executionId];
+                                                  return (
+                                                    <div key={execution.executionId} className="rounded border border-slate-200 bg-slate-50">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                          setExpandedExecutions((prev) => ({ ...prev, [execution.executionId]: !prev[execution.executionId] }))
+                                                        }
+                                                        className="flex w-full items-center justify-between px-3 py-2 text-left text-xs text-slate-700"
+                                                      >
+                                                        <span>{new Date(execution.createdAt).toLocaleString()}</span>
+                                                        <span className={`rounded px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${statusClass(execution.status)}`}>
+                                                          {execution.status}
+                                                        </span>
+                                                      </button>
+                                                      {isExecutionExpanded ? (
+                                                        <div className="space-y-1 border-t border-slate-200 px-3 py-2 text-xs text-slate-600">
+                                                          <p>Execution ID: {execution.executionId}</p>
+                                                          <p>QueryExecutionId: {execution.queryExecutionId || '-'}</p>
+                                                          <p>结果文件路径: {execution.resultFilePath || '-'}</p>
+                                                          {execution.error ? <p className="text-red-600">Error: {execution.error}</p> : null}
+                                                          {execution.downloadUrl ? (
+                                                            <a
+                                                              href={execution.downloadUrl}
+                                                              target="_blank"
+                                                              rel="noreferrer"
+                                                              className="inline-block rounded bg-emerald-600 px-2 py-1 font-semibold text-white"
+                                                            >
+                                                              Download Result
+                                                            </a>
+                                                          ) : null}
+                                                        </div>
+                                                      ) : null}
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                            ) : null}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            ) : null}
+                          </Fragment>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -473,7 +566,7 @@ JOIN (
                             value={variableValues[name] || ''}
                             onChange={(event) => setVariableValues((prev) => ({ ...prev, [name]: event.target.value }))}
                             className="mt-1 h-9 w-full rounded border border-slate-300 px-3"
-                            placeholder={`Value for ${name}`}
+                            placeholder={name}
                             required
                           />
                         </label>
