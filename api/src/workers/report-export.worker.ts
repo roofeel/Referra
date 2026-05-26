@@ -1,10 +1,10 @@
 import { Worker } from 'bullmq';
 import IORedis from 'ioredis';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { referrerRaws } from '../../../packages/db/index.js';
 import { REPORT_EXPORT_QUEUE_NAME } from '../queues/report-export.queue.js';
+import { createS3Client } from '../lib/aws-clients.lib.js';
 
 type ReportExportJobData = {
   reportId: string;
@@ -21,29 +21,6 @@ const connection = new IORedis(REDIS_URL, {
   maxRetriesPerRequest: null,
   enableReadyCheck: true,
 });
-
-function buildS3Client() {
-  const region = process.env.AWS_REGION?.trim() || process.env.AWS_DEFAULT_REGION?.trim() || 'us-east-1';
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim();
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim();
-  const sessionToken = process.env.AWS_SESSION_TOKEN?.trim();
-
-  if (accessKeyId && secretAccessKey) {
-    return new S3Client({
-      region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-        ...(sessionToken ? { sessionToken } : {}),
-      },
-    });
-  }
-
-  return new S3Client({
-    region,
-    credentials: fromNodeProviderChain(),
-  });
-}
 
 function asJsonRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -86,7 +63,7 @@ const worker = new Worker<ReportExportJobData>(
 
     const csvContent = csvLines.join('\n');
     const key = `${EXPORT_PREFIX}/report-${reportId}/${job.id}.csv`;
-    const s3 = buildS3Client();
+    const s3 = createS3Client();
 
     await s3.send(
       new PutObjectCommand({

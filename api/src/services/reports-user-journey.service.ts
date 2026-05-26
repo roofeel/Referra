@@ -1,6 +1,6 @@
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { generateText } from 'ai';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import { getAwsRegionValue, resolveBedrockCredentialConfig } from '../lib/aws-clients.lib.js';
 
 type JourneyLogEntry = {
   ts: string;
@@ -115,20 +115,9 @@ export async function generateUserJourneyDocFromLogs(journeyLogs: unknown, hints
     throw new Error('journey_logs is empty');
   }
 
-  const region = process.env.AWS_REGION?.trim() || process.env.AWS_DEFAULT_REGION?.trim() || 'us-east-1';
+  const region = getAwsRegionValue();
   const modelId = process.env.BEDROCK_SONNET_MODEL_ID?.trim() || 'global.anthropic.claude-sonnet-4-5-20250929-v1:0';
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim();
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim();
-  const sessionToken = process.env.AWS_SESSION_TOKEN?.trim();
-
-  const credentialConfig =
-    accessKeyId && secretAccessKey
-      ? {
-          accessKeyId,
-          secretAccessKey,
-          ...(sessionToken ? { sessionToken } : {}),
-        }
-      : { credentialProvider: fromNodeProviderChain() };
+  const credentialConfig = resolveBedrockCredentialConfig();
 
   const bedrock = createAmazonBedrock({
     region,

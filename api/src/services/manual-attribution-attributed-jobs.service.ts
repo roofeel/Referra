@@ -1,9 +1,9 @@
 import { AthenaClient, GetQueryExecutionCommand, StartQueryExecutionCommand } from '@aws-sdk/client-athena';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { db } from '../../../packages/db/index.js';
 import { manualAttributedQueue } from '../queues/manual-attributed.queue.js';
+import { createAthenaClient, createS3Client } from '../lib/aws-clients.lib.js';
 
 export type ManualAttributedJobStatus = 'draft' | 'pending' | 'running' | 'completed' | 'failed';
 
@@ -90,28 +90,9 @@ function parseS3Uri(uri: string) {
 }
 
 function buildAwsClients() {
-  const region = process.env.AWS_REGION?.trim() || process.env.AWS_DEFAULT_REGION?.trim() || 'us-east-1';
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim();
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim();
-  const sessionToken = process.env.AWS_SESSION_TOKEN?.trim();
-
-  if (accessKeyId && secretAccessKey) {
-    const credentials = {
-      accessKeyId,
-      secretAccessKey,
-      ...(sessionToken ? { sessionToken } : {}),
-    };
-
-    return {
-      athena: new AthenaClient({ region, credentials }),
-      s3: new S3Client({ region, credentials }),
-    };
-  }
-
-  const credentials = fromNodeProviderChain();
   return {
-    athena: new AthenaClient({ region, credentials }),
-    s3: new S3Client({ region, credentials }),
+    athena: createAthenaClient(),
+    s3: createS3Client(),
   };
 }
 
@@ -185,6 +166,62 @@ function toExecution(row: any): ManualAttributedExecution {
   };
 }
 
+function parseBucketAndKeyFromS3Path(s3Path: string) {
+  const value = s3Path.trim();
+  if (!value.startsWith('s3://')) return null;
+  const withoutScheme = value.slice('s3://'.length);
+  const slashIndex = withoutScheme.indexOf('/');
+  if (slashIndex <= 0) return null;
+  const bucket = withoutScheme.slice(0, slashIndex);
+  const key = withoutScheme.slice(slashIndex + 1);
+  if (!bucket || !key) return null;
+  return { bucket, key };
+}
+
+function resolveDownloadFilename(key: string) {
+  const filename = key.split('/').pop()?.trim() || '';
+  return filename || 'manual-attribution-result.csv';
+}
+
+async function buildDownloadUrlForS3Path(s3: S3Client, s3Path?: string) {
+  if (!s3Path) return undefined;
+  const parsed = parseBucketAndKeyFromS3Path(s3Path);
+  if (!parsed) return undefined;
+
+  return getSignedUrl(
+    s3,
+    new GetObjectCommand({
+      Bucket: parsed.bucket,
+      Key: parsed.key,
+      ResponseContentDisposition: `attachment; filename="${resolveDownloadFilename(parsed.key)}"`,
+      ResponseContentType: 'text/csv',
+    }),
+    { expiresIn: PRESIGNED_TTL_SECONDS },
+  );
+}
+
+async function hydrateJobDownloadUrls(job: ManualAttributedJob) {
+  const paths = job.executions
+    .filter((execution) => execution.status === 'completed' && execution.resultFilePath)
+    .map((execution) => execution.resultFilePath as string);
+  if (paths.length === 0) return job;
+
+  const { s3 } = buildAwsClients();
+  await Promise.all(
+    job.executions.map(async (execution) => {
+      if (execution.status !== 'completed' || !execution.resultFilePath) return;
+      execution.downloadUrl = await buildDownloadUrlForS3Path(s3, execution.resultFilePath);
+    }),
+  );
+
+  const latestExecution = job.executions[0];
+  if (latestExecution?.status === 'completed') {
+    job.downloadUrl = latestExecution.downloadUrl;
+  }
+
+  return job;
+}
+
 async function runJob(jobId: string, executionId: string) {
   const current = await (db as any).manualAttributedJob.findUnique({ where: { jobId } });
   const execution = await (db as any).manualAttributedExecution.findUnique({ where: { executionId } });
@@ -241,9 +278,7 @@ async function runJob(jobId: string, executionId: string) {
     const { bucket, prefix } = parseS3Uri(running.resultS3);
     const key = `${prefix}${queryExecutionId}.csv`;
     const resultFilePath = `s3://${bucket}/${key}`;
-    const downloadUrl = await getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), {
-      expiresIn: PRESIGNED_TTL_SECONDS,
-    });
+    const downloadUrl = await buildDownloadUrlForS3Path(s3, resultFilePath);
 
     await (db as any).manualAttributedJob.update({
       where: { jobId },
@@ -382,7 +417,8 @@ export async function getManualAttributedJob(jobId: string) {
     where: { jobId },
     include: { executions: { orderBy: { createdAt: 'desc' } } },
   });
-  return row ? toJob(row) : null;
+  if (!row) return null;
+  return hydrateJobDownloadUrls(toJob(row));
 }
 
 export async function listManualAttributedJobs(options?: {
@@ -426,7 +462,8 @@ export async function listManualAttributedJobs(options?: {
     include: { executions: { orderBy: { createdAt: 'desc' } } },
   });
 
-  return rows.map(toJob);
+  const jobs = rows.map(toJob);
+  return Promise.all(jobs.map((job: ManualAttributedJob) => hydrateJobDownloadUrls(job)));
 }
 
 export async function getManualAttributedTemplateVariables(jobId: string) {
