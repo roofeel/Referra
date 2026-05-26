@@ -1,7 +1,5 @@
 import { referrerRaws, reports } from '../../../packages/db/index.js';
-import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { reportExportQueue } from '../queues/report-export.queue.js';
 
 export type ReportExportJobStatus = 'pending' | 'running' | 'completed' | 'failed';
 
@@ -21,62 +19,24 @@ type StartExportOptions = {
   selectedFields: string[];
 };
 
-const EXPORT_BUCKET = 'feedmob-testing';
-const EXPORT_PREFIX = 'ai-referrer';
-const PRESIGNED_TTL_SECONDS = 60 * 60 * 24;
-const jobs = new Map<string, ReportExportJob>();
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function buildJobId() {
-  return `exp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function buildS3Client() {
-  const region = process.env.AWS_REGION?.trim() || process.env.AWS_DEFAULT_REGION?.trim() || 'us-east-1';
-  const accessKeyId = process.env.AWS_ACCESS_KEY_ID?.trim();
-  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY?.trim();
-  const sessionToken = process.env.AWS_SESSION_TOKEN?.trim();
-
-  if (accessKeyId && secretAccessKey) {
-    return new S3Client({
-      region,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-        ...(sessionToken ? { sessionToken } : {}),
-      },
-    });
-  }
-
-  return new S3Client({
-    region,
-    credentials: fromNodeProviderChain(),
-  });
-}
+type ReportExportJobData = {
+  reportId: string;
+  selectedFields: string[];
+};
 
 function asJsonRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-function csvEscape(raw: unknown) {
-  const value = raw == null ? '' : String(raw);
-  if (value.includes('"') || value.includes(',') || value.includes('\n') || value.includes('\r')) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
+function mapJobState(state: string): ReportExportJobStatus {
+  if (state === 'completed') return 'completed';
+  if (state === 'failed') return 'failed';
+  if (state === 'active') return 'running';
+  return 'pending';
 }
 
-function getFieldValue(field: string, row: Record<string, unknown>, rawJson: Record<string, unknown>) {
-  if (field.startsWith('raw.')) {
-    return rawJson[field.slice(4)];
-  }
-  if (field in row) {
-    return row[field];
-  }
-  return rawJson[field];
+function toIso(value: number) {
+  return new Date(value).toISOString();
 }
 
 export async function listExportableFields(reportId: string) {
@@ -114,79 +74,56 @@ export async function enqueueReportExportJob(reportId: string, options: StartExp
     throw new Error('selectedFields is required');
   }
 
-  const jobId = buildJobId();
-  const now = nowIso();
-  const job: ReportExportJob = {
-    jobId,
+  const job = await reportExportQueue.add(
+    'export-report-csv',
+    {
+      reportId,
+      selectedFields,
+    },
+    {
+      removeOnComplete: false,
+      removeOnFail: false,
+    },
+  );
+
+  return {
+    jobId: job.id as string,
     reportId,
-    status: 'pending',
+    status: 'pending' as const,
     selectedFields,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: new Date(job.timestamp).toISOString(),
+    updatedAt: new Date(job.timestamp).toISOString(),
   };
-  jobs.set(jobId, job);
-
-  void (async () => {
-    const current = jobs.get(jobId);
-    if (!current) return;
-
-    current.status = 'running';
-    current.updatedAt = nowIso();
-    jobs.set(jobId, current);
-
-    try {
-      const rows = await referrerRaws.listByReport(reportId);
-      const headers = selectedFields;
-      const csvLines: string[] = [headers.map(csvEscape).join(',')];
-
-      for (const raw of rows as Array<Record<string, unknown>>) {
-        const rowJson = asJsonRecord(raw.json);
-        const line = headers.map((field) => csvEscape(getFieldValue(field, raw, rowJson))).join(',');
-        csvLines.push(line);
-      }
-
-      const csvContent = csvLines.join('\n');
-      const key = `${EXPORT_PREFIX}/report-${reportId}/${jobId}.csv`;
-      const s3 = buildS3Client();
-
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: EXPORT_BUCKET,
-          Key: key,
-          Body: csvContent,
-          ContentType: 'text/csv; charset=utf-8',
-        }),
-      );
-
-      const downloadUrl = await getSignedUrl(
-        s3,
-        new GetObjectCommand({
-          Bucket: EXPORT_BUCKET,
-          Key: key,
-        }),
-        { expiresIn: PRESIGNED_TTL_SECONDS },
-      );
-
-      const completed = jobs.get(jobId);
-      if (!completed) return;
-      completed.status = 'completed';
-      completed.fileKey = key;
-      completed.downloadUrl = downloadUrl;
-      completed.updatedAt = nowIso();
-      jobs.set(jobId, completed);
-    } catch (error) {
-      const failed = jobs.get(jobId);
-      if (!failed) return;
-      failed.status = 'failed';
-      failed.error = error instanceof Error ? error.message : String(error);
-      failed.updatedAt = nowIso();
-      jobs.set(jobId, failed);
-    }
-  })();
-
-  return job;
 }
 
-export function getReportExportJob(jobId: string) {
-  return jobs.get(jobId) || null;
+export async function getReportExportJob(jobId: string): Promise<ReportExportJob | null> {
+  const job = await reportExportQueue.getJob(jobId);
+  if (!job) {
+    return null;
+  }
+
+  const state = await job.getState();
+  const status = mapJobState(state);
+  const data = (job.data || {}) as ReportExportJobData;
+  const result = (job.returnvalue || {}) as { fileKey?: string; downloadUrl?: string };
+  const failedReason = job.failedReason || undefined;
+
+  let updatedAtMs = job.timestamp;
+  if (job.finishedOn && Number.isFinite(job.finishedOn)) {
+    updatedAtMs = job.finishedOn;
+  } else if (job.processedOn && Number.isFinite(job.processedOn)) {
+    updatedAtMs = job.processedOn;
+  }
+
+  return {
+    jobId: String(job.id),
+    reportId: data.reportId || '',
+    status,
+    selectedFields: Array.isArray(data.selectedFields) ? data.selectedFields : [],
+    createdAt: toIso(job.timestamp),
+    updatedAt: toIso(updatedAtMs),
+    fileKey: result.fileKey,
+    downloadUrl: result.downloadUrl,
+    error: failedReason,
+  };
 }

@@ -224,7 +224,7 @@ export async function getExportFields(req: Request) {
 
 export async function getExportJobStatus(req: Request) {
   const request = req as RequestWithParams<{ id: string; jobId: string }>;
-  const job = getReportExportJob(request.params.jobId);
+  const job = await getReportExportJob(request.params.jobId);
 
   if (!job) {
     return Response.json({ error: 'Export job not found' }, { status: 404 });

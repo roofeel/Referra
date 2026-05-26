@@ -3,6 +3,7 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { db } from '../../../packages/db/index.js';
+import { manualAttributedQueue } from '../queues/manual-attributed.queue.js';
 
 export type ManualAttributedJobStatus = 'draft' | 'pending' | 'running' | 'completed' | 'failed';
 
@@ -277,6 +278,10 @@ async function runJob(jobId: string, executionId: string) {
   }
 }
 
+export async function processManualAttributedExecution(jobId: string, executionId: string) {
+  await runJob(jobId, executionId);
+}
+
 function validateJobOptions(options: CreateManualAttributedJobOptions) {
   const name = options.name?.trim() || buildDefaultJobName();
   const sqlTemplate = options.sqlTemplate.trim();
@@ -461,7 +466,17 @@ export async function executeManualAttributedJob(jobId: string, options?: Execut
     },
   });
 
-  void runJob(jobId, executionId);
+  await manualAttributedQueue.add(
+    'manual-attributed-execute',
+    {
+      jobId,
+      executionId,
+    },
+    {
+      removeOnComplete: false,
+      removeOnFail: false,
+    },
+  );
 
   return toJob(updated);
 }
