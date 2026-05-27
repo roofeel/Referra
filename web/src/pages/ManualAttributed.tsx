@@ -354,11 +354,6 @@ export default function ManualAttributed() {
                                 >
                                   {deletingJobId === task.jobId ? 'Deleting...' : 'Delete'}
                                 </button>
-                                {task.downloadUrl ? (
-                                  <a href={task.downloadUrl} target="_blank" rel="noreferrer" className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white">
-                                    Download
-                                  </a>
-                                ) : null}
                               </div>
                             </td>
                           </tr>
