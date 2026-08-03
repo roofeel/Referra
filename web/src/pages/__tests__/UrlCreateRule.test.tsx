@@ -39,8 +39,8 @@ vi.mock('../../auth/AuthContext', () => ({
 describe('UrlCreateRule', () => {
   beforeEach(() => {
     mockListClients.mockResolvedValue([
-      { id: 'client-1', name: 'Chime' },
-      { id: 'client-2', name: 'Novig' },
+      { id: 'client-1', name: 'client1' },
+      { id: 'client-2', name: 'client2' },
     ]);
     mockCreate.mockResolvedValue({
       id: 'rule-1',
@@ -68,7 +68,7 @@ describe('UrlCreateRule', () => {
     expect(screen.getByLabelText('Rule Logic Code')).toBeInTheDocument();
     expect(screen.getByText('categorizeFunnel.js')).toBeInTheDocument();
     expect(screen.getByText('Format Code')).toBeInTheDocument();
-    expect(await screen.findByRole('option', { name: 'Chime' })).toBeInTheDocument();
+    expect(await screen.findByRole('option', { name: 'client1' })).toBeInTheDocument();
 
     const cancelLink = screen.getByRole('link', { name: 'Cancel' });
     expect(cancelLink).toHaveAttribute('href', '/url-rules');
@@ -85,7 +85,7 @@ describe('UrlCreateRule', () => {
       </MemoryRouter>,
     );
 
-    await screen.findByRole('option', { name: 'Chime' });
+    await screen.findByRole('option', { name: 'client1' });
     const select = screen.getByLabelText('Client');
     expect(select).toHaveValue('id:client-1');
 
@@ -105,7 +105,7 @@ describe('UrlCreateRule', () => {
         <UrlCreateRule />
       </MemoryRouter>,
     );
-    await screen.findByRole('option', { name: 'Chime' });
+    await screen.findByRole('option', { name: 'client1' });
 
     const editor = screen.getByLabelText('Rule Logic Code') as HTMLTextAreaElement;
     expect(editor.value).toContain('async function categorizeFunnel');
@@ -125,7 +125,7 @@ describe('UrlCreateRule', () => {
         <UrlCreateRule />
       </MemoryRouter>,
     );
-    await screen.findByRole('option', { name: 'Chime' });
+    await screen.findByRole('option', { name: 'client1' });
 
     await user.type(screen.getByLabelText('Rule Name'), 'Checkout Rule');
     await user.click(screen.getByRole('button', { name: 'Save' }));
