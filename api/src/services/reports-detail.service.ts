@@ -239,14 +239,14 @@ function parseTimeMsByCandidates(item: ReferrerRawRecord, candidates: string[]) 
 function startOfDayMs(dateInput: string) {
   const value = dateInput.trim();
   if (!value) return null;
-  const ms = Date.parse(`${value}T00:00:00`);
+  const ms = Date.parse(`${value}T00:00:00.000Z`);
   return Number.isNaN(ms) ? null : ms;
 }
 
 function endOfDayMs(dateInput: string) {
   const value = dateInput.trim();
   if (!value) return null;
-  const ms = Date.parse(`${value}T23:59:59.999`);
+  const ms = Date.parse(`${value}T23:59:59.999Z`);
   return Number.isNaN(ms) ? null : ms;
 }
 
