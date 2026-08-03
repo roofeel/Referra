@@ -3,6 +3,7 @@ import { nonAttributedReportsApi } from './nonAttributedReports';
 import { reportsApi } from './reports';
 import { usersApi } from './users';
 import { urlRulesApi } from './urlRules';
+import { deliveryDashboardApi } from './deliveryDashboard';
 
 export const api = {
   nonAttributedReports: nonAttributedReportsApi,
@@ -10,6 +11,7 @@ export const api = {
   reports: reportsApi,
   users: usersApi,
   urlRules: urlRulesApi,
+  deliveryDashboard: deliveryDashboardApi,
 };
 
 export * from './types';

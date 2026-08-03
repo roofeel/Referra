@@ -11,7 +11,8 @@
     "start": "bun index.ts",
     "worker:report-export": "bun src/workers/report-export.worker.ts",
     "worker:manual-attributed": "bun src/workers/manual-attributed.worker.ts",
-    "worker:all": "bun run worker:report-export & bun run worker:manual-attributed & wait"
+    "worker:delivery-dashboard": "bun src/workers/delivery-dashboard.worker.ts",
+    "worker:all": "bun run worker:report-export & bun run worker:manual-attributed & bun run worker:delivery-dashboard & wait"
   },
   "devDependencies": {
     "@types/bun": "latest"

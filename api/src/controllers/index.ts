@@ -5,3 +5,4 @@ export { nonAttributedReportsController } from "./non-attributed-reports.control
 export { reportsController } from "./reports.controller.js";
 export { usersController } from "./users.controller.js";
 export { urlRulesController } from "./url-rules.controller.js";
+export { deliveryDashboardController } from './delivery-dashboard.controller.js';

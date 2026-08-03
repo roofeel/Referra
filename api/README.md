@@ -16,7 +16,7 @@ GOOGLE_CLIENT_SECRET=your_google_web_client_secret
 
 # BullMQ
 REDIS_URL=redis://127.0.0.1:6379
-REPORT_EXPORT_BUCKET=feedmob-testing
+REPORT_EXPORT_BUCKET=testing
 REPORT_EXPORT_PREFIX=ai-referrer
 REPORT_EXPORT_WORKER_CONCURRENCY=2
 
@@ -24,6 +24,16 @@ REPORT_EXPORT_WORKER_CONCURRENCY=2
 AWS_REGION=us-east-1
 AWS_ACCESS_KEY_ID=your_aws_access_key_id
 AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+
+# Delivery Dashboard aggregation (Athena -> PostgreSQL)
+ATHENA_DATABASE=default
+ATHENA_WORKGROUP=primary
+ATHENA_OUTPUT_LOCATION=s3://aws-athena-query-results-246648750489-us-east-1/
+ATHENA_IMPRESSION_TABLE=impression_logs
+ATHENA_INSTALL_TABLE=tracking_lb_logs
+ATHENA_BID_TABLE=fm_bidding_agent_test_bids
+DELIVERY_METRICS_ENABLED=true
+DELIVERY_METRICS_INTERVAL_MS=3600000
 
 # Sentry (Optional)
 SENTRY_DSN=
@@ -49,6 +59,12 @@ Run export worker:
 
 ```bash
 bun run worker:report-export
+
+Run the delivery metrics worker:
+
+```bash
+bun run worker:delivery-dashboard
+```
 ```
 
 This project was created using `bun init` in bun v1.3.8. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.

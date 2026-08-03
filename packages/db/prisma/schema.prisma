@@ -194,3 +194,20 @@ model ManualAttributedExecution {
   @@index([jobId, createdAt])
   @@index([status])
 }
+
+model DeliveryMetric {
+  id           String   @id @default(cuid())
+  bucketStart  DateTime
+  metricType   String
+  dimension    String
+  impressions  Int      @default(0)
+  installs     Int      @default(0)
+  bidRequests  Int      @default(0)
+  bids         Int      @default(0)
+  ipm          Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([bucketStart, metricType, dimension])
+  @@index([metricType, bucketStart])
+}

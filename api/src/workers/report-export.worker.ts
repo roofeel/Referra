@@ -11,7 +11,7 @@ type ReportExportJobData = {
   selectedFields: string[];
 };
 
-const EXPORT_BUCKET = process.env.REPORT_EXPORT_BUCKET?.trim() || 'feedmob-testing';
+const EXPORT_BUCKET = process.env.REPORT_EXPORT_BUCKET?.trim();
 const EXPORT_PREFIX = process.env.REPORT_EXPORT_PREFIX?.trim() || 'ai-referrer';
 const PRESIGNED_TTL_SECONDS = 60 * 60 * 24;
 const WORKER_CONCURRENCY = Number(process.env.REPORT_EXPORT_WORKER_CONCURRENCY || '2');
