@@ -346,6 +346,10 @@ export async function getDeliveryDashboard(date = new Date().toISOString().slice
     else current.yesterday += Number(row.impressions || 0);
     comparisonByHour.set(key, current);
   });
+  const previousHourlyByHour = new Map<number, AggregatedRow>();
+  allHourly.filter((row) => row.bucketStart < rangeSince).forEach((row) => {
+    previousHourlyByHour.set(row.bucketStart.getUTCHours(), row);
+  });
   const total = (key: keyof AggregatedRow) => today.reduce((sum, row) => sum + Number(row[key] || 0), 0);
   const lastUpdated = rows.reduce<Date | null>((latest, row) => !latest || row.updatedAt > latest ? row.updatedAt : latest, null);
 
@@ -375,7 +379,14 @@ export async function getDeliveryDashboard(date = new Date().toISOString().slice
     source: 'athena',
     lastUpdated: lastUpdated?.toISOString() || null,
     metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: total('bidRequests'), bids: total('bids'), ipm: total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0 },
-    hourly: hourly.map((row) => ({ time: row.bucketStart.toISOString(), ipm: row.ipm, impressions: row.impressions, installs: row.installs, bidRate: row.bidRequests ? (row.bids / row.bidRequests) * 100 : 0 })),
+    hourly: hourly.map((row) => ({
+      time: row.bucketStart.toISOString(),
+      ipm: row.ipm,
+      previousIpm: previousHourlyByHour.get(row.bucketStart.getUTCHours())?.ipm || 0,
+      impressions: row.impressions,
+      installs: row.installs,
+      bidRate: row.bidRequests ? (row.bids / row.bidRequests) * 100 : 0,
+    })),
     comparison: Array.from(comparisonByHour.values())
       .sort((left, right) => left.time.getTime() - right.time.getTime())
       .map((row) => ({ time: row.time.toISOString(), today: row.today, yesterday: row.yesterday })),

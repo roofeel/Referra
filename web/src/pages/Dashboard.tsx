@@ -41,7 +41,7 @@ function formatNumber(value: number) {
 function formatHourlyTooltip(value: unknown, name: unknown) {
   const metric = String(name ?? '').toLowerCase();
   const displayValue = typeof value === 'string' || typeof value === 'number' ? value : '';
-  if (metric === 'ipm') return [`${displayValue} IPM`, 'IPM'];
+  if (metric === 'ipm' || metric.includes('ipm')) return [`${displayValue} IPM`, String(name ?? 'IPM')];
   if (metric === 'impressions') return [formatNumber(Number(displayValue)), 'Impressions'];
   if (metric === 'bid rate' || metric === 'bidrate') return [`${displayValue}%`, 'Bid rate'];
   return [displayValue, String(name ?? '')];
@@ -103,7 +103,7 @@ export default function Dashboard() {
 
   function refresh() {
     setIsRefreshing(true);
-    setRefreshNotice('Refresh task submitted…');
+    setRefreshNotice(`Refresh task submitted for ${selectedDate}…`);
     void deliveryDashboardApi.refresh(selectedDate).then(async () => {
       setIsRefreshing(false);
       setRefreshNotice('Refreshing Athena data in the background…');
@@ -139,7 +139,7 @@ export default function Dashboard() {
               <span className={`h-1.5 w-1.5 rounded-full ${autoRefresh ? 'bg-emerald-500' : 'bg-slate-300'}`} /> Auto refresh {autoRefresh ? 'on' : 'off'}
             </button>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={refresh} disabled={isRefreshing} className="flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-800 disabled:opacity-60"><span className="material-symbols-outlined text-sm">{isRefreshing ? 'progress_activity' : 'refresh'}</span>Refresh</button>
+      <button type="button" onClick={refresh} disabled={isRefreshing} title={`Refresh ${selectedDate}`} aria-label={`Refresh ${selectedDate}`} className="flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-800 disabled:opacity-60"><span className="material-symbols-outlined text-sm">{isRefreshing ? 'progress_activity' : 'refresh'}</span>Refresh selected date</button>
             </div>
           </div>
         </header>
@@ -159,8 +159,8 @@ export default function Dashboard() {
 
           <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">
             <article className="rounded-xl border border-slate-200/80 bg-white p-5 xl:col-span-3">
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-bold text-slate-900">IPM by hour</h3></div><div className="flex flex-wrap items-center gap-4 text-xs text-slate-500"><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-blue-600" />IPM</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-teal-500" />Bid rate</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-500" />Impressions</span></div></div>
-              <div className="mt-5 h-[270px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} barCategoryGap="25%" margin={{ top: 8, right: 4, left: -22, bottom: 0 }}><CartesianGrid stroke="#eef2f6" vertical={false} /><XAxis dataKey="time" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} /><YAxis yAxisId="impressions" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(value) => formatNumber(Number(value))} /><YAxis yAxisId="ipm" orientation="right" hide /><YAxis yAxisId="rate" orientation="right" hide /><Tooltip contentStyle={tooltipStyle} formatter={formatHourlyTooltip} /><Bar yAxisId="impressions" dataKey="impressions" name="Impressions" fill="#f59e0b" radius={[3, 3, 0, 0]} /><Area yAxisId="ipm" type="monotone" dataKey="ipm" name="IPM" stroke="#2563eb" fill="#dbeafe" fillOpacity={0.7} strokeWidth={2.5} /><Line yAxisId="rate" type="monotone" dataKey="bidRate" name="Bid rate" stroke="#14b8a6" strokeWidth={2} dot={false} /></ComposedChart></ResponsiveContainer></div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-bold text-slate-900">IPM by hour</h3></div><div className="flex flex-wrap items-center gap-4 text-xs text-slate-500"><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-blue-600" />Selected date IPM</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-slate-400" />Previous day IPM</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-teal-500" />Bid rate</span><span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-500" />Impressions</span></div></div>
+              <div className="mt-5 h-[270px] w-full"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartData} barCategoryGap="25%" margin={{ top: 8, right: 4, left: -22, bottom: 0 }}><CartesianGrid stroke="#eef2f6" vertical={false} /><XAxis dataKey="time" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} /><YAxis yAxisId="impressions" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(value) => formatNumber(Number(value))} /><YAxis yAxisId="ipm" orientation="right" hide /><YAxis yAxisId="rate" orientation="right" hide /><Tooltip contentStyle={tooltipStyle} formatter={formatHourlyTooltip} /><Bar yAxisId="impressions" dataKey="impressions" name="Impressions" fill="#f59e0b" radius={[3, 3, 0, 0]} /><Area yAxisId="ipm" type="monotone" dataKey="ipm" name="Selected date IPM" stroke="#2563eb" fill="#dbeafe" fillOpacity={0.7} strokeWidth={2.5} /><Line yAxisId="ipm" type="monotone" dataKey="previousIpm" name="Previous day IPM" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 4" dot={false} /><Line yAxisId="rate" type="monotone" dataKey="bidRate" name="Bid rate" stroke="#14b8a6" strokeWidth={2} dot={false} /></ComposedChart></ResponsiveContainer></div>
             </article>
 
             <article className="rounded-xl border border-slate-200/80 bg-white p-5 xl:col-span-2"><div><h3 className="text-sm font-bold text-slate-900">Delivery funnel</h3><p className="mt-1 text-xs text-slate-500">Selected date stream health</p></div>{liveFunnelData.length ? <><div className="relative mt-3 h-[205px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={liveFunnelData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={82} paddingAngle={3} stroke="none">{liveFunnelData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}</Pie><Tooltip contentStyle={tooltipStyle} formatter={(value) => formatNumber(Number(value))} /></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><span className="text-2xl font-black text-slate-900">{formatNumber(liveFunnelData[2]?.value ?? 0)}</span><span className="text-[10px] uppercase tracking-wider text-slate-400">impressions</span></div></div><div className="space-y-2">{liveFunnelData.map((item) => <div key={item.name} className="flex items-center justify-between text-xs"><span className="flex items-center gap-2 text-slate-600"><i className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />{item.name}</span><span className="font-bold text-slate-800">{formatNumber(item.value)}</span></div>)}</div></> : <div className="flex h-[245px] items-center justify-center text-xs text-slate-500">No delivery data available.</div>}</article>
