@@ -185,8 +185,11 @@ async function runQuery(query: string, config: ReturnType<typeof getConfig>) {
 
 function extractCreative(url: string) {
   try {
-    const value = new URL(url).searchParams.get('creative');
-    return value?.trim() || 'Unknown';
+    const params = new URL(url).searchParams;
+    for (const [key, value] of params.entries()) {
+      if (key.toLowerCase() === 'creative') return value.trim() || 'Unknown';
+    }
+    return 'Unknown';
   } catch {
     const match = url.match(/(?:^|[?&])creative=([^&#]*)/i);
     if (!match?.[1]) return 'Unknown';
@@ -299,6 +302,10 @@ export async function refreshDeliveryMetrics() {
     const to = new Date(from);
     to.setUTCDate(to.getUTCDate() + 1);
     mergeElasticInstalls(rows, await fetchElasticInstalls(from, to));
+    // Creative aggregates are rebuilt from today's impression and install streams.
+    // Remove the previous derived rows so installs previously grouped as Unknown
+    // cannot remain in the Top creatives result after the CREATIVE fix.
+    await (db as any).deliveryMetric.deleteMany({ where: { metricType: 'creative' } });
     for (const row of rows) {
       await (db as any).deliveryMetric.upsert({
         where: { bucketStart_metricType_dimension: { bucketStart: row.bucketStart, metricType: row.metricType, dimension: row.dimension } },
