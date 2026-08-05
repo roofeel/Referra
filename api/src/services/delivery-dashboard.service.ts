@@ -60,7 +60,7 @@ function getElasticConfig() {
   if (!url) throw new Error('ELASTICSEARCH_URL is required for attributed install aggregation');
   return {
     url: url.replace(/\/$/, ''),
-    index: process.env.ELASTICSEARCH_INDEX?.trim() || 'conversion_records',
+    index: process.env.ELASTICSEARCH_INDEX?.trim() || 'conversion_records-*',
   };
 }
 
