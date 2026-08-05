@@ -11,13 +11,13 @@ export interface DeliveryDashboardResponse {
 }
 
 export const deliveryDashboardApi = {
-  get: async (range: '24h' | '7d' | '30d'): Promise<DeliveryDashboardResponse> => {
-    const response = await fetch(buildApiUrl(`/api/delivery-dashboard?range=${range}`));
+  get: async (date: string): Promise<DeliveryDashboardResponse> => {
+    const response = await fetch(buildApiUrl(`/api/delivery-dashboard?date=${encodeURIComponent(date)}`));
     if (!response.ok) await throwApiError(response, 'Failed to fetch delivery dashboard');
     return response.json() as Promise<DeliveryDashboardResponse>;
   },
-  refresh: async () => {
-    const response = await fetch(buildApiUrl('/api/delivery-dashboard/refresh'), { method: 'POST' });
+  refresh: async (date: string) => {
+    const response = await fetch(buildApiUrl(`/api/delivery-dashboard/refresh?date=${encodeURIComponent(date)}`), { method: 'POST' });
     if (!response.ok) await throwApiError(response, 'Failed to refresh delivery metrics');
     return response.json() as Promise<{ status: 'queued' | 'running'; queuedAt: string }>;
   },

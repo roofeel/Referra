@@ -17,8 +17,6 @@ type AggregatedRow = {
   ipm: number;
 };
 
-type DashboardRange = '24h' | '7d' | '30d';
-
 type ElasticInstall = {
   eventTime: Date;
   creative: string;
@@ -70,7 +68,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function buildAggregationSql(config: ReturnType<typeof getConfig>) {
+function buildAggregationSql(config: ReturnType<typeof getConfig>, date: string) {
   const creativeExpression = "coalesce(nullif(regexp_extract(url, '(?i)(?:^|[?&])creative=([^&]+)', 1), ''), 'Unknown')";
   return `
 WITH impression_events AS (
@@ -78,10 +76,10 @@ WITH impression_events AS (
     date_trunc('hour', from_iso8601_timestamp(substr("timestamp", 1, 19))) AS bucket_start,
     ${creativeExpression} AS creative
   FROM ${config.impressionTable}
-  WHERE month = date_format(current_date, '%Y/%m')
+  WHERE month = date_format(DATE '${date}', '%Y/%m')
     AND url LIKE '%/v2/23703/impression%'
-    AND from_iso8601_timestamp(substr("timestamp", 1, 19)) >= CAST(current_date AS timestamp)
-    AND from_iso8601_timestamp(substr("timestamp", 1, 19)) < CAST(date_add('day', 1, current_date) AS timestamp)
+    AND from_iso8601_timestamp(substr("timestamp", 1, 19)) >= CAST(DATE '${date}' AS timestamp)
+    AND from_iso8601_timestamp(substr("timestamp", 1, 19)) < CAST(date_add('day', 1, DATE '${date}') AS timestamp)
 ),
 bid_events AS (
   SELECT
@@ -93,7 +91,7 @@ bid_events AS (
     ) AS dma,
     cardinality(coalesce(cast(json_extract(raw_json, '$.response.bids') AS array(json)), cast(array[] AS array(json)))) AS bid_count
   FROM ${config.bidTable}
-  WHERE "date" = date_format(current_date, '%Y-%m-%d')
+  WHERE "date" = '${date}'
 ),
 hourly AS (
   SELECT
@@ -292,13 +290,12 @@ function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticInstall[])
   }
 }
 
-export async function refreshDeliveryMetrics() {
+export async function refreshDeliveryMetrics(date = new Date().toISOString().slice(0, 10)) {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     const config = getConfig();
-    const rows = parseRows(await runQuery(buildAggregationSql(config), config));
-    const from = new Date();
-    from.setUTCHours(0, 0, 0, 0);
+    const rows = parseRows(await runQuery(buildAggregationSql(config, date), config));
+    const from = new Date(`${date}T00:00:00.000Z`);
     const to = new Date(from);
     to.setUTCDate(to.getUTCDate() + 1);
     mergeElasticInstalls(rows, await fetchElasticInstalls(from, to));
@@ -320,23 +317,24 @@ export async function refreshDeliveryMetrics() {
   return refreshPromise;
 }
 
-export async function getDeliveryDashboard(range: DashboardRange = '24h') {
-  const hours = range === '24h' ? 24 : range === '7d' ? 24 * 7 : 24 * 30;
-  const rangeSince = new Date(Date.now() - hours * 60 * 60 * 1000);
-  const since = new Date(Date.now() - Math.max(hours, 48) * 60 * 60 * 1000);
+export async function getDeliveryDashboard(date = new Date().toISOString().slice(0, 10)) {
+  const rangeSince = new Date(`${date}T00:00:00.000Z`);
+  const rangeUntil = new Date(rangeSince);
+  rangeUntil.setUTCDate(rangeUntil.getUTCDate() + 1);
+  const comparisonStart = new Date(rangeSince);
+  comparisonStart.setUTCDate(comparisonStart.getUTCDate() - 1);
   const rows = await (db as any).deliveryMetric.findMany({
-    where: { bucketStart: { gte: since } },
+    where: { bucketStart: { gte: comparisonStart, lt: rangeUntil } },
     orderBy: { bucketStart: 'asc' },
   }) as Array<AggregatedRow & { updatedAt: Date }>;
   const allHourly = rows.filter((row) => row.metricType === 'hourly');
-  const hourly = allHourly.filter((row) => row.bucketStart >= rangeSince);
-  const dma = rows.filter((row) => row.metricType === 'dma' && row.bucketStart >= rangeSince);
-  const creative = rows.filter((row) => row.metricType === 'creative' && row.bucketStart >= rangeSince);
-  const today = hourly.filter((row) => row.bucketStart >= new Date(Date.now() - 24 * 60 * 60 * 1000));
-  const comparisonStart = new Date(Date.now() - 48 * 60 * 60 * 1000);
+  const hourly = allHourly.filter((row) => row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);
+  const dma = rows.filter((row) => row.metricType === 'dma' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);
+  const creative = rows.filter((row) => row.metricType === 'creative' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);
+  const today = hourly;
   const comparisonRows = allHourly.filter((row) => row.bucketStart >= comparisonStart);
   const comparisonByHour = new Map<number, { time: Date; today: number; yesterday: number }>();
-  const comparisonCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const comparisonCutoff = rangeSince;
   comparisonRows.forEach((row) => {
     const isToday = row.bucketStart >= comparisonCutoff;
     const comparisonTime = isToday

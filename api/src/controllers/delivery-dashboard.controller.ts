@@ -1,23 +1,28 @@
 import { getDeliveryDashboard, isDeliveryMetricsRefreshing, refreshDeliveryMetrics } from '../services/delivery-dashboard.service.js';
 
-function parseRange(value: string | null) {
-  return value === '7d' || value === '30d' ? value : '24h';
+function parseDate(value: string | null) {
+  if (!value) return new Date().toISOString().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error('date must use YYYY-MM-DD format');
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) throw new Error('date must be a valid calendar date');
+  return value;
 }
 
 export const deliveryDashboardController = {
   async get(request: Request) {
     const url = new URL(request.url);
     try {
-      return Response.json(await getDeliveryDashboard(parseRange(url.searchParams.get('range'))));
+      return Response.json(await getDeliveryDashboard(parseDate(url.searchParams.get('date'))));
     } catch (error) {
       console.error('[delivery-dashboard] read failed:', error);
       return Response.json({ error: error instanceof Error ? error.message : 'Failed to read delivery dashboard' }, { status: 503 });
     }
   },
 
-  async refresh() {
+  async refresh(request: Request) {
     const alreadyRunning = isDeliveryMetricsRefreshing();
-    void refreshDeliveryMetrics().catch((error) => console.error('[delivery-dashboard] refresh failed:', error));
+    const url = new URL(request.url);
+    void refreshDeliveryMetrics(parseDate(url.searchParams.get('date'))).catch((error) => console.error('[delivery-dashboard] refresh failed:', error));
     return Response.json({ status: alreadyRunning ? 'running' : 'queued', queuedAt: new Date().toISOString() }, { status: 202 });
   },
 };
