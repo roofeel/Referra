@@ -19,6 +19,11 @@ type AggregatedRow = {
 
 type DashboardRange = '24h' | '7d' | '30d';
 
+type ElasticInstall = {
+  eventTime: Date;
+  creative: string;
+};
+
 let refreshPromise: Promise<{ rows: number; refreshedAt: string }> | null = null;
 
 export function isDeliveryMetricsRefreshing() {
@@ -52,6 +57,15 @@ function getConfig() {
   };
 }
 
+function getElasticConfig() {
+  const url = process.env.ELASTICSEARCH_URL?.trim();
+  if (!url) throw new Error('ELASTICSEARCH_URL is required for attributed install aggregation');
+  return {
+    url: url.replace(/\/$/, ''),
+    index: process.env.ELASTICSEARCH_INDEX?.trim() || 'conversion_records',
+  };
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -66,18 +80,6 @@ WITH impression_events AS (
   FROM ${config.impressionTable}
   WHERE month = date_format(current_date, '%Y/%m')
     AND url LIKE '%/v2/23703/impression%'
-    AND from_iso8601_timestamp(substr("timestamp", 1, 19)) >= CAST(current_date AS timestamp)
-    AND from_iso8601_timestamp(substr("timestamp", 1, 19)) < CAST(date_add('day', 1, current_date) AS timestamp)
-),
-install_events AS (
-  SELECT
-    date_trunc('hour', from_iso8601_timestamp(substr("timestamp", 1, 19))) AS bucket_start,
-    ${creativeExpression} AS creative
-  FROM ${config.installTable}
-  WHERE log_month = date_format(current_date, '%Y/%m')
-    AND url_extract_parameter(url, 'ACTION') = 'I'
-    AND url LIKE '%/api/v1/vendor/conversion%'
-    AND url LIKE '%id23703%'
     AND from_iso8601_timestamp(substr("timestamp", 1, 19)) >= CAST(current_date AS timestamp)
     AND from_iso8601_timestamp(substr("timestamp", 1, 19)) < CAST(date_add('day', 1, current_date) AS timestamp)
 ),
@@ -99,7 +101,7 @@ hourly AS (
     'hourly' AS metric_type,
     'ALL' AS dimension,
     count(*) AS impressions,
-    coalesce((SELECT count(*) FROM install_events x WHERE x.bucket_start = i.bucket_start), 0) AS installs,
+    0 AS installs,
     coalesce((SELECT count(*) FROM bid_events b WHERE b.bucket_start = i.bucket_start), 0) AS bid_requests,
     coalesce((SELECT sum(CASE WHEN b.bid_count > 0 THEN 1 ELSE 0 END) FROM bid_events b WHERE b.bucket_start = i.bucket_start), 0) AS bids
   FROM impression_events i
@@ -121,8 +123,9 @@ install_daily AS (
   SELECT
     date_trunc('day', bucket_start) AS bucket_start,
     creative,
-    count(*) AS installs
-  FROM install_events
+    0 AS installs
+  FROM impression_events
+  WHERE false
   GROUP BY date_trunc('day', bucket_start), creative
 ),
 creative_daily AS (
@@ -180,6 +183,68 @@ async function runQuery(query: string, config: ReturnType<typeof getConfig>) {
   return rows.slice(1);
 }
 
+function extractCreative(url: string) {
+  try {
+    const value = new URL(url).searchParams.get('creative');
+    return value?.trim() || 'Unknown';
+  } catch {
+    const match = url.match(/(?:^|[?&])creative=([^&#]*)/i);
+    if (!match?.[1]) return 'Unknown';
+    try {
+      return decodeURIComponent(match[1]).trim() || 'Unknown';
+    } catch {
+      return match[1].trim() || 'Unknown';
+    }
+  }
+}
+
+async function fetchElasticInstalls(from: Date, to: Date): Promise<ElasticInstall[]> {
+  const config = getElasticConfig();
+  const installs: ElasticInstall[] = [];
+  let searchAfter: unknown[] | undefined;
+
+  for (;;) {
+    const response = await fetch(`${config.url}/${encodeURIComponent(config.index)}/_search`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        size: 1000,
+        _source: ['click_event_time', 'click_ourl'],
+        sort: [{ click_event_time: 'asc' }, { _id: 'asc' }],
+        ...(searchAfter ? { search_after: searchAfter } : {}),
+        query: {
+          bool: {
+            filter: [
+              { term: { click_url_id: 23703 } },
+              { term: { status: 'normal' } },
+              { term: { track_type: 'install' } },
+              { range: { click_event_time: { gte: from.toISOString(), lt: to.toISOString() } } },
+              { exists: { field: 'click_ourl' } },
+            ],
+          },
+        },
+      }),
+    });
+    if (!response.ok) throw new Error(`Elasticsearch query failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
+    const payload = await response.json() as {
+      hits?: { hits?: Array<{ _source?: { click_event_time?: string; click_ourl?: string }; sort?: unknown[] }> };
+    };
+    const hits = payload.hits?.hits || [];
+    for (const hit of hits) {
+      const eventTime = new Date(hit._source?.click_event_time || '');
+      const url = hit._source?.click_ourl || '';
+      if (!url || Number.isNaN(eventTime.getTime())) continue;
+      installs.push({ eventTime, creative: extractCreative(url) });
+    }
+    if (hits.length < 1000) break;
+    searchAfter = hits[hits.length - 1]?.sort;
+    if (!searchAfter) throw new Error('Elasticsearch did not return sort values for pagination');
+  }
+  return installs;
+}
+
 function parseRows(rows: string[][]): AggregatedRow[] {
   return rows.flatMap((row) => {
     if (row.length < 8) return [];
@@ -198,11 +263,42 @@ function parseRows(rows: string[][]): AggregatedRow[] {
   });
 }
 
+function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticInstall[]) {
+  const hourly = new Map(rows.filter((row) => row.metricType === 'hourly').map((row) => [row.bucketStart.getTime(), row]));
+  const creative = new Map(rows.filter((row) => row.metricType === 'creative').map((row) => [`${row.bucketStart.getTime()}\u0000${row.dimension}`, row]));
+  for (const install of installs) {
+    const hour = new Date(install.eventTime);
+    hour.setUTCMinutes(0, 0, 0);
+    const hourRow = hourly.get(hour.getTime());
+    if (hourRow) hourRow.installs += 1;
+
+    const day = new Date(install.eventTime);
+    day.setUTCHours(0, 0, 0, 0);
+    const key = `${day.getTime()}\u0000${install.creative}`;
+    let creativeRow = creative.get(key);
+    if (!creativeRow) {
+      creativeRow = { bucketStart: day, metricType: 'creative', dimension: install.creative, impressions: 0, installs: 0, bidRequests: 0, bids: 0, ipm: 0 };
+      rows.push(creativeRow);
+      creative.set(key, creativeRow);
+    }
+    creativeRow.installs += 1;
+  }
+  for (const row of rows) {
+    if (row.metricType === 'creative') row.ipm = row.impressions ? (row.installs / row.impressions) * 1000 : 0;
+    if (row.metricType === 'hourly') row.ipm = row.impressions ? (row.installs / row.impressions) * 1000 : 0;
+  }
+}
+
 export async function refreshDeliveryMetrics() {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     const config = getConfig();
     const rows = parseRows(await runQuery(buildAggregationSql(config), config));
+    const from = new Date();
+    from.setUTCHours(0, 0, 0, 0);
+    const to = new Date(from);
+    to.setUTCDate(to.getUTCDate() + 1);
+    mergeElasticInstalls(rows, await fetchElasticInstalls(from, to));
     for (const row of rows) {
       await (db as any).deliveryMetric.upsert({
         where: { bucketStart_metricType_dimension: { bucketStart: row.bucketStart, metricType: row.metricType, dimension: row.dimension } },
@@ -232,6 +328,19 @@ export async function getDeliveryDashboard(range: DashboardRange = '24h') {
   const today = hourly.filter((row) => row.bucketStart >= new Date(Date.now() - 24 * 60 * 60 * 1000));
   const comparisonStart = new Date(Date.now() - 48 * 60 * 60 * 1000);
   const comparisonRows = allHourly.filter((row) => row.bucketStart >= comparisonStart);
+  const comparisonByHour = new Map<number, { time: Date; today: number; yesterday: number }>();
+  const comparisonCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  comparisonRows.forEach((row) => {
+    const isToday = row.bucketStart >= comparisonCutoff;
+    const comparisonTime = isToday
+      ? row.bucketStart
+      : new Date(row.bucketStart.getTime() + 24 * 60 * 60 * 1000);
+    const key = comparisonTime.getTime();
+    const current = comparisonByHour.get(key) || { time: comparisonTime, today: 0, yesterday: 0 };
+    if (isToday) current.today += Number(row.impressions || 0);
+    else current.yesterday += Number(row.impressions || 0);
+    comparisonByHour.set(key, current);
+  });
   const total = (key: keyof AggregatedRow) => today.reduce((sum, row) => sum + Number(row[key] || 0), 0);
   const lastUpdated = rows.reduce<Date | null>((latest, row) => !latest || row.updatedAt > latest ? row.updatedAt : latest, null);
 
@@ -262,7 +371,9 @@ export async function getDeliveryDashboard(range: DashboardRange = '24h') {
     lastUpdated: lastUpdated?.toISOString() || null,
     metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: total('bidRequests'), bids: total('bids'), ipm: total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0 },
     hourly: hourly.map((row) => ({ time: row.bucketStart.toISOString(), ipm: row.ipm, impressions: row.impressions, installs: row.installs, bidRate: row.bidRequests ? (row.bids / row.bidRequests) * 100 : 0 })),
-    comparison: comparisonRows.map((row) => ({ time: row.bucketStart.toISOString(), today: row.bucketStart >= new Date(Date.now() - 24 * 60 * 60 * 1000) ? row.impressions : 0, yesterday: row.bucketStart < new Date(Date.now() - 24 * 60 * 60 * 1000) ? row.impressions : 0 })),
+    comparison: Array.from(comparisonByHour.values())
+      .sort((left, right) => left.time.getTime() - right.time.getTime())
+      .map((row) => ({ time: row.time.toISOString(), today: row.today, yesterday: row.yesterday })),
     dma: dmaTotals,
     creative: creativeTotals,
   };
