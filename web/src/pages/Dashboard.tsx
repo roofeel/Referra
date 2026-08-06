@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Area,
   Bar,
@@ -34,6 +35,12 @@ function currentUtcDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function isValidDate(value: string | null): value is string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 function formatNumber(value: number) {
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }
@@ -61,7 +68,8 @@ function MetricCard({ label, value, change, icon, tone }: { label: string; value
 }
 
 export default function Dashboard() {
-  const [selectedDate, setSelectedDate] = useState(currentUtcDate);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedDate = isValidDate(searchParams.get('date')) ? searchParams.get('date')! : currentUtcDate();
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -104,16 +112,10 @@ export default function Dashboard() {
   function refresh() {
     setIsRefreshing(true);
     setRefreshNotice(`Refresh task submitted for ${selectedDate}…`);
-    void deliveryDashboardApi.refresh(selectedDate).then(async () => {
+    void deliveryDashboardApi.refresh(selectedDate).then(() => {
       setIsRefreshing(false);
-      setRefreshNotice('Refreshing Athena data in the background…');
-      await new Promise((resolve) => window.setTimeout(resolve, 2_000));
-      const payload = await deliveryDashboardApi.get(selectedDate);
-      setDashboard(payload);
-      setLastUpdated(payload.lastUpdated ? new Date(payload.lastUpdated) : new Date());
-      setLoadError(null);
       setRefreshNotice('Refresh completed');
-      window.setTimeout(() => setRefreshNotice(null), 3_000);
+      window.location.reload();
     }).catch((error) => {
       setIsRefreshing(false);
       setLoadError(error instanceof Error ? error.message : 'Failed to queue Athena refresh');
@@ -151,7 +153,7 @@ export default function Dashboard() {
         <div className="flex-1 space-y-6 overflow-y-auto p-8">
           <section className="flex flex-wrap items-end justify-between gap-4">
             <div><p className="mt-1 text-sm text-slate-500">Aggregated from impression, install and bidding streams.</p>{loadError ? <p className="mt-2 text-xs font-semibold text-rose-600">Athena unavailable: {loadError}</p> : dashboard ? <p className="mt-2 text-xs font-semibold text-emerald-600">Live Athena data · {dashboard.lastUpdated ? `${formatUtcDateTime(dashboard.lastUpdated)} UTC` : 'waiting for first aggregation'}</p> : <p className="mt-2 text-xs font-semibold text-amber-600">Loading Athena aggregates…</p>}</div>
-            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Date</span><input type="date" value={selectedDate} max={currentUtcDate()} onChange={(event) => setSelectedDate(event.target.value)} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0" /></label>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Date</span><input type="date" value={selectedDate} max={currentUtcDate()} onChange={(event) => setSearchParams({ date: event.target.value }, { replace: true })} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0" /></label>
           </section>
 
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">

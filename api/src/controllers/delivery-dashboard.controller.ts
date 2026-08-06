@@ -1,4 +1,4 @@
-import { getDeliveryDashboard, isDeliveryMetricsRefreshing, refreshDeliveryMetrics } from '../services/delivery-dashboard.service.js';
+import { getDeliveryDashboard, refreshDeliveryMetrics } from '../services/delivery-dashboard.service.js';
 
 function parseDate(value: string | null) {
   if (!value) return new Date().toISOString().slice(0, 10);
@@ -20,9 +20,9 @@ export const deliveryDashboardController = {
   },
 
   async refresh(request: Request) {
-    const alreadyRunning = isDeliveryMetricsRefreshing();
     const url = new URL(request.url);
-    void refreshDeliveryMetrics(parseDate(url.searchParams.get('date'))).catch((error) => console.error('[delivery-dashboard] refresh failed:', error));
-    return Response.json({ status: alreadyRunning ? 'running' : 'queued', queuedAt: new Date().toISOString() }, { status: 202 });
+    const date = parseDate(url.searchParams.get('date'));
+    const result = await refreshDeliveryMetrics(date);
+    return Response.json({ status: 'completed', date, ...result });
   },
 };

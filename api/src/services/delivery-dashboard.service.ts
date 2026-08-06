@@ -23,10 +23,10 @@ type ElasticInstall = {
   creative: string;
 };
 
-let refreshPromise: Promise<{ rows: number; refreshedAt: string }> | null = null;
+const refreshPromises = new Map<string, Promise<{ rows: number; refreshedAt: string }>>();
 
 export function isDeliveryMetricsRefreshing() {
-  return refreshPromise !== null;
+  return refreshPromises.size > 0;
 }
 
 function requiredEnv(name: string) {
@@ -305,18 +305,19 @@ function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticInstall[])
 }
 
 export async function refreshDeliveryMetrics(date = new Date().toISOString().slice(0, 10)) {
-  if (refreshPromise) return refreshPromise;
-  refreshPromise = (async () => {
+  const running = refreshPromises.get(date);
+  if (running) return running;
+  const refreshPromise = (async () => {
     const config = getConfig();
     const rows = parseRows(await runQuery(buildAggregationSql(config, date), config));
     const from = new Date(`${date}T00:00:00.000Z`);
     const to = new Date(from);
     to.setUTCDate(to.getUTCDate() + 1);
     mergeElasticInstalls(rows, await fetchElasticInstalls(from, to));
-    // Creative aggregates are rebuilt for this date only. Do not remove other
-    // dates, otherwise refreshing today corrupts the previous day's dashboard.
+    // Rebuild only the requested date. Keep other dates intact so a manual
+    // refresh for a historical date cannot corrupt today's dashboard.
     await (db as any).deliveryMetric.deleteMany({
-      where: { metricType: 'creative', bucketStart: { gte: from, lt: to } },
+      where: { bucketStart: { gte: from, lt: to } },
     });
     for (const row of rows) {
       await (db as any).deliveryMetric.upsert({
@@ -327,8 +328,9 @@ export async function refreshDeliveryMetrics(date = new Date().toISOString().sli
     }
     return { rows: rows.length, refreshedAt: new Date().toISOString() };
   })().finally(() => {
-    refreshPromise = null;
+    refreshPromises.delete(date);
   });
+  refreshPromises.set(date, refreshPromise);
   return refreshPromise;
 }
 

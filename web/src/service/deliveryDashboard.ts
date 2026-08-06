@@ -19,6 +19,6 @@ export const deliveryDashboardApi = {
   refresh: async (date: string) => {
     const response = await fetch(buildApiUrl(`/api/delivery-dashboard/refresh?date=${encodeURIComponent(date)}`), { method: 'POST' });
     if (!response.ok) await throwApiError(response, 'Failed to refresh delivery metrics');
-    return response.json() as Promise<{ status: 'queued' | 'running'; queuedAt: string }>;
+    return response.json() as Promise<{ status: 'completed'; date: string; rows: number; refreshedAt: string }>;
   },
 };
