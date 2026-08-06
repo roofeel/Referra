@@ -22,8 +22,10 @@ REPORT_EXPORT_WORKER_CONCURRENCY=2
 
 # Journey Matching (AWS Athena)
 AWS_REGION=us-east-1
-AWS_ACCESS_KEY_ID=your_aws_access_key_id
-AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
+# IAM Role environments do not need AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY.
+# For local IAM user credentials, set both variables.
+# AWS_ACCESS_KEY_ID=your_aws_access_key_id
+# AWS_SECRET_ACCESS_KEY=your_aws_secret_access_key
 
 # Delivery Dashboard aggregation (Athena -> PostgreSQL)
 ATHENA_DATABASE=default
@@ -32,6 +34,8 @@ ATHENA_OUTPUT_LOCATION=s3://aws-athena-query-results-246648750489-us-east-1/
 ATHENA_IMPRESSION_TABLE=impression_logs
 ATHENA_INSTALL_TABLE=tracking_lb_logs
 ATHENA_BID_TABLE=fm_bidding_agent_test_bids
+ELASTICSEARCH_URL=https://your-domain.us-east-1.es.amazonaws.com
+ELASTICSEARCH_INDEX=conversion_records-*
 DELIVERY_METRICS_ENABLED=true
 DELIVERY_METRICS_INTERVAL_MS=3600000
 

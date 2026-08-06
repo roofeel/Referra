@@ -3,8 +3,9 @@ import {
   GetQueryResultsCommand,
   StartQueryExecutionCommand,
 } from '@aws-sdk/client-athena';
+import { HttpRequest } from '@smithy/protocol-http';
 import { db } from '../../../packages/db/index.js';
-import { createAthenaClient } from '../lib/aws-clients.lib.js';
+import { createAthenaClient, createElasticsearchSigner } from '../lib/aws-clients.lib.js';
 
 type AggregatedRow = {
   bucketStart: Date;
@@ -203,6 +204,7 @@ async function fetchElasticInstalls(from: Date, to: Date): Promise<ElasticInstal
   const config = getElasticConfig();
   const installs: ElasticInstall[] = [];
   let searchAfter: unknown[] | undefined;
+  const signer = createElasticsearchSigner();
 
   for (;;) {
     const searchBody = {
@@ -226,8 +228,19 @@ async function fetchElasticInstalls(from: Date, to: Date): Promise<ElasticInstal
     searchUrl.searchParams.set('source', JSON.stringify(searchBody));
     searchUrl.searchParams.set('source_content_type', 'application/json');
 
+    const signedRequest = await signer.sign(new HttpRequest({
+      protocol: searchUrl.protocol,
+      hostname: searchUrl.hostname,
+      port: searchUrl.port ? Number(searchUrl.port) : undefined,
+      method: 'GET',
+      path: searchUrl.pathname,
+      query: Object.fromEntries(searchUrl.searchParams.entries()),
+      headers: { host: searchUrl.host },
+    }));
+
     const response = await fetch(searchUrl, {
       method: 'GET',
+      headers: signedRequest.headers,
     });
     if (!response.ok) throw new Error(`Elasticsearch query failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
     const payload = await response.json() as {

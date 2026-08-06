@@ -1,6 +1,8 @@
 import { AthenaClient } from '@aws-sdk/client-athena';
 import { S3Client } from '@aws-sdk/client-s3';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
+import { Hash } from '@smithy/hash-node';
+import { SignatureV4 } from '@smithy/signature-v4';
 import type { AwsCredentialIdentityProvider } from '@aws-sdk/types';
 
 function getAwsRegion() {
@@ -76,6 +78,20 @@ export function createS3Client() {
 
 export function getAwsRegionValue() {
   return getAwsRegion();
+}
+
+export function createElasticsearchSigner() {
+  const credentialConfig = resolveAwsCredentialConfig();
+  const credentials = 'credentials' in credentialConfig
+    ? credentialConfig.credentials
+    : credentialConfig;
+
+  return new SignatureV4({
+    credentials,
+    region: getAwsRegion(),
+    service: 'es',
+    sha256: Hash.bind(null, 'sha256'),
+  });
 }
 
 export function resolveBedrockCredentialConfig() {
