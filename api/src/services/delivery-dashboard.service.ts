@@ -205,28 +205,29 @@ async function fetchElasticInstalls(from: Date, to: Date): Promise<ElasticInstal
   let searchAfter: unknown[] | undefined;
 
   for (;;) {
-    const response = await fetch(`${config.url}/${encodeURIComponent(config.index)}/_search`, {
-      method: 'GET',
-      headers: {
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        size: 1000,
-        _source: ['click_event_time', 'click_ourl'],
-        sort: [{ click_event_time: 'asc' }, { _id: 'asc' }],
-        ...(searchAfter ? { search_after: searchAfter } : {}),
-        query: {
-          bool: {
-            filter: [
-              { term: { click_url_id: 23703 } },
-              { term: { status: 'normal' } },
-              { term: { track_type: 'install' } },
-              { range: { click_event_time: { gte: from.toISOString(), lt: to.toISOString() } } },
-              { exists: { field: 'click_ourl' } },
-            ],
-          },
+    const searchBody = {
+      size: 1000,
+      _source: ['click_event_time', 'click_ourl'],
+      sort: [{ click_event_time: 'asc' }, { _id: 'asc' }],
+      ...(searchAfter ? { search_after: searchAfter } : {}),
+      query: {
+        bool: {
+          filter: [
+            { term: { click_url_id: 23703 } },
+            { term: { status: 'normal' } },
+            { term: { track_type: 'install' } },
+            { range: { click_event_time: { gte: from.toISOString(), lt: to.toISOString() } } },
+            { exists: { field: 'click_ourl' } },
+          ],
         },
-      }),
+      },
+    };
+    const searchUrl = new URL(`${config.url}/${encodeURIComponent(config.index)}/_search`);
+    searchUrl.searchParams.set('source', JSON.stringify(searchBody));
+    searchUrl.searchParams.set('source_content_type', 'application/json');
+
+    const response = await fetch(searchUrl, {
+      method: 'GET',
     });
     if (!response.ok) throw new Error(`Elasticsearch query failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
     const payload = await response.json() as {
