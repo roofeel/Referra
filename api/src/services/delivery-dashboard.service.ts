@@ -206,7 +206,7 @@ async function fetchElasticInstalls(from: Date, to: Date): Promise<ElasticInstal
 
   for (;;) {
     const response = await fetch(`${config.url}/${encodeURIComponent(config.index)}/_search`, {
-      method: 'POST',
+      method: 'GET',
       headers: {
         'content-type': 'application/json',
       },
