@@ -96,15 +96,25 @@ bid_events AS (
 ),
 hourly AS (
   SELECT
-    i.bucket_start,
+    coalesce(i.bucket_start, b.bucket_start) AS bucket_start,
     'hourly' AS metric_type,
     'ALL' AS dimension,
-    count(*) AS impressions,
+    coalesce(i.impressions, 0) AS impressions,
     0 AS installs,
-    coalesce((SELECT count(*) FROM bid_events b WHERE b.bucket_start = i.bucket_start), 0) AS bid_requests,
-    coalesce((SELECT sum(CASE WHEN b.bid_count > 0 THEN 1 ELSE 0 END) FROM bid_events b WHERE b.bucket_start = i.bucket_start), 0) AS bids
-  FROM impression_events i
-  GROUP BY i.bucket_start
+    coalesce(b.bid_requests, 0) AS bid_requests,
+    coalesce(b.bids, 0) AS bids
+  FROM (
+    SELECT bucket_start, count(*) AS impressions
+    FROM impression_events
+    GROUP BY bucket_start
+  ) i
+  FULL OUTER JOIN (
+    SELECT bucket_start,
+      count(*) AS bid_requests,
+      sum(CASE WHEN bid_count > 0 THEN 1 ELSE 0 END) AS bids
+    FROM bid_events
+    GROUP BY bucket_start
+  ) b ON b.bucket_start = i.bucket_start
 ),
 dma_daily AS (
   SELECT
@@ -402,7 +412,9 @@ export async function getDeliveryDashboard(date = new Date().toISOString().slice
       previousIpm: previousHourlyByHour.get(row.bucketStart.getUTCHours())?.ipm || 0,
       impressions: row.impressions,
       installs: row.installs,
+      bidResponses: row.bids,
       bidRate: row.bidRequests ? (row.bids / row.bidRequests) * 100 : 0,
+      winRate: row.bids ? (row.impressions / row.bids) * 100 : 0,
     })),
     comparison: Array.from(comparisonByHour.values())
       .sort((left, right) => left.time.getTime() - right.time.getTime())
