@@ -21,6 +21,7 @@ type AggregatedRow = {
 type ElasticInstall = {
   eventTime: Date;
   creative: string;
+  dma: string;
 };
 
 const refreshPromises = new Map<string, Promise<{ rows: number; refreshedAt: string }>>();
@@ -75,7 +76,8 @@ function buildAggregationSql(config: ReturnType<typeof getConfig>, date: string)
 WITH impression_events AS (
   SELECT
     date_trunc('hour', from_iso8601_timestamp(substr("timestamp", 1, 19))) AS bucket_start,
-    ${creativeExpression} AS creative
+    ${creativeExpression} AS creative,
+    coalesce(nullif(regexp_extract(url, '(?i)(?:^|[?&])dma=([^&]+)', 1), ''), 'Unknown') AS dma
   FROM ${config.impressionTable}
   WHERE month = date_format(DATE '${date}', '%Y/%m')
     AND url LIKE '%/v2/23703/impression%'
@@ -118,15 +120,15 @@ hourly AS (
 ),
 dma_daily AS (
   SELECT
-    date_trunc('day', b.bucket_start) AS bucket_start,
+    date_trunc('day', i.bucket_start) AS bucket_start,
     'dma' AS metric_type,
-    b.dma AS dimension,
-    0 AS impressions,
+    i.dma AS dimension,
+    count(*) AS impressions,
     0 AS installs,
-    count(*) AS bid_requests,
-    sum(CASE WHEN b.bid_count > 0 THEN 1 ELSE 0 END) AS bids
-  FROM bid_events b
-  GROUP BY date_trunc('day', b.bucket_start), b.dma
+    0 AS bid_requests,
+    0 AS bids
+  FROM impression_events i
+  GROUP BY date_trunc('day', i.bucket_start), i.dma
 ),
 install_daily AS (
   SELECT
@@ -192,15 +194,15 @@ async function runQuery(query: string, config: ReturnType<typeof getConfig>) {
   return rows.slice(1);
 }
 
-function extractCreative(url: string) {
+function extractUrlParam(url: string, name: string) {
   try {
     const params = new URL(url).searchParams;
     for (const [key, value] of params.entries()) {
-      if (key.toLowerCase() === 'creative') return value.trim() || 'Unknown';
+      if (key.toLowerCase() === name) return value.trim() || 'Unknown';
     }
     return 'Unknown';
   } catch {
-    const match = url.match(/(?:^|[?&])creative=([^&#]*)/i);
+    const match = url.match(new RegExp(`(?:^|[?&])${name}=([^&#]*)`, 'i'));
     if (!match?.[1]) return 'Unknown';
     try {
       return decodeURIComponent(match[1]).trim() || 'Unknown';
@@ -208,6 +210,14 @@ function extractCreative(url: string) {
       return match[1].trim() || 'Unknown';
     }
   }
+}
+
+function extractCreative(url: string) {
+  return extractUrlParam(url, 'creative');
+}
+
+function extractDma(url: string) {
+  return extractUrlParam(url, 'dma');
 }
 
 async function fetchElasticInstalls(from: Date, to: Date): Promise<ElasticInstall[]> {
@@ -261,7 +271,7 @@ async function fetchElasticInstalls(from: Date, to: Date): Promise<ElasticInstal
       const eventTime = new Date(hit._source?.click_event_time || '');
       const url = hit._source?.click_ourl || '';
       if (!url || Number.isNaN(eventTime.getTime())) continue;
-      installs.push({ eventTime, creative: extractCreative(url) });
+      installs.push({ eventTime, creative: extractCreative(url), dma: extractDma(url) });
     }
     if (hits.length < 1000) break;
     searchAfter = hits[hits.length - 1]?.sort;
@@ -290,6 +300,7 @@ function parseRows(rows: string[][]): AggregatedRow[] {
 
 function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticInstall[]) {
   const hourly = new Map(rows.filter((row) => row.metricType === 'hourly').map((row) => [row.bucketStart.getTime(), row]));
+  const dma = new Map(rows.filter((row) => row.metricType === 'dma').map((row) => [`${row.bucketStart.getTime()}\u0000${row.dimension}`, row]));
   const creative = new Map(rows.filter((row) => row.metricType === 'creative').map((row) => [`${row.bucketStart.getTime()}\u0000${row.dimension}`, row]));
   for (const install of installs) {
     const hour = new Date(install.eventTime);
@@ -299,6 +310,15 @@ function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticInstall[])
 
     const day = new Date(install.eventTime);
     day.setUTCHours(0, 0, 0, 0);
+    const dmaKey = `${day.getTime()}\u0000${install.dma}`;
+    let dmaRow = dma.get(dmaKey);
+    if (!dmaRow) {
+      dmaRow = { bucketStart: day, metricType: 'dma', dimension: install.dma, impressions: 0, installs: 0, bidRequests: 0, bids: 0, ipm: 0 };
+      rows.push(dmaRow);
+      dma.set(dmaKey, dmaRow);
+    }
+    dmaRow.installs += 1;
+
     const key = `${day.getTime()}\u0000${install.creative}`;
     let creativeRow = creative.get(key);
     if (!creativeRow) {
@@ -310,6 +330,7 @@ function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticInstall[])
   }
   for (const row of rows) {
     if (row.metricType === 'creative') row.ipm = row.impressions ? (row.installs / row.impressions) * 1000 : 0;
+    if (row.metricType === 'dma') row.ipm = row.impressions ? (row.installs / row.impressions) * 1000 : 0;
     if (row.metricType === 'hourly') row.ipm = row.impressions ? (row.installs / row.impressions) * 1000 : 0;
   }
 }
