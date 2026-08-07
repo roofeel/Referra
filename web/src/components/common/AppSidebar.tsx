@@ -87,7 +87,12 @@ export function AppSidebar({ activeItem, ariaLabel }: AppSidebarProps) {
         })}
 
         <div className="pt-2">
-          <p className="px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">Referrer Type Anlysis</p>
+          <p className="flex items-center gap-2 px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            Referrer Type Anlysis
+            <span className="rounded border border-blue-400/40 bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-normal text-blue-300">
+              Beta
+            </span>
+          </p>
           <div className="mt-1 space-y-1">
             {referrerTypeAnalysisItems.map((item) => {
               const isActive = item.key === activeItem;
@@ -116,7 +121,12 @@ export function AppSidebar({ activeItem, ariaLabel }: AppSidebarProps) {
         </div>
 
         <div className="pt-2">
-          <p className="px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">Manual Attribution</p>
+          <p className="flex items-center gap-2 px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            Manual Attribution
+            <span className="rounded border border-blue-400/40 bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-normal text-blue-300">
+              Beta
+            </span>
+          </p>
           <div className="mt-1 space-y-1">
             {manualAttributionItems.map((item) => {
               const isActive = item.key === activeItem;
@@ -145,7 +155,12 @@ export function AppSidebar({ activeItem, ariaLabel }: AppSidebarProps) {
         </div>
 
         <div className="pt-2">
-          <p className="px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">Settings</p>
+          <p className="flex items-center gap-2 px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            Settings
+            <span className="rounded border border-blue-400/40 bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-normal text-blue-300">
+              Beta
+            </span>
+          </p>
           <div className="mt-1 space-y-1">
             {settingSidebarItems.map((item) => {
               const isActive = item.key === activeItem;

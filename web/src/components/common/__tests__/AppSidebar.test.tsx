@@ -16,8 +16,9 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Referra')).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
     expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
-    expect(within(nav).getByText('Attributed').closest('a')).toHaveAttribute('href', '/reports');
+    expect(within(nav).getAllByText('Attributed')[0].closest('a')).toHaveAttribute('href', '/reports');
     expect(within(nav).getByRole('link', { name: /MCP Document/i })).toHaveAttribute('href', '/documents/mcp');
+    expect(within(nav).getAllByText('Beta')).toHaveLength(3);
     expect(screen.getByText('Guest User')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Logout/i })).toBeDisabled();
   });
