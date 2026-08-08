@@ -24,6 +24,8 @@ type ElasticInstall = {
   dma: string;
 };
 
+export type DeliveryMetricFilter = { id: number; showBid: boolean };
+
 const refreshPromises = new Map<string, Promise<{ rows: number; refreshedAt: string }>>();
 
 export function isDeliveryMetricsRefreshing() {
@@ -43,10 +45,21 @@ function identifier(value: string, name: string) {
   return value;
 }
 
+export function parseDeliveryMetricFilters(value = process.env.DELIVERY_METRICS_FILTERS || process.env.DELIVERY_METRICS_FILTER || ''): DeliveryMetricFilter[] {
+  return value.split(',').map((entry) => entry.trim()).filter(Boolean).map((entry) => {
+    const [idValue, showBidValue = 'false'] = entry.split(':').map((part) => part.trim());
+    const id = Number(idValue);
+    if (!Number.isSafeInteger(id) || id < 0) throw new Error(`DELIVERY_METRICS_FILTERS contains an invalid id: ${idValue}`);
+    if (!/^(true|false)$/i.test(showBidValue)) throw new Error(`DELIVERY_METRICS_FILTERS contains an invalid showBid value for ${idValue}`);
+    return { id, showBid: showBidValue.toLowerCase() === 'true' };
+  });
+}
+
 function getConfig() {
   const impressionTable = identifier(process.env.ATHENA_IMPRESSION_TABLE?.trim() || 'impression_logs', 'ATHENA_IMPRESSION_TABLE');
   const installTable = identifier(process.env.ATHENA_INSTALL_TABLE?.trim() || 'tracking_lb_logs', 'ATHENA_INSTALL_TABLE');
   const bidTable = identifier(process.env.ATHENA_BID_TABLE?.trim() || 'fm_bidding_agent_production_bids', 'ATHENA_BID_TABLE');
+  const filters = parseDeliveryMetricFilters();
   return {
     database: requiredEnv('ATHENA_DATABASE'),
     workgroup: process.env.ATHENA_WORKGROUP?.trim() || 'primary',
@@ -54,6 +67,8 @@ function getConfig() {
     impressionTable,
     installTable,
     bidTable,
+    filters,
+    bidMetricsEnabled: filters.some((filter) => filter.showBid),
   };
 }
 
@@ -70,11 +85,21 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function buildAggregationSql(config: ReturnType<typeof getConfig>, date: string) {
+export function buildAggregationSql(config: ReturnType<typeof getConfig>, date: string) {
   // Athena's URL helper decodes query parameters (including '+' and percent
   // encoding), keeping impression dimensions identical to the ES parser below.
   const creativeExpression = "coalesce(nullif(url_extract_parameter(url, 'creative'), ''), 'Unknown')";
   const dmaExpression = "coalesce(nullif(url_extract_parameter(url, 'dma'), ''), 'Unknown')";
+  const impressionFilter = config.filters.length
+    ? `AND (${config.filters.map(({ id }) => `url LIKE '%/v2/${id}/impression%'`).join(' OR ')})`
+    : '';
+  const bidEvents = config.bidMetricsEnabled ? `
+bid_events AS (
+  SELECT date_trunc('hour', from_iso8601_timestamp(json_extract_scalar(raw_json, '$.timestamp'))) AS bucket_start,
+    cardinality(coalesce(cast(json_extract(raw_json, '$.response.bids') AS array(json)), cast(array[] AS array(json)))) AS bid_count
+  FROM ${config.bidTable}
+  WHERE "date" = '${date}'
+),` : '';
   return `
 WITH impression_events AS (
   SELECT
@@ -83,43 +108,29 @@ WITH impression_events AS (
     ${dmaExpression} AS dma
   FROM ${config.impressionTable}
   WHERE month = date_format(DATE '${date}', '%Y/%m')
-    AND url LIKE '%/v2/23703/impression%'
+    ${impressionFilter}
     AND from_iso8601_timestamp(substr("timestamp", 1, 19)) >= CAST(DATE '${date}' AS timestamp)
     AND from_iso8601_timestamp(substr("timestamp", 1, 19)) < CAST(date_add('day', 1, DATE '${date}') AS timestamp)
-),
-bid_events AS (
-  SELECT
-    date_trunc('hour', from_iso8601_timestamp(json_extract_scalar(raw_json, '$.timestamp'))) AS bucket_start,
-    coalesce(
-      nullif(json_extract_scalar(raw_json, '$.request.bid_request.ext.targeting_geo.metro'), ''),
-      nullif(json_extract_scalar(raw_json, '$.request.bid_request.user.geo.metro'), ''),
-      'Unknown'
-    ) AS dma,
-    cardinality(coalesce(cast(json_extract(raw_json, '$.response.bids') AS array(json)), cast(array[] AS array(json)))) AS bid_count
-  FROM ${config.bidTable}
-  WHERE "date" = '${date}'
-),
+),${bidEvents}
 hourly AS (
   SELECT
-    coalesce(i.bucket_start, b.bucket_start) AS bucket_start,
+    ${config.bidMetricsEnabled ? 'coalesce(i.bucket_start, b.bucket_start)' : 'i.bucket_start'} AS bucket_start,
     'hourly' AS metric_type,
     'ALL' AS dimension,
     coalesce(i.impressions, 0) AS impressions,
     0 AS installs,
-    coalesce(b.bid_requests, 0) AS bid_requests,
-    coalesce(b.bids, 0) AS bids
+    ${config.bidMetricsEnabled ? 'coalesce(b.bid_requests, 0)' : '0'} AS bid_requests,
+    ${config.bidMetricsEnabled ? 'coalesce(b.bids, 0)' : '0'} AS bids
   FROM (
     SELECT bucket_start, count(*) AS impressions
     FROM impression_events
     GROUP BY bucket_start
   ) i
-  FULL OUTER JOIN (
-    SELECT bucket_start,
-      count(*) AS bid_requests,
+  ${config.bidMetricsEnabled ? `FULL OUTER JOIN (
+    SELECT bucket_start, count(*) AS bid_requests,
       sum(CASE WHEN bid_count > 0 THEN 1 ELSE 0 END) AS bids
-    FROM bid_events
-    GROUP BY bucket_start
-  ) b ON b.bucket_start = i.bucket_start
+    FROM bid_events GROUP BY bucket_start
+  ) b ON b.bucket_start = i.bucket_start` : ''}
 ),
 dma_daily AS (
   SELECT
@@ -211,7 +222,7 @@ function extractDma(url: string) {
   return extractUrlParam(url, 'dma');
 }
 
-async function fetchElasticInstalls(from: Date, to: Date): Promise<ElasticInstall[]> {
+async function fetchElasticInstalls(from: Date, to: Date, filters = parseDeliveryMetricFilters()): Promise<ElasticInstall[]> {
   const config = getElasticConfig();
   const installs: ElasticInstall[] = [];
   let searchAfter: unknown[] | undefined;
@@ -226,7 +237,7 @@ async function fetchElasticInstalls(from: Date, to: Date): Promise<ElasticInstal
       query: {
         bool: {
           filter: [
-            { term: { click_url_id: 23703 } },
+            ...(filters.length ? [{ terms: { click_url_id: filters.map((filter) => filter.id) } }] : []),
             { term: { status: 'normal' } },
             { term: { track_type: 'install' } },
             { range: { click_event_time: { gte: from.toISOString(), lt: to.toISOString() } } },
@@ -335,7 +346,7 @@ export async function refreshDeliveryMetrics(date = new Date().toISOString().sli
     const from = new Date(`${date}T00:00:00.000Z`);
     const to = new Date(from);
     to.setUTCDate(to.getUTCDate() + 1);
-    mergeElasticInstalls(rows, await fetchElasticInstalls(from, to));
+    mergeElasticInstalls(rows, await fetchElasticInstalls(from, to, config.filters));
     // Rebuild only the requested date. Keep other dates intact so a manual
     // refresh for a historical date cannot corrupt today's dashboard.
     await (db as any).deliveryMetric.deleteMany({
@@ -416,6 +427,7 @@ export async function getDeliveryDashboard(date = new Date().toISOString().slice
 
   return {
     source: 'athena',
+    bidMetricsEnabled: getConfig().bidMetricsEnabled,
     lastUpdated: lastUpdated?.toISOString() || null,
     metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: total('bidRequests'), bids: total('bids'), ipm: total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0 },
     hourly: hourly.map((row) => ({

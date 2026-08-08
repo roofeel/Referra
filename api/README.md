@@ -34,6 +34,8 @@ ATHENA_OUTPUT_LOCATION=s3://aws-athena-query-results-246648750489-us-east-1/
 ATHENA_IMPRESSION_TABLE=impression_logs
 ATHENA_INSTALL_TABLE=tracking_lb_logs
 ATHENA_BID_TABLE=fm_bidding_agent_test_bids
+# Optional ID filters. Format: id:showBid,id:showBid. Omit to disable ID filtering.
+DELIVERY_METRICS_FILTERS=23703:true,45678:false
 ELASTICSEARCH_URL=https://your-domain.us-east-1.es.amazonaws.com
 ELASTICSEARCH_INDEX=conversion_records-*
 DELIVERY_METRICS_ENABLED=true
