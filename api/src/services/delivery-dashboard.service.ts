@@ -88,8 +88,8 @@ function sleep(ms: number) {
 export function buildAggregationSql(config: ReturnType<typeof getConfig>, date: string) {
   // Athena's URL helper decodes query parameters (including '+' and percent
   // encoding), keeping impression dimensions identical to the ES parser below.
-  const creativeExpression = "coalesce(nullif(url_extract_parameter(url, 'creative'), ''), 'Unknown')";
-  const dmaExpression = "coalesce(nullif(url_extract_parameter(url, 'dma'), ''), 'Unknown')";
+  const creativeExpression = "coalesce(nullif(url_extract_parameter(url, 'CREATIVE'), ''), 'Unknown')";
+  const dmaExpression = "coalesce(nullif(url_extract_parameter(url, 'DMA'), ''), 'Unknown')";
   const impressionFilter = config.filters.length
     ? `AND (${config.filters.map(({ id }) => `url LIKE '%/v2/${id}/impression%'`).join(' OR ')})`
     : '';
@@ -200,7 +200,7 @@ export function extractUrlParam(url: string, name: string) {
   try {
     const params = new URL(url).searchParams;
     for (const [key, value] of params.entries()) {
-      if (key.toLowerCase() === name) return value.trim() || 'Unknown';
+      if (key.toLowerCase() === name.toLowerCase()) return value.trim() || 'Unknown';
     }
     return 'Unknown';
   } catch {
@@ -215,11 +215,11 @@ export function extractUrlParam(url: string, name: string) {
 }
 
 function extractCreative(url: string) {
-  return extractUrlParam(url, 'creative');
+  return extractUrlParam(url, 'CREATIVE');
 }
 
 function extractDma(url: string) {
-  return extractUrlParam(url, 'dma');
+  return extractUrlParam(url, 'DMA');
 }
 
 async function fetchElasticInstalls(from: Date, to: Date, filters = parseDeliveryMetricFilters()): Promise<ElasticInstall[]> {
