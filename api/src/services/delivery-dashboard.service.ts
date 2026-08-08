@@ -364,10 +364,8 @@ export async function refreshDeliveryMetrics(date = new Date().toISOString().sli
       where: { bucketStart: { gte: from, lt: to } },
     });
     for (const row of rows) {
-      await (db as any).deliveryMetric.upsert({
-        where: { bucketStart_metricType_dimension_filterId: { bucketStart: row.bucketStart, metricType: row.metricType, dimension: row.dimension, filterId: row.filterId } },
-        create: row,
-        update: row,
+      await (db as any).deliveryMetric.create({
+        data: row,
       });
     }
     return { rows: rows.length, refreshedAt: new Date().toISOString() };
