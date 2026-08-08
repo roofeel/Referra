@@ -160,11 +160,12 @@ export default function Dashboard() {
           <section className="flex flex-wrap items-end justify-between gap-4">
             <div><p className="mt-1 text-sm text-slate-500">Aggregated from impression, install and bidding streams.</p>{loadError ? <p className="mt-2 text-xs font-semibold text-rose-600">Athena unavailable: {loadError}</p> : dashboard ? <p className="mt-2 text-xs font-semibold text-emerald-600">Live Athena data · {dashboard.lastUpdated ? `${formatUtcDateTime(dashboard.lastUpdated)} UTC` : 'waiting for first aggregation'}</p> : <p className="mt-2 text-xs font-semibold text-amber-600">Loading Athena aggregates…</p>}</div>
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Filter ID</span><select value={selectedFilterIdParam ?? ''} onChange={(event) => { const next: { date: string; filterId?: string } = { date: selectedDate }; if (event.target.value) next.filterId = event.target.value; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">All configured IDs</option>{(dashboard?.filters ?? []).map((id) => <option key={id} value={id}>{id}</option>)}</select></label>
+              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Filter ID</span><select value={selectedFilterIdParam ?? ''} onChange={(event) => { const next: { date: string; filterId?: string } = { date: selectedDate }; if (event.target.value) next.filterId = event.target.value; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">Select an ID</option>{(dashboard?.filters ?? []).map((id) => <option key={id} value={id}>{id}</option>)}</select></label>
               <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Date</span><input type="date" value={selectedDate} max={currentUtcDate()} onChange={(event) => { const next: { date: string; filterId?: string } = { date: event.target.value }; if (selectedFilterIdParam) next.filterId = selectedFilterIdParam; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0" /></label>
             </div>
           </section>
 
+          {selectedFilterId === undefined ? <div className="flex min-h-56 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-sm font-semibold text-slate-500">Select a Filter ID to view delivery data.</div> : <>
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="Impressions · selected date" value={dashboard ? formatNumber(totalToday) : '—'} change={dashboard ? selectedDateLabel : 'No data'} icon="visibility" tone="bg-blue-50 text-blue-600" />
             <MetricCard label="IPM · selected date" value={liveIpm} change={dashboard ? selectedDateLabel : 'No data'} icon="speed" tone="bg-teal-50 text-teal-600" />
@@ -222,6 +223,8 @@ export default function Dashboard() {
               <table className="w-full min-w-[620px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Creative</th><th className="px-5 py-3">IPM</th><th className="px-5 py-3">Impressions</th><th className="px-5 py-3">Installs</th></tr></thead><tbody className="divide-y divide-slate-100">{liveCreativeData.length ? liveCreativeData.map((item) => <tr key={item.creative}><td className="px-5 py-4 font-semibold text-slate-800">{item.creative}</td><td className="px-5 py-4 font-black text-slate-900">{item.ipm.toFixed(2)}</td><td className="px-5 py-4 text-slate-600">{formatNumber(item.impressions)}</td><td className="px-5 py-4 text-slate-600">{formatNumber(item.installs)}</td></tr>) : <tr><td className="px-5 py-6 text-slate-500" colSpan={4}>No creative-level URL data available for this range.</td></tr>}</tbody></table>
             </div>
           </section>
+
+          </>}
 
         </div>
       </main>
