@@ -74,6 +74,11 @@ function getConfig() {
   };
 }
 
+function isBidMetricsEnabledForFilter(config: ReturnType<typeof getConfig>, filterId?: number) {
+  if (filterId === undefined) return config.bidMetricsEnabled;
+  return config.filters.some((filter) => filter.id === filterId && filter.showBid);
+}
+
 function getElasticConfig() {
   const url = process.env.ELASTICSEARCH_URL?.trim();
   if (!url) throw new Error('ELASTICSEARCH_URL is required for attributed install aggregation');
@@ -390,23 +395,26 @@ export async function getDeliveryDashboard(date = new Date().toISOString().slice
     where: { bucketStart: { gte: comparisonStart, lt: rangeUntil } },
     orderBy: { bucketStart: 'asc' },
   }) as Array<AggregatedRow & { updatedAt: Date }>;
-  const selectedSourceRows = filterId === undefined ? rows : rows.filter((row) => row.filterId === filterId);
-  const selectedRows = filterId === undefined
-    ? Array.from(selectedSourceRows.reduce((result, row) => {
-      const key = `${row.bucketStart.getTime()}\u0000${row.metricType}\u0000${row.dimension}`;
-      const current = result.get(key);
-      if (current) {
-        current.impressions += row.impressions;
-        current.installs += row.installs;
-        current.bidRequests += row.bidRequests;
-        current.bids += row.bids;
-        current.ipm = current.impressions ? (current.installs / current.impressions) * 1000 : 0;
-      } else {
-        result.set(key, { ...row, filterId: null });
-      }
-      return result;
-    }, new Map<string, AggregatedRow & { updatedAt: Date }>()).values())
-    : selectedSourceRows;
+  const bidMetricsEnabled = isBidMetricsEnabledForFilter(config, filterId);
+  const selectedSourceRows = filterId === undefined
+    ? rows
+    : rows.filter((row) => row.filterId === filterId || (
+      bidMetricsEnabled && row.filterId === null && row.metricType === 'hourly' && row.dimension === 'ALL'
+    ));
+  const selectedRows = Array.from(selectedSourceRows.reduce((result, row) => {
+    const key = `${row.bucketStart.getTime()}\u0000${row.metricType}\u0000${row.dimension}`;
+    const current = result.get(key);
+    if (current) {
+      current.impressions += row.impressions;
+      current.installs += row.installs;
+      current.bidRequests += row.bidRequests;
+      current.bids += row.bids;
+      current.ipm = current.impressions ? (current.installs / current.impressions) * 1000 : 0;
+    } else {
+      result.set(key, { ...row, filterId: filterId ?? null });
+    }
+    return result;
+  }, new Map<string, AggregatedRow & { updatedAt: Date }>()).values());
   const allHourly = selectedRows.filter((row) => row.metricType === 'hourly');
   const hourly = allHourly.filter((row) => row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);
   const dma = selectedRows.filter((row) => row.metricType === 'dma' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);
@@ -459,7 +467,7 @@ export async function getDeliveryDashboard(date = new Date().toISOString().slice
     source: 'athena',
     filters: config.filters.map(({ id }) => id),
     selectedFilterId: filterId ?? null,
-    bidMetricsEnabled: filterId === undefined && config.bidMetricsEnabled,
+    bidMetricsEnabled,
     lastUpdated: lastUpdated?.toISOString() || null,
     metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: total('bidRequests'), bids: total('bids'), ipm: total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0 },
     hourly: hourly.map((row) => ({
