@@ -71,13 +71,16 @@ function sleep(ms: number) {
 }
 
 function buildAggregationSql(config: ReturnType<typeof getConfig>, date: string) {
-  const creativeExpression = "coalesce(nullif(regexp_extract(url, '(?i)(?:^|[?&])creative=([^&]+)', 1), ''), 'Unknown')";
+  // Athena's URL helper decodes query parameters (including '+' and percent
+  // encoding), keeping impression dimensions identical to the ES parser below.
+  const creativeExpression = "coalesce(nullif(url_extract_parameter(url, 'creative'), ''), 'Unknown')";
+  const dmaExpression = "coalesce(nullif(url_extract_parameter(url, 'dma'), ''), 'Unknown')";
   return `
 WITH impression_events AS (
   SELECT
     date_trunc('hour', from_iso8601_timestamp(substr("timestamp", 1, 19))) AS bucket_start,
     ${creativeExpression} AS creative,
-    coalesce(nullif(regexp_extract(url, '(?i)(?:^|[?&])dma=([^&]+)', 1), ''), 'Unknown') AS dma
+    ${dmaExpression} AS dma
   FROM ${config.impressionTable}
   WHERE month = date_format(DATE '${date}', '%Y/%m')
     AND url LIKE '%/v2/23703/impression%'
@@ -130,28 +133,16 @@ dma_daily AS (
   FROM impression_events i
   GROUP BY date_trunc('day', i.bucket_start), i.dma
 ),
-install_daily AS (
-  SELECT
-    date_trunc('day', bucket_start) AS bucket_start,
-    creative,
-    0 AS installs
-  FROM impression_events
-  WHERE false
-  GROUP BY date_trunc('day', bucket_start), creative
-),
 creative_daily AS (
   SELECT
     date_trunc('day', i.bucket_start) AS bucket_start,
     'creative' AS metric_type,
     i.creative AS dimension,
     count(*) AS impressions,
-    coalesce(max(x.installs), 0) AS installs,
+    0 AS installs,
     0 AS bid_requests,
     0 AS bids
   FROM impression_events i
-  LEFT JOIN install_daily x
-    ON x.bucket_start = date_trunc('day', i.bucket_start)
-    AND x.creative = i.creative
   GROUP BY date_trunc('day', i.bucket_start), i.creative
 )
 SELECT bucket_start, metric_type, dimension, impressions, installs, bid_requests, bids,
@@ -194,7 +185,7 @@ async function runQuery(query: string, config: ReturnType<typeof getConfig>) {
   return rows.slice(1);
 }
 
-function extractUrlParam(url: string, name: string) {
+export function extractUrlParam(url: string, name: string) {
   try {
     const params = new URL(url).searchParams;
     for (const [key, value] of params.entries()) {
@@ -298,7 +289,7 @@ function parseRows(rows: string[][]): AggregatedRow[] {
   });
 }
 
-function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticInstall[]) {
+export function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticInstall[]) {
   const hourly = new Map(rows.filter((row) => row.metricType === 'hourly').map((row) => [row.bucketStart.getTime(), row]));
   const dma = new Map(rows.filter((row) => row.metricType === 'dma').map((row) => [`${row.bucketStart.getTime()}\u0000${row.dimension}`, row]));
   const creative = new Map(rows.filter((row) => row.metricType === 'creative').map((row) => [`${row.bucketStart.getTime()}\u0000${row.dimension}`, row]));
