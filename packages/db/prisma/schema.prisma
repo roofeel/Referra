@@ -199,6 +199,7 @@ model DeliveryMetric {
   id           String   @id @default(cuid())
   bucketStart  DateTime
   metricType   String
+  filterId     Int?
   dimension    String
   impressions  Int      @default(0)
   installs     Int      @default(0)
@@ -208,6 +209,6 @@ model DeliveryMetric {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@unique([bucketStart, metricType, dimension])
+  @@unique([bucketStart, metricType, dimension, filterId])
   @@index([metricType, bucketStart])
 }

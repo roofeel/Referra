@@ -2,6 +2,8 @@ import { buildApiUrl, throwApiError } from './http';
 
 export interface DeliveryDashboardResponse {
   source: 'athena';
+  filters: number[];
+  selectedFilterId: number | null;
   bidMetricsEnabled: boolean;
   lastUpdated: string | null;
   metrics: { impressions: number; installs: number; bidRequests: number; bids: number; ipm: number };
@@ -12,8 +14,10 @@ export interface DeliveryDashboardResponse {
 }
 
 export const deliveryDashboardApi = {
-  get: async (date: string): Promise<DeliveryDashboardResponse> => {
-    const response = await fetch(buildApiUrl(`/api/delivery-dashboard?date=${encodeURIComponent(date)}`));
+  get: async (date: string, filterId?: number): Promise<DeliveryDashboardResponse> => {
+    const params = new URLSearchParams({ date });
+    if (filterId !== undefined) params.set('filterId', String(filterId));
+    const response = await fetch(buildApiUrl(`/api/delivery-dashboard?${params.toString()}`));
     if (!response.ok) await throwApiError(response, 'Failed to fetch delivery dashboard');
     return response.json() as Promise<DeliveryDashboardResponse>;
   },

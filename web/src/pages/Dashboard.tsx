@@ -78,6 +78,8 @@ export default function Dashboard() {
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<DeliveryDashboardResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const selectedFilterIdParam = searchParams.get('filterId');
+  const selectedFilterId = selectedFilterIdParam && /^\d+$/.test(selectedFilterIdParam) ? Number(selectedFilterIdParam) : undefined;
   const chartData = dashboard?.hourly.map((point) => ({ ...point, time: formatUtcTime(point.time) })) ?? [];
   const liveDmaData = dashboard?.dma.map((item) => ({ ...item, code: item.dma.slice(0, 3).toUpperCase(), delta: 0 })) ?? [];
   const liveCreativeData = dashboard?.creative || [];
@@ -94,7 +96,7 @@ export default function Dashboard() {
     let alive = true;
     const load = async () => {
       try {
-        const payload = await deliveryDashboardApi.get(selectedDate);
+        const payload = await deliveryDashboardApi.get(selectedDate, selectedFilterId);
         if (!alive) return;
         setDashboard(payload);
         setLoadError(null);
@@ -107,7 +109,7 @@ export default function Dashboard() {
     if (!autoRefresh) return () => { alive = false; };
     const timer = window.setInterval(load, 60_000);
     return () => { alive = false; window.clearInterval(timer); };
-  }, [autoRefresh, selectedDate]);
+  }, [autoRefresh, selectedDate, selectedFilterId]);
 
   const totalToday = dashboard?.metrics.impressions ?? 0;
   const liveIpm = dashboard ? dashboard.metrics.ipm.toFixed(2) : '—';
@@ -157,7 +159,10 @@ export default function Dashboard() {
         <div className="flex-1 space-y-6 overflow-y-auto p-8">
           <section className="flex flex-wrap items-end justify-between gap-4">
             <div><p className="mt-1 text-sm text-slate-500">Aggregated from impression, install and bidding streams.</p>{loadError ? <p className="mt-2 text-xs font-semibold text-rose-600">Athena unavailable: {loadError}</p> : dashboard ? <p className="mt-2 text-xs font-semibold text-emerald-600">Live Athena data · {dashboard.lastUpdated ? `${formatUtcDateTime(dashboard.lastUpdated)} UTC` : 'waiting for first aggregation'}</p> : <p className="mt-2 text-xs font-semibold text-amber-600">Loading Athena aggregates…</p>}</div>
-            <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Date</span><input type="date" value={selectedDate} max={currentUtcDate()} onChange={(event) => setSearchParams({ date: event.target.value }, { replace: true })} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0" /></label>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Filter ID</span><select value={selectedFilterIdParam ?? ''} onChange={(event) => { const next: { date: string; filterId?: string } = { date: selectedDate }; if (event.target.value) next.filterId = event.target.value; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">All configured IDs</option>{(dashboard?.filters ?? []).map((id) => <option key={id} value={id}>{id}</option>)}</select></label>
+              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Date</span><input type="date" value={selectedDate} max={currentUtcDate()} onChange={(event) => { const next: { date: string; filterId?: string } = { date: event.target.value }; if (selectedFilterIdParam) next.filterId = selectedFilterIdParam; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0" /></label>
+            </div>
           </section>
 
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
