@@ -109,6 +109,7 @@ export default function Dashboard() {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isRefreshPickerOpen, setIsRefreshPickerOpen] = useState(false);
   const [refreshDate, setRefreshDate] = useState(startDate);
+  const dateRangeStartRef = useRef(false);
   const datePickerRef = useRef<HTMLDivElement | null>(null);
   const refreshPickerRef = useRef<HTMLDivElement | null>(null);
   const selectedFilterIdParam = searchParams.get('filterId');
@@ -208,15 +209,21 @@ export default function Dashboard() {
             <div className="flex flex-wrap items-center gap-2">
               <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>CLICK URL ID</span><select value={selectedFilterIdParam ?? ''} onChange={(event) => { const next: { startDate: string; endDate: string; filterId?: string } = { startDate, endDate }; if (event.target.value) next.filterId = event.target.value; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">Select an ID</option>{(dashboard?.filters ?? []).map((id) => <option key={id} value={id}>{id}</option>)}</select></label>
               <div className="relative" ref={datePickerRef}>
-                <button type="button" onClick={() => { setIsDatePickerOpen((value) => { if (!value) setDraftDateRange(undefined); return !value; }); }} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span className="material-symbols-outlined text-sm">calendar_today</span><span>Date: {selectedDateLabel}</span><span className="material-symbols-outlined text-sm">{isDatePickerOpen ? 'expand_less' : 'expand_more'}</span></button>
+                <button type="button" onClick={() => { setIsDatePickerOpen((value) => { if (!value) { setDraftDateRange(undefined); dateRangeStartRef.current = false; } return !value; }); }} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span className="material-symbols-outlined text-sm">calendar_today</span><span>Date: {selectedDateLabel}</span><span className="material-symbols-outlined text-sm">{isDatePickerOpen ? 'expand_less' : 'expand_more'}</span></button>
                 {isDatePickerOpen ? <div className="absolute right-0 top-10 z-30 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
-                  <DayPicker mode="range" min={1} numberOfMonths={2} selected={draftDateRange} disabled={{ after: new Date() }} onSelect={(range: DateRange | undefined) => {
+                  <DayPicker mode="range" numberOfMonths={2} selected={draftDateRange} disabled={{ after: new Date() }} onSelect={(range: DateRange | undefined) => {
+                    if (!dateRangeStartRef.current && range?.from) {
+                      dateRangeStartRef.current = true;
+                      setDraftDateRange({ from: range.from, to: undefined });
+                      return;
+                    }
                     setDraftDateRange(range);
                     if (!range?.from || !range.to) return;
                     const next: { startDate: string; endDate: string; filterId?: string } = { startDate: formatDateInput(range.from), endDate: formatDateInput(range.to) };
                     if (selectedFilterIdParam) next.filterId = selectedFilterIdParam;
                     setSearchParams(next, { replace: true });
                     setIsDatePickerOpen(false);
+                    dateRangeStartRef.current = false;
                   }} />
                 </div> : null}
               </div>
