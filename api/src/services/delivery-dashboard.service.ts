@@ -28,6 +28,10 @@ type ElasticInstall = {
 
 export type DeliveryMetricFilter = { id: number; showBid: boolean };
 
+function roundToTwo(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 const refreshPromises = new Map<string, Promise<{ rows: number; refreshedAt: string }>>();
 
 export function isDeliveryMetricsRefreshing() {
@@ -448,7 +452,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     result.set(row.dimension, current);
     return result;
   }, new Map<string, { dma: string; impressions: number; installs: number }>()).values())
-    .map((row) => ({ ...row, ipm: row.impressions ? (row.installs / row.impressions) * 1000 : 0 }))
+    .map((row) => ({ ...row, ipm: roundToTwo(row.impressions ? (row.installs / row.impressions) * 1000 : 0) }))
     .sort((left, right) => right.ipm - left.ipm)
     .slice(0, 5);
 
@@ -459,7 +463,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     result.set(row.dimension, current);
     return result;
   }, new Map<string, { creative: string; impressions: number; installs: number }>()).values())
-    .map((row) => ({ ...row, ipm: row.impressions ? (row.installs / row.impressions) * 1000 : 0 }))
+    .map((row) => ({ ...row, ipm: roundToTwo(row.impressions ? (row.installs / row.impressions) * 1000 : 0) }))
     .sort((left, right) => right.ipm - left.ipm)
     .slice(0, 10);
 
@@ -469,11 +473,11 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     selectedFilterId: filterId ?? null,
     bidMetricsEnabled,
     lastUpdated: lastUpdated?.toISOString() || null,
-    metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: total('bidRequests'), bids: total('bids'), ipm: total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0 },
+    metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: total('bidRequests'), bids: total('bids'), ipm: roundToTwo(total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0) },
     hourly: hourly.map((row) => ({
       time: row.bucketStart.toISOString(),
-      ipm: row.ipm,
-      previousIpm: previousHourlyByHour.get(row.bucketStart.getTime())?.ipm || 0,
+      ipm: roundToTwo(row.ipm),
+      previousIpm: roundToTwo(previousHourlyByHour.get(row.bucketStart.getTime())?.ipm || 0),
       impressions: row.impressions,
       installs: row.installs,
       bidResponses: row.bids,
