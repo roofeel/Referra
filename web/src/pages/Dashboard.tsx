@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { DayPicker, type DateRange } from 'react-day-picker';
 import {
   Area,
   Bar,
@@ -41,6 +42,21 @@ function isValidDate(value: string | null): value is string {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+function parseDateInput(value: string | null) {
+  return isValidDate(value) ? new Date(`${value}T00:00:00.000Z`) : undefined;
+}
+
+function formatDateInput(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function formatDateLabel(start: string, end: string) {
+  const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', dateStyle: 'medium' });
+  const from = formatter.format(new Date(`${start}T00:00:00Z`));
+  const to = formatter.format(new Date(`${end}T00:00:00Z`));
+  return start === end ? from : `${from} – ${to}`;
+}
+
 function formatNumber(value: number) {
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }
@@ -71,13 +87,21 @@ function MetricCard({ label, value, change, icon, tone }: { label: string; value
 
 export default function Dashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedDate = isValidDate(searchParams.get('date')) ? searchParams.get('date')! : currentUtcDate();
+  const startDate = isValidDate(searchParams.get('startDate')) ? searchParams.get('startDate')! : (isValidDate(searchParams.get('date')) ? searchParams.get('date')! : currentUtcDate());
+  const endDate = isValidDate(searchParams.get('endDate')) ? searchParams.get('endDate')! : startDate;
+  const selectedDateLabel = useMemo(() => formatDateLabel(startDate, endDate), [endDate, startDate]);
+  const dateRange = useMemo<DateRange>(() => ({ from: parseDateInput(startDate), to: parseDateInput(endDate) }), [endDate, startDate]);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<DeliveryDashboardResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isRefreshPickerOpen, setIsRefreshPickerOpen] = useState(false);
+  const [refreshDate, setRefreshDate] = useState(startDate);
+  const datePickerRef = useRef<HTMLDivElement | null>(null);
+  const refreshPickerRef = useRef<HTMLDivElement | null>(null);
   const selectedFilterIdParam = searchParams.get('filterId');
   const selectedFilterId = selectedFilterIdParam && /^\d+$/.test(selectedFilterIdParam) ? Number(selectedFilterIdParam) : undefined;
   const chartData = dashboard?.hourly.map((point) => ({ ...point, time: formatUtcTime(point.time) })) ?? [];
@@ -93,10 +117,14 @@ export default function Dashboard() {
   ] : [];
 
   useEffect(() => {
+    setRefreshDate(startDate);
+  }, [startDate]);
+
+  useEffect(() => {
     let alive = true;
     const load = async () => {
       try {
-        const payload = await deliveryDashboardApi.get(selectedDate, selectedFilterId);
+        const payload = await deliveryDashboardApi.get(startDate, endDate, selectedFilterId);
         if (!alive) return;
         setDashboard(payload);
         setLoadError(null);
@@ -109,7 +137,7 @@ export default function Dashboard() {
     if (!autoRefresh) return () => { alive = false; };
     const timer = window.setInterval(load, 60_000);
     return () => { alive = false; window.clearInterval(timer); };
-  }, [autoRefresh, selectedDate, selectedFilterId]);
+  }, [autoRefresh, startDate, endDate, selectedFilterId]);
 
   const totalToday = dashboard?.metrics.impressions ?? 0;
   const liveIpm = dashboard ? dashboard.metrics.ipm.toFixed(2) : '—';
@@ -117,8 +145,8 @@ export default function Dashboard() {
 
   function refresh() {
     setIsRefreshing(true);
-    setRefreshNotice(`Refresh task submitted for ${selectedDate}…`);
-    void deliveryDashboardApi.refresh(selectedDate).then(() => {
+    setRefreshNotice(`Refresh task submitted for ${refreshDate}…`);
+    void deliveryDashboardApi.refresh(refreshDate).then(() => {
       setIsRefreshing(false);
       setRefreshNotice('Refresh completed');
       window.location.reload();
@@ -129,11 +157,11 @@ export default function Dashboard() {
     });
   }
 
-  const selectedDateValue = new Date(`${selectedDate}T00:00:00Z`);
-  const selectedDateLabel = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', dateStyle: 'medium' }).format(selectedDateValue);
-  const previousDateValue = new Date(selectedDateValue);
-  previousDateValue.setUTCDate(previousDateValue.getUTCDate() - 1);
-  const previousDateLabel = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', dateStyle: 'medium' }).format(previousDateValue);
+  const selectedDateValue = new Date(`${startDate}T00:00:00Z`);
+  const rangeDays = Math.max(1, Math.round((new Date(`${endDate}T00:00:00Z`).getTime() - selectedDateValue.getTime()) / 86_400_000) + 1);
+  const previousDateValue = new Date(selectedDateValue.getTime() - rangeDays * 86_400_000);
+  const previousDateEnd = new Date(previousDateValue.getTime() + (rangeDays - 1) * 86_400_000);
+  const previousDateLabel = formatDateLabel(formatDateInput(previousDateValue), formatDateInput(previousDateEnd));
 
   return (
     <div className="flex min-h-screen overflow-hidden bg-[#f7f9fb] text-slate-900 antialiased">
@@ -150,8 +178,13 @@ export default function Dashboard() {
             <button type="button" onClick={() => setAutoRefresh((value) => !value)} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition ${autoRefresh ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500'}`}>
               <span className={`h-1.5 w-1.5 rounded-full ${autoRefresh ? 'bg-emerald-500' : 'bg-slate-300'}`} /> Auto refresh {autoRefresh ? 'on' : 'off'}
             </button>
-            <div className="flex items-center gap-2">
-      <button type="button" onClick={refresh} disabled={isRefreshing} title={`Refresh ${selectedDate}`} aria-label={`Refresh ${selectedDate}`} className="flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-800 disabled:opacity-60"><span className="material-symbols-outlined text-sm">{isRefreshing ? 'progress_activity' : 'refresh'}</span>Refresh selected date</button>
+            <div className="relative flex items-center gap-2" ref={refreshPickerRef}>
+              <button type="button" onClick={() => setIsRefreshPickerOpen((value) => !value)} disabled={isRefreshing} title="Choose a date to refresh" aria-label="Choose a date to refresh" className="flex items-center gap-2 rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-800 disabled:opacity-60"><span className="material-symbols-outlined text-sm">{isRefreshing ? 'progress_activity' : 'refresh'}</span>Refresh selected date</button>
+              {isRefreshPickerOpen ? <div className="absolute right-0 top-11 z-30 w-56 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+                <label className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Date to refresh</label>
+                <input type="date" value={refreshDate} max={currentUtcDate()} onChange={(event) => setRefreshDate(event.target.value)} className="mt-2 w-full rounded-md border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-800" />
+                <button type="button" onClick={() => { setIsRefreshPickerOpen(false); refresh(); }} disabled={!isValidDate(refreshDate) || isRefreshing} className="mt-3 w-full rounded-md bg-blue-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Refresh {refreshDate}</button>
+              </div> : null}
             </div>
           </div>
         </header>
@@ -160,17 +193,30 @@ export default function Dashboard() {
           <section className="flex flex-wrap items-end justify-between gap-4">
             <div><p className="mt-1 text-sm text-slate-500">Aggregated from impression, install and bidding streams.</p>{loadError ? <p className="mt-2 text-xs font-semibold text-rose-600">Athena unavailable: {loadError}</p> : dashboard ? <p className="mt-2 text-xs font-semibold text-emerald-600">Live Athena data · {dashboard.lastUpdated ? `${formatUtcDateTime(dashboard.lastUpdated)} UTC` : 'waiting for first aggregation'}</p> : <p className="mt-2 text-xs font-semibold text-amber-600">Loading Athena aggregates…</p>}</div>
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>CLICK URL ID</span><select value={selectedFilterIdParam ?? ''} onChange={(event) => { const next: { date: string; filterId?: string } = { date: selectedDate }; if (event.target.value) next.filterId = event.target.value; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">Select an ID</option>{(dashboard?.filters ?? []).map((id) => <option key={id} value={id}>{id}</option>)}</select></label>
-              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Date</span><input type="date" value={selectedDate} max={currentUtcDate()} onChange={(event) => { const next: { date: string; filterId?: string } = { date: event.target.value }; if (selectedFilterIdParam) next.filterId = selectedFilterIdParam; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0" /></label>
+              <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>CLICK URL ID</span><select value={selectedFilterIdParam ?? ''} onChange={(event) => { const next: { startDate: string; endDate: string; filterId?: string } = { startDate, endDate }; if (event.target.value) next.filterId = event.target.value; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">Select an ID</option>{(dashboard?.filters ?? []).map((id) => <option key={id} value={id}>{id}</option>)}</select></label>
+              <div className="relative" ref={datePickerRef}>
+                <button type="button" onClick={() => setIsDatePickerOpen((value) => !value)} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span className="material-symbols-outlined text-sm">calendar_today</span><span>Date: {selectedDateLabel}</span><span className="material-symbols-outlined text-sm">{isDatePickerOpen ? 'expand_less' : 'expand_more'}</span></button>
+                {isDatePickerOpen ? <div className="absolute right-0 top-10 z-30 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+                  <DayPicker mode="range" numberOfMonths={2} selected={dateRange} disabled={{ after: new Date() }} onSelect={(range: DateRange | undefined) => {
+                    if (!range?.from) return;
+                    const nextStart = formatDateInput(range.from);
+                    const nextEnd = formatDateInput(range.to || range.from);
+                    const next: { startDate: string; endDate: string; filterId?: string } = { startDate: nextStart, endDate: nextEnd };
+                    if (selectedFilterIdParam) next.filterId = selectedFilterIdParam;
+                    setSearchParams(next, { replace: true });
+                    if (range.to) setIsDatePickerOpen(false);
+                  }} />
+                </div> : null}
+              </div>
             </div>
           </section>
 
           {selectedFilterId === undefined ? <div className="flex min-h-56 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-sm font-semibold text-slate-500">Select a Click URL ID to view delivery data.</div> : <>
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Impressions · selected date" value={dashboard ? formatNumber(totalToday) : '—'} change={dashboard ? selectedDateLabel : 'No data'} icon="visibility" tone="bg-blue-50 text-blue-600" />
-            <MetricCard label="IPM · selected date" value={liveIpm} change={dashboard ? selectedDateLabel : 'No data'} icon="speed" tone="bg-teal-50 text-teal-600" />
+            <MetricCard label="Impressions · selected range" value={dashboard ? formatNumber(totalToday) : '—'} change={dashboard ? selectedDateLabel : 'No data'} icon="visibility" tone="bg-blue-50 text-blue-600" />
+            <MetricCard label="IPM · selected range" value={liveIpm} change={dashboard ? selectedDateLabel : 'No data'} icon="speed" tone="bg-teal-50 text-teal-600" />
             {dashboard?.bidMetricsEnabled ? <MetricCard label="Bid response rate" value={liveBidRate} change="Live Athena" icon="gavel" tone="bg-amber-50 text-amber-600" /> : null}
-            {dashboard?.bidMetricsEnabled ? <MetricCard label="Bid requests · selected date" value={formatNumber(dashboard.metrics.bidRequests)} change={selectedDateLabel} icon="campaign" tone="bg-violet-50 text-violet-600" /> : null}
+            {dashboard?.bidMetricsEnabled ? <MetricCard label="Bid requests · selected range" value={formatNumber(dashboard.metrics.bidRequests)} change={selectedDateLabel} icon="campaign" tone="bg-violet-50 text-violet-600" /> : null}
           </section>
 
           <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">

@@ -381,16 +381,16 @@ export async function refreshDeliveryMetrics(date = new Date().toISOString().sli
   return refreshPromise;
 }
 
-export async function getDeliveryDashboard(date = new Date().toISOString().slice(0, 10), filterId?: number) {
+export async function getDeliveryDashboard(startDate = new Date().toISOString().slice(0, 10), endDate = startDate, filterId?: number) {
   const config = getConfig();
   if (filterId !== undefined && !config.filters.some((filter) => filter.id === filterId)) {
-    throw new Error(`Unknown delivery metrics filter id: ${filterId}`);
+    throw new Error(`Unknown delivery metrics click url id: ${filterId}`);
   }
-  const rangeSince = new Date(`${date}T00:00:00.000Z`);
-  const rangeUntil = new Date(rangeSince);
+  const rangeSince = new Date(`${startDate}T00:00:00.000Z`);
+  const rangeUntil = new Date(`${endDate}T00:00:00.000Z`);
   rangeUntil.setUTCDate(rangeUntil.getUTCDate() + 1);
-  const comparisonStart = new Date(rangeSince);
-  comparisonStart.setUTCDate(comparisonStart.getUTCDate() - 1);
+  const rangeLengthMs = rangeUntil.getTime() - rangeSince.getTime();
+  const comparisonStart = new Date(rangeSince.getTime() - rangeLengthMs);
   const rows = await (db as any).deliveryMetric.findMany({
     where: { bucketStart: { gte: comparisonStart, lt: rangeUntil } },
     orderBy: { bucketStart: 'asc' },
@@ -427,7 +427,7 @@ export async function getDeliveryDashboard(date = new Date().toISOString().slice
     const isToday = row.bucketStart >= comparisonCutoff;
     const comparisonTime = isToday
       ? row.bucketStart
-      : new Date(row.bucketStart.getTime() + 24 * 60 * 60 * 1000);
+      : new Date(row.bucketStart.getTime() + rangeLengthMs);
     const key = comparisonTime.getTime();
     const current = comparisonByHour.get(key) || { time: comparisonTime, today: 0, yesterday: 0 };
     if (isToday) current.today += Number(row.impressions || 0);
@@ -436,7 +436,7 @@ export async function getDeliveryDashboard(date = new Date().toISOString().slice
   });
   const previousHourlyByHour = new Map<number, AggregatedRow>();
   allHourly.filter((row) => row.bucketStart < rangeSince).forEach((row) => {
-    previousHourlyByHour.set(row.bucketStart.getUTCHours(), row);
+    previousHourlyByHour.set(row.bucketStart.getTime() + rangeLengthMs, row);
   });
   const total = (key: keyof AggregatedRow) => today.reduce((sum, row) => sum + Number(row[key] || 0), 0);
   const lastUpdated = selectedRows.reduce<Date | null>((latest, row) => !latest || row.updatedAt > latest ? row.updatedAt : latest, null);
@@ -473,7 +473,7 @@ export async function getDeliveryDashboard(date = new Date().toISOString().slice
     hourly: hourly.map((row) => ({
       time: row.bucketStart.toISOString(),
       ipm: row.ipm,
-      previousIpm: previousHourlyByHour.get(row.bucketStart.getUTCHours())?.ipm || 0,
+      previousIpm: previousHourlyByHour.get(row.bucketStart.getTime())?.ipm || 0,
       impressions: row.impressions,
       installs: row.installs,
       bidResponses: row.bids,

@@ -14,8 +14,8 @@ export interface DeliveryDashboardResponse {
 }
 
 export const deliveryDashboardApi = {
-  get: async (date: string, filterId?: number): Promise<DeliveryDashboardResponse> => {
-    const params = new URLSearchParams({ date });
+  get: async (startDate: string, endDate: string, filterId?: number): Promise<DeliveryDashboardResponse> => {
+    const params = new URLSearchParams({ startDate, endDate });
     if (filterId !== undefined) params.set('filterId', String(filterId));
     const response = await fetch(buildApiUrl(`/api/delivery-dashboard?${params.toString()}`));
     if (!response.ok) await throwApiError(response, 'Failed to fetch delivery dashboard');
