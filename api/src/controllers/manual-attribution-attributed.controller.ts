@@ -17,6 +17,9 @@ const createJobBodySchema = z.object({
   database: z.string().optional(),
   workgroup: z.string().optional(),
   resultS3: z.string().optional(),
+  cronExpression: z.string().trim().optional(),
+  cronEnabled: z.boolean().optional(),
+  cronVariables: z.record(z.string(), z.string()).optional(),
 });
 
 const updateJobBodySchema = z.object({
@@ -25,6 +28,9 @@ const updateJobBodySchema = z.object({
   database: z.string().optional(),
   workgroup: z.string().optional(),
   resultS3: z.string().optional(),
+  cronExpression: z.string().trim().optional(),
+  cronEnabled: z.boolean().optional(),
+  cronVariables: z.record(z.string(), z.string()).optional(),
 });
 
 const executeJobBodySchema = z.object({
@@ -70,6 +76,9 @@ export const manualAttributedController = {
         name: body.name,
         sqlTemplate: body.sqlTemplate,
         ...defaults,
+        cronExpression: body.cronExpression,
+        cronEnabled: body.cronEnabled,
+        cronVariables: body.cronVariables,
       });
       return Response.json(job, { status: 201 });
     } catch (error) {
@@ -102,6 +111,9 @@ export const manualAttributedController = {
         workgroup: body.workgroup === undefined ? current.workgroup : body.workgroup,
         resultS3: body.resultS3 === undefined ? current.resultS3 : body.resultS3,
         sqlTemplate: body.sqlTemplate === undefined ? current.sqlTemplate : body.sqlTemplate,
+        cronExpression: body.cronExpression === undefined ? current.cronExpression : body.cronExpression,
+        cronEnabled: body.cronEnabled === undefined ? current.cronEnabled : body.cronEnabled,
+        cronVariables: body.cronVariables === undefined ? current.cronVariables : body.cronVariables,
       };
       const updated = await updateManualAttributedJob(request.params.jobId, resolved);
       return Response.json(updated);

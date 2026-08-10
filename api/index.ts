@@ -2,6 +2,7 @@ import { initDatabase } from "../packages/db/index.js";
 import { captureApiException, initSentry } from "./src/config/sentry.js";
 import { handleRequest } from "./src/http/app.js";
 import { startDeliveryMetricScheduler } from './src/services/delivery-dashboard.service.js';
+import { syncManualAttributedSchedulers } from './src/services/manual-attribution-attributed-jobs.service.js';
 
 initSentry();
 
@@ -14,6 +15,7 @@ process.on("uncaughtException", (error) => {
 });
 
 await initDatabase();
+await syncManualAttributedSchedulers();
 startDeliveryMetricScheduler();
 
 Bun.serve({

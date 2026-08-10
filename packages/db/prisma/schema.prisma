@@ -170,6 +170,9 @@ model ManualAttributedJob {
   queryExecutionId String?
   downloadUrl      String?
   error            String?
+  cronExpression   String?
+  cronEnabled      Boolean  @default(false)
+  cronVariables    Json?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   executions       ManualAttributedExecution[]

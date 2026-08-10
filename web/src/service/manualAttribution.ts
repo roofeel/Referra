@@ -32,6 +32,9 @@ export interface ManualAttributedJob {
   downloadUrl?: string;
   error?: string;
   executions: ManualAttributedExecution[];
+  cronExpression?: string;
+  cronEnabled: boolean;
+  cronVariables?: Record<string, string>;
 }
 
 export interface CreateManualAttributedJobPayload {
@@ -40,6 +43,9 @@ export interface CreateManualAttributedJobPayload {
   database?: string;
   workgroup?: string;
   resultS3?: string;
+  cronExpression?: string;
+  cronEnabled?: boolean;
+  cronVariables?: Record<string, string>;
 }
 
 export type UpdateManualAttributedJobPayload = Partial<CreateManualAttributedJobPayload>;

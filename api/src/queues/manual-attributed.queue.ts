@@ -29,6 +29,28 @@ export const manualAttributedQueue = new Queue(MANUAL_ATTRIBUTED_QUEUE_NAME, {
   },
 });
 
+export const manualAttributedSchedulerId = (jobId: string) => `manual-attributed:${jobId}`;
+
+export async function upsertManualAttributedScheduler(
+  jobId: string,
+  cronExpression: string,
+  variables?: Record<string, string>,
+) {
+  await manualAttributedQueue.upsertJobScheduler(
+    manualAttributedSchedulerId(jobId),
+    { pattern: cronExpression, tz: process.env.CRON_TIMEZONE?.trim() || 'Asia/Shanghai' },
+    {
+      name: 'manual-attributed-scheduled',
+      data: { trigger: 'schedule', jobId, variables: variables || {} },
+      opts: { removeOnComplete: true, removeOnFail: 100 },
+    },
+  );
+}
+
+export function removeManualAttributedScheduler(jobId: string) {
+  return manualAttributedQueue.removeJobScheduler(manualAttributedSchedulerId(jobId));
+}
+
 export function closeManualAttributedQueue() {
   return manualAttributedQueue.close();
 }

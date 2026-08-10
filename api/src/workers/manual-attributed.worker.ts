@@ -1,11 +1,13 @@
 import { Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { MANUAL_ATTRIBUTED_QUEUE_NAME } from '../queues/manual-attributed.queue.js';
-import { processManualAttributedExecution } from '../services/manual-attribution-attributed-jobs.service.js';
+import { processManualAttributedExecution, triggerScheduledManualAttributedJob } from '../services/manual-attribution-attributed-jobs.service.js';
 
 type ManualAttributedExecuteJobData = {
+  trigger?: 'schedule';
   jobId: string;
-  executionId: string;
+  executionId?: string;
+  variables?: Record<string, string>;
 };
 
 const REDIS_URL = process.env.REDIS_URL?.trim() || 'redis://127.0.0.1:6379';
@@ -20,9 +22,15 @@ const worker = new Worker<ManualAttributedExecuteJobData>(
   MANUAL_ATTRIBUTED_QUEUE_NAME,
   async (job) => {
     const data = (job.data || {}) as ManualAttributedExecuteJobData;
-    if (!data.jobId || !data.executionId) {
+    if (!data.jobId) {
       throw new Error('Invalid manual-attributed-execute job payload');
     }
+
+    if (data.trigger === 'schedule') {
+      await triggerScheduledManualAttributedJob(data.jobId, data.variables);
+      return { ok: true, scheduled: true };
+    }
+    if (!data.executionId) throw new Error('Invalid manual-attributed-execute job payload');
 
     await processManualAttributedExecution(data.jobId, data.executionId);
     return { ok: true };

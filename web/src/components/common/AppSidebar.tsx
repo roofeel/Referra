@@ -6,6 +6,7 @@ type SidebarItemKey =
   | 'url-rules'
   | 'reports'
   | 'manual-attributed'
+  | 'manual-schedules'
   | 'non-attributed-reports'
   | 'mcp-docs';
 
@@ -27,6 +28,7 @@ const referrerTypeAnalysisItems: SidebarItem[] = [
 
 const manualAttributionItems: SidebarItem[] = [
   { key: 'manual-attributed', label: 'Attributed', icon: 'play_circle', to: '/manual-attribution/attributed' },
+  { key: 'manual-schedules', label: 'Cron Schedules', icon: 'schedule', to: '/manual-attribution/schedules' },
 ];
 
 const settingSidebarItems: SidebarItem[] = [

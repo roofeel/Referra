@@ -2,7 +2,11 @@ import { AthenaClient, GetQueryExecutionCommand, StartQueryExecutionCommand } fr
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { db } from '../../../packages/db/index.js';
-import { manualAttributedQueue } from '../queues/manual-attributed.queue.js';
+import {
+  manualAttributedQueue,
+  removeManualAttributedScheduler,
+  upsertManualAttributedScheduler,
+} from '../queues/manual-attributed.queue.js';
 import { createAthenaClient, createS3Client } from '../lib/aws-clients.lib.js';
 
 export type ManualAttributedJobStatus = 'draft' | 'pending' | 'running' | 'completed' | 'failed';
@@ -23,6 +27,9 @@ export type ManualAttributedJob = {
   queryExecutionId?: string;
   downloadUrl?: string;
   error?: string;
+  cronExpression?: string;
+  cronEnabled: boolean;
+  cronVariables?: Record<string, string>;
   executions: ManualAttributedExecution[];
 };
 
@@ -45,6 +52,9 @@ type CreateManualAttributedJobOptions = {
   database: string;
   workgroup: string;
   resultS3: string;
+  cronExpression?: string;
+  cronEnabled?: boolean;
+  cronVariables?: Record<string, string>;
 };
 
 type UpdateManualAttributedJobOptions = Partial<CreateManualAttributedJobOptions>;
@@ -146,7 +156,10 @@ function toJob(row: any): ManualAttributedJob {
     renderedSql: row.renderedSql,
     queryExecutionId: row.queryExecutionId ?? undefined,
     downloadUrl: row.downloadUrl ?? undefined,
-    error: row.error ?? undefined,
+  error: row.error ?? undefined,
+    cronExpression: row.cronExpression ?? undefined,
+    cronEnabled: Boolean(row.cronEnabled),
+    cronVariables: (row.cronVariables as Record<string, string> | null) ?? undefined,
     executions: Array.isArray(row.executions) ? row.executions.map(toExecution) : [],
   };
 }
@@ -331,6 +344,10 @@ function validateJobOptions(options: CreateManualAttributedJobOptions) {
   if (!options.workgroup.trim()) throw new Error('workgroup is required');
   normalizeS3Uri(options.resultS3);
 
+  const cronExpression = options.cronExpression?.trim() || null;
+  const cronEnabled = options.cronEnabled === true;
+  if (cronEnabled && !cronExpression) throw new Error('cronExpression is required when cronEnabled is true');
+
   return {
     name,
     sqlTemplate,
@@ -339,6 +356,9 @@ function validateJobOptions(options: CreateManualAttributedJobOptions) {
     database: options.database.trim(),
     workgroup: options.workgroup.trim(),
     resultS3: normalizeS3Uri(options.resultS3),
+    cronExpression,
+    cronEnabled,
+    cronVariables: options.cronVariables || null,
   };
 }
 
@@ -357,13 +377,42 @@ export async function createManualAttributedJob(options: CreateManualAttributedJ
       resultS3: validated.resultS3,
       sqlTemplate: validated.sqlTemplate,
       renderedSql: validated.sqlTemplate,
+      cronExpression: validated.cronExpression,
+      cronEnabled: validated.cronEnabled,
+      cronVariables: validated.cronVariables,
     },
     include: {
       executions: { orderBy: { createdAt: 'desc' } },
     },
   });
 
-  return toJob(created);
+  const job = toJob(created);
+  await syncManualAttributedJobScheduler(job);
+  return job;
+}
+
+export async function syncManualAttributedSchedulers() {
+  const jobs = await (db as any).manualAttributedJob.findMany({
+    where: { cronEnabled: true },
+    select: { jobId: true, cronEnabled: true, cronExpression: true, cronVariables: true },
+  });
+  for (const job of jobs) {
+    await syncManualAttributedJobScheduler({
+      jobId: job.jobId,
+      cronEnabled: Boolean(job.cronEnabled),
+      cronExpression: job.cronExpression ?? undefined,
+      cronVariables: (job.cronVariables as Record<string, string> | null) ?? undefined,
+    });
+  }
+  console.log(`[manual-attributed] restored ${jobs.length} cron scheduler(s)`);
+}
+
+async function syncManualAttributedJobScheduler(job: Pick<ManualAttributedJob, 'jobId' | 'cronEnabled' | 'cronExpression' | 'cronVariables'>) {
+  if (!job.cronEnabled || !job.cronExpression?.trim()) {
+    await removeManualAttributedScheduler(job.jobId);
+    return;
+  }
+  await upsertManualAttributedScheduler(job.jobId, job.cronExpression.trim(), job.cronVariables);
 }
 
 export async function updateManualAttributedJob(jobId: string, options: UpdateManualAttributedJobOptions) {
@@ -376,6 +425,9 @@ export async function updateManualAttributedJob(jobId: string, options: UpdateMa
     database: options.database ?? existing.database,
     workgroup: options.workgroup ?? existing.workgroup,
     resultS3: options.resultS3 ?? existing.resultS3,
+    cronExpression: options.cronExpression === undefined ? existing.cronExpression ?? undefined : options.cronExpression,
+    cronEnabled: options.cronEnabled === undefined ? existing.cronEnabled : options.cronEnabled,
+    cronVariables: options.cronVariables === undefined ? (existing.cronVariables ?? undefined) : options.cronVariables,
   });
   const executionInputsChanged =
     next.sqlTemplate !== existing.sqlTemplate ||
@@ -398,16 +450,22 @@ export async function updateManualAttributedJob(jobId: string, options: UpdateMa
       queryExecutionId: executionInputsChanged ? null : existing.queryExecutionId,
       downloadUrl: executionInputsChanged ? null : existing.downloadUrl,
       error: executionInputsChanged ? null : existing.error,
+      cronExpression: next.cronExpression,
+      cronEnabled: next.cronEnabled,
+      cronVariables: next.cronVariables,
     },
     include: {
       executions: { orderBy: { createdAt: 'desc' } },
     },
   });
 
-  return toJob(updated);
+  const job = toJob(updated);
+  await syncManualAttributedJobScheduler(job);
+  return job;
 }
 
 export async function deleteManualAttributedJob(jobId: string) {
+  await removeManualAttributedScheduler(jobId);
   const deleted = await (db as any).manualAttributedJob.deleteMany({ where: { jobId } });
   return deleted.count > 0;
 }
@@ -521,4 +579,10 @@ export async function executeManualAttributedJob(jobId: string, options?: Execut
   );
 
   return toJob(updated);
+}
+
+export async function triggerScheduledManualAttributedJob(jobId: string, variables?: Record<string, string>) {
+  const existing = await (db as any).manualAttributedJob.findUnique({ where: { jobId } });
+  if (!existing || !existing.cronEnabled || existing.status === 'pending' || existing.status === 'running') return null;
+  return executeManualAttributedJob(jobId, { variables: variables || (existing.cronVariables as Record<string, string> | undefined) });
 }
