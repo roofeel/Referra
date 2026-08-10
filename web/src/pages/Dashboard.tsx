@@ -90,7 +90,11 @@ export default function Dashboard() {
   const startDate = isValidDate(searchParams.get('startDate')) ? searchParams.get('startDate')! : (isValidDate(searchParams.get('date')) ? searchParams.get('date')! : currentUtcDate());
   const endDate = isValidDate(searchParams.get('endDate')) ? searchParams.get('endDate')! : startDate;
   const selectedDateLabel = useMemo(() => formatDateLabel(startDate, endDate), [endDate, startDate]);
-  const dateRange = useMemo<DateRange>(() => ({ from: parseDateInput(startDate), to: parseDateInput(endDate) }), [endDate, startDate]);
+  const dateRange = useMemo<DateRange>(() => ({
+    from: parseDateInput(startDate),
+    to: startDate === endDate ? undefined : parseDateInput(endDate),
+  }), [endDate, startDate]);
+  const [draftDateRange, setDraftDateRange] = useState<DateRange | undefined>(dateRange);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -119,6 +123,10 @@ export default function Dashboard() {
   useEffect(() => {
     setRefreshDate(startDate);
   }, [startDate]);
+
+  useEffect(() => {
+    if (!isDatePickerOpen) setDraftDateRange(dateRange);
+  }, [dateRange, isDatePickerOpen]);
 
   useEffect(() => {
     let alive = true;
@@ -195,16 +203,15 @@ export default function Dashboard() {
             <div className="flex flex-wrap items-center gap-2">
               <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>CLICK URL ID</span><select value={selectedFilterIdParam ?? ''} onChange={(event) => { const next: { startDate: string; endDate: string; filterId?: string } = { startDate, endDate }; if (event.target.value) next.filterId = event.target.value; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">Select an ID</option>{(dashboard?.filters ?? []).map((id) => <option key={id} value={id}>{id}</option>)}</select></label>
               <div className="relative" ref={datePickerRef}>
-                <button type="button" onClick={() => setIsDatePickerOpen((value) => !value)} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span className="material-symbols-outlined text-sm">calendar_today</span><span>Date: {selectedDateLabel}</span><span className="material-symbols-outlined text-sm">{isDatePickerOpen ? 'expand_less' : 'expand_more'}</span></button>
+                <button type="button" onClick={() => { setDraftDateRange(dateRange); setIsDatePickerOpen((value) => !value); }} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span className="material-symbols-outlined text-sm">calendar_today</span><span>Date: {selectedDateLabel}</span><span className="material-symbols-outlined text-sm">{isDatePickerOpen ? 'expand_less' : 'expand_more'}</span></button>
                 {isDatePickerOpen ? <div className="absolute right-0 top-10 z-30 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
-                  <DayPicker mode="range" numberOfMonths={2} selected={dateRange} disabled={{ after: new Date() }} onSelect={(range: DateRange | undefined) => {
-                    if (!range?.from) return;
-                    const nextStart = formatDateInput(range.from);
-                    const nextEnd = formatDateInput(range.to || range.from);
-                    const next: { startDate: string; endDate: string; filterId?: string } = { startDate: nextStart, endDate: nextEnd };
+                  <DayPicker mode="range" numberOfMonths={2} selected={draftDateRange} disabled={{ after: new Date() }} onSelect={(range: DateRange | undefined) => {
+                    setDraftDateRange(range);
+                    if (!range?.from || !range.to) return;
+                    const next: { startDate: string; endDate: string; filterId?: string } = { startDate: formatDateInput(range.from), endDate: formatDateInput(range.to) };
                     if (selectedFilterIdParam) next.filterId = selectedFilterIdParam;
                     setSearchParams(next, { replace: true });
-                    if (range.to) setIsDatePickerOpen(false);
+                    setIsDatePickerOpen(false);
                   }} />
                 </div> : null}
               </div>
