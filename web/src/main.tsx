@@ -10,7 +10,8 @@ import UrlCreateRule from './pages/UrlCreateRule'
 import Reports from './pages/Reports'
 import ManualAttributed from './pages/ManualAttributed'
 import ManualAttributedDetail from './pages/ManualAttributedDetail'
-import ManualAttributionSchedules from './pages/ManualAttributionSchedules'
+import CronSchedules from './pages/CronSchedules'
+import JobLogs from './pages/JobLogs'
 import McpDocuments from './pages/McpDocuments'
 import NonAttributedReports from './pages/NonAttributedReports'
 import NonAttributedReportsDetail from './pages/NonAttributedReportsDetail'
@@ -59,7 +60,8 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/reports" element={<Reports />} />
               <Route path="/manual-attribution/attributed" element={<ManualAttributed />} />
               <Route path="/manual-attribution/attributed/:jobId" element={<ManualAttributedDetail />} />
-              <Route path="/manual-attribution/schedules" element={<ManualAttributionSchedules />} />
+              <Route path="/settings/cron-schedules" element={<CronSchedules />} />
+              <Route path="/settings/job-logs" element={<JobLogs />} />
               <Route path="/documents/mcp" element={<McpDocuments />} />
               <Route path="/non-attributed-reports" element={<NonAttributedReports />} />
               <Route path="/non-attributed-reports/:reportId" element={<NonAttributedReportsDetail />} />

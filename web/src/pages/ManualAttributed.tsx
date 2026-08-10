@@ -33,9 +33,6 @@ export default function ManualAttributed() {
   const [workgroup, setWorkgroup] = useState('primary');
   const [resultS3, setResultS3] = useState('');
   const [sqlTemplate, setSqlTemplate] = useState(DEFAULT_SQL_TEMPLATE);
-  const [cronEnabled, setCronEnabled] = useState(false);
-  const [cronExpression, setCronExpression] = useState('');
-  const [cronVariables, setCronVariables] = useState('{}');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
@@ -85,9 +82,6 @@ export default function ManualAttributed() {
     setWorkgroup('primary');
     setResultS3('');
     setSqlTemplate(DEFAULT_SQL_TEMPLATE);
-    setCronEnabled(false);
-    setCronExpression('');
-    setCronVariables('{}');
   }
 
   function handleOpenCreate() {
@@ -102,9 +96,6 @@ export default function ManualAttributed() {
     setWorkgroup(job.workgroup || 'primary');
     setResultS3(job.resultS3 || '');
     setSqlTemplate(job.sqlTemplate || job.renderedSql || DEFAULT_SQL_TEMPLATE);
-    setCronEnabled(job.cronEnabled);
-    setCronExpression(job.cronExpression || '');
-    setCronVariables(JSON.stringify(job.cronVariables || {}, null, 2));
     setIsCreateOpen(true);
   }
 
@@ -123,23 +114,12 @@ export default function ManualAttributed() {
     setIsSubmitting(true);
 
     try {
-      let parsedCronVariables: Record<string, string> = {};
-      if (cronEnabled && cronVariables.trim()) {
-        const parsed = JSON.parse(cronVariables);
-        if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object' || Object.values(parsed).some((value) => typeof value !== 'string')) {
-          throw new Error('Cron variables must be a JSON object with string values');
-        }
-        parsedCronVariables = parsed as Record<string, string>;
-      }
       const payload = {
         name,
         sqlTemplate,
         database: database || undefined,
         workgroup: workgroup || undefined,
         resultS3: resultS3 || undefined,
-        cronEnabled,
-        cronExpression: cronExpression.trim() || undefined,
-        cronVariables: parsedCronVariables,
       };
       if (editingJob) {
         await api.manualAttribution.updateAttributedJob(editingJob.jobId, payload);
@@ -451,25 +431,6 @@ JOIN (
                     SQL Template
                     <textarea value={sqlTemplate} onChange={(e) => setSqlTemplate(e.target.value)} className="mt-1 h-52 w-full rounded border border-slate-300 px-3 py-2 font-mono text-xs" required />
                   </label>
-                  <div className="rounded border border-violet-200 bg-violet-50 p-3">
-                    <label className="flex items-center gap-2 text-sm font-semibold text-violet-900">
-                      <input type="checkbox" checked={cronEnabled} onChange={(e) => setCronEnabled(e.target.checked)} />
-                      Enable automatic cron execution
-                    </label>
-                    <p className="mt-1 text-xs text-violet-800">Cron timezone defaults to Asia/Shanghai and can be changed with <code>CRON_TIMEZONE</code>. Example: <code>0 3 * * *</code> runs daily at 03:00.</p>
-                    {cronEnabled ? (
-                      <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        <label className="text-sm text-slate-700">
-                          Cron expression
-                          <input value={cronExpression} onChange={(e) => setCronExpression(e.target.value)} placeholder="0 3 * * *" className="mt-1 h-9 w-full rounded border border-slate-300 bg-white px-3 font-mono" required={cronEnabled} />
-                        </label>
-                        <label className="text-sm text-slate-700">
-                          Scheduled template variables (JSON)
-                          <textarea value={cronVariables} onChange={(e) => setCronVariables(e.target.value)} placeholder={'{"table_name":"events_202608"}'} className="mt-1 h-20 w-full rounded border border-slate-300 bg-white px-3 py-2 font-mono text-xs" />
-                        </label>
-                      </div>
-                    ) : null}
-                  </div>
                   <details className="rounded border border-slate-200 bg-slate-50 p-3">
                     <summary className="cursor-pointer text-sm font-medium text-slate-700">Rendered SQL Preview</summary>
                     <pre className="mt-3 overflow-auto whitespace-pre-wrap rounded bg-slate-900 p-3 text-xs text-slate-100">{renderedPreview}</pre>

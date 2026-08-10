@@ -1,0 +1,12 @@
+import { useEffect, useState } from 'react';
+import { AppSidebar } from '../components/common/AppSidebar';
+import { useToast } from '../components/ToastProvider';
+import { api } from '../service';
+import type { DeliveryRefreshLog } from '../service/deliveryRefresh';
+
+export default function JobLogs() {
+  const toast = useToast();
+  const [logs, setLogs] = useState<DeliveryRefreshLog[]>([]);
+  useEffect(() => { void api.deliveryRefresh.listLogs().then((value) => setLogs(value.logs || [])).catch((error) => toast.error(error instanceof Error ? error.message : 'Failed to load job logs')); }, [toast]);
+  return <div className="flex h-screen overflow-hidden bg-[#f7f9fb] text-slate-900"><AppSidebar activeItem="job-logs" ariaLabel="Settings Navigation" /><main className="ml-64 flex flex-1 flex-col overflow-hidden"><header className="flex h-16 items-center border-b border-slate-200/70 bg-white px-8"><div><p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Settings</p><h1 className="text-base font-bold">Job Logs</h1></div></header><div className="flex-1 overflow-y-auto p-8"><section className="overflow-x-auto rounded-xl border border-slate-200 bg-white"><table className="w-full min-w-[900px] text-left text-xs"><thead><tr className="bg-slate-100"><th className="px-5 py-3">Job</th><th className="px-5 py-3">Date</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Rows</th><th className="px-5 py-3">Started</th><th className="px-5 py-3">Finished</th><th className="px-5 py-3">Error</th></tr></thead><tbody className="divide-y divide-slate-200">{logs.map((log) => <tr key={log.id}><td className="px-5 py-3 font-semibold">Delivery Overview refresh</td><td className="px-5 py-3">{log.date}</td><td className="px-5 py-3"><span className={`rounded px-2 py-1 ${log.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : log.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{log.status}</span></td><td className="px-5 py-3">{log.rows ?? '-'}</td><td className="px-5 py-3">{new Date(log.startedAt).toLocaleString()}</td><td className="px-5 py-3">{log.finishedAt ? new Date(log.finishedAt).toLocaleString() : '-'}</td><td className="px-5 py-3 text-red-600">{log.error || '-'}</td></tr>)}</tbody></table>{logs.length === 0 ? <p className="p-8 text-sm text-slate-500">No job logs yet.</p> : null}</section></div></main></div>;
+}
