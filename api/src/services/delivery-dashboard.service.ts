@@ -6,6 +6,7 @@ import {
 import { HttpRequest } from '@smithy/protocol-http';
 import { db } from '../../../packages/db/index.js';
 import { createAthenaClient, createElasticsearchSigner } from '../lib/aws-clients.lib.js';
+import { DELIVERY_REFRESH_SCHEDULER_ID, deliveryRefreshQueue } from '../queues/delivery-dashboard.queue.js';
 
 type AggregatedRow = {
   bucketStart: Date;
@@ -385,6 +386,63 @@ export async function refreshDeliveryMetrics(date = new Date().toISOString().sli
   return refreshPromise;
 }
 
+export async function runDeliveryRefreshJob(date = new Date().toISOString().slice(0, 10)) {
+  const startedAt = new Date();
+  const job = await (db as any).deliveryRefreshJob.upsert({
+    where: { jobId: DELIVERY_REFRESH_SCHEDULER_ID },
+    create: { jobId: DELIVERY_REFRESH_SCHEDULER_ID },
+    update: {},
+  });
+  const log = await (db as any).deliveryRefreshLog.create({
+    data: { jobId: job.jobId, status: 'running', date, startedAt },
+  });
+  try {
+    const result = await refreshDeliveryMetrics(date);
+    await (db as any).deliveryRefreshLog.update({ where: { id: log.id }, data: { status: 'completed', rows: result.rows, finishedAt: new Date() } });
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await (db as any).deliveryRefreshLog.update({ where: { id: log.id }, data: { status: 'failed', error: message, finishedAt: new Date() } });
+    throw error;
+  }
+}
+
+export async function getDeliveryRefreshSchedule() {
+  return (db as any).deliveryRefreshJob.upsert({
+    where: { jobId: DELIVERY_REFRESH_SCHEDULER_ID },
+    create: { jobId: DELIVERY_REFRESH_SCHEDULER_ID },
+    update: {},
+  });
+}
+
+export async function updateDeliveryRefreshSchedule(options: { cronExpression?: string; enabled?: boolean; timezone?: string }) {
+  const current = await getDeliveryRefreshSchedule();
+  const cronExpression = options.cronExpression?.trim() || current.cronExpression;
+  if (!cronExpression) throw new Error('cronExpression is required');
+  const updated = await (db as any).deliveryRefreshJob.update({
+    where: { jobId: DELIVERY_REFRESH_SCHEDULER_ID },
+    data: { cronExpression, enabled: options.enabled ?? current.enabled, timezone: options.timezone?.trim() || current.timezone },
+  });
+  await syncDeliveryRefreshScheduler(updated);
+  return updated;
+}
+
+export async function listDeliveryRefreshLogs(limit = 100) {
+  return (db as any).deliveryRefreshLog.findMany({ where: { jobId: DELIVERY_REFRESH_SCHEDULER_ID }, orderBy: { createdAt: 'desc' }, take: Math.min(Math.max(limit, 1), 500) });
+}
+
+async function syncDeliveryRefreshScheduler(job: { jobId: string; cronExpression: string; enabled: boolean; timezone: string }) {
+  if (!job.enabled) {
+    await deliveryRefreshQueue.removeJobScheduler(DELIVERY_REFRESH_SCHEDULER_ID);
+    return;
+  }
+  await deliveryRefreshQueue.upsertJobScheduler(DELIVERY_REFRESH_SCHEDULER_ID, { pattern: job.cronExpression, tz: job.timezone }, {
+    name: 'delivery-overview-refresh',
+    data: { scheduled: true },
+    opts: { removeOnComplete: true, removeOnFail: 100 },
+  });
+}
+
 export async function getDeliveryDashboard(startDate = new Date().toISOString().slice(0, 10), endDate = startDate, filterId?: number) {
   const config = getConfig();
   if (filterId !== undefined && !config.filters.some((filter) => filter.id === filterId)) {
@@ -492,12 +550,12 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
   };
 }
 
-export function startDeliveryMetricScheduler() {
+export async function startDeliveryMetricScheduler() {
   const enabled = (process.env.DELIVERY_METRICS_ENABLED || 'true').toLowerCase() !== 'false';
-  if (!enabled) return;
-  const intervalMs = Math.max(Number(process.env.DELIVERY_METRICS_INTERVAL_MS) || 3_600_000, 60_000);
-  const run = () => void refreshDeliveryMetrics().catch((error) => console.error('[delivery-metrics] refresh failed:', error));
-  if ((process.env.DELIVERY_METRICS_RUN_ON_START || 'true').toLowerCase() === 'true') run();
-  setInterval(run, intervalMs);
-  console.log(`[delivery-metrics] scheduler started, interval=${intervalMs}ms`);
+  const job = await getDeliveryRefreshSchedule();
+  await syncDeliveryRefreshScheduler({ ...job, enabled: enabled && job.enabled });
+  if ((process.env.DELIVERY_METRICS_RUN_ON_START || 'true').toLowerCase() === 'true') {
+    void runDeliveryRefreshJob().catch((error) => console.error('[delivery-metrics] initial refresh failed:', error));
+  }
+  console.log(`[delivery-metrics] cron scheduler started, expression=${job.cronExpression}`);
 }

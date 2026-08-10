@@ -1,4 +1,4 @@
-import { getDeliveryDashboard, refreshDeliveryMetrics } from '../services/delivery-dashboard.service.js';
+import { getDeliveryDashboard, getDeliveryRefreshSchedule, listDeliveryRefreshLogs, refreshDeliveryMetrics, runDeliveryRefreshJob, updateDeliveryRefreshSchedule } from '../services/delivery-dashboard.service.js';
 
 function parseDate(value: string | null) {
   if (!value) return new Date().toISOString().slice(0, 10);
@@ -33,7 +33,17 @@ export const deliveryDashboardController = {
   async refresh(request: Request) {
     const url = new URL(request.url);
     const date = parseDate(url.searchParams.get('date'));
-    const result = await refreshDeliveryMetrics(date);
+    const result = await runDeliveryRefreshJob(date);
     return Response.json({ status: 'completed', date, ...result });
+  },
+
+  async getSchedule() { return Response.json(await getDeliveryRefreshSchedule()); },
+  async updateSchedule(request: Request) {
+    const body = await request.json() as { cronExpression?: string; enabled?: boolean; timezone?: string };
+    return Response.json(await updateDeliveryRefreshSchedule(body));
+  },
+  async logs(request: Request) {
+    const limit = Number(new URL(request.url).searchParams.get('limit') || '100');
+    return Response.json({ logs: await listDeliveryRefreshLogs(Number.isFinite(limit) ? limit : 100) });
   },
 };

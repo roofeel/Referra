@@ -215,3 +215,30 @@ model DeliveryMetric {
   @@unique([bucketStart, metricType, dimension, filterId])
   @@index([metricType, bucketStart])
 }
+
+model DeliveryRefreshJob {
+  jobId          String   @id @default("delivery-overview-refresh")
+  name           String   @default("Delivery Overview refresh")
+  cronExpression String   @default("0 * * * *")
+  enabled        Boolean  @default(true)
+  timezone       String   @default("Asia/Shanghai")
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  logs           DeliveryRefreshLog[]
+}
+
+model DeliveryRefreshLog {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         DeliveryRefreshJob @relation(fields: [jobId], references: [jobId], onDelete: Cascade)
+  status      String
+  date        String
+  rows        Int?
+  error       String?
+  startedAt   DateTime
+  finishedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([jobId, createdAt])
+  @@index([status, createdAt])
+}

@@ -16,7 +16,7 @@ process.on("uncaughtException", (error) => {
 
 await initDatabase();
 await syncManualAttributedSchedulers();
-startDeliveryMetricScheduler();
+await startDeliveryMetricScheduler();
 
 Bun.serve({
   port: 3000,

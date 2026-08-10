@@ -7,4 +7,11 @@ export const deliveryDashboardRoutes = {
   '/api/delivery-dashboard/refresh': {
     POST: deliveryDashboardController.refresh,
   },
+  '/api/delivery-dashboard/refresh/schedule': {
+    GET: deliveryDashboardController.getSchedule,
+    PUT: deliveryDashboardController.updateSchedule,
+  },
+  '/api/delivery-dashboard/refresh/logs': {
+    GET: deliveryDashboardController.logs,
+  },
 };

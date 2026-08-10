@@ -4,6 +4,7 @@ import { reportsApi } from './reports';
 import { usersApi } from './users';
 import { urlRulesApi } from './urlRules';
 import { deliveryDashboardApi } from './deliveryDashboard';
+import { deliveryRefreshApi } from './deliveryRefresh';
 
 export const api = {
   nonAttributedReports: nonAttributedReportsApi,
@@ -12,6 +13,7 @@ export const api = {
   users: usersApi,
   urlRules: urlRulesApi,
   deliveryDashboard: deliveryDashboardApi,
+  deliveryRefresh: deliveryRefreshApi,
 };
 
 export * from './types';
