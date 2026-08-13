@@ -22,17 +22,7 @@ const primarySidebarItems: SidebarItem[] = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', to: '/dashboard' },
 ];
 
-const referrerTypeAnalysisItems: SidebarItem[] = [
-  { key: 'reports', label: 'Attributed', icon: 'analytics', to: '/reports' },
-  { key: 'non-attributed-reports', label: 'NonAttributed', icon: 'dataset', to: '/non-attributed-reports' },
-];
-
-const manualAttributionItems: SidebarItem[] = [
-  { key: 'manual-attributed', label: 'Attributed', icon: 'play_circle', to: '/manual-attribution/attributed' },
-];
-
 const settingSidebarItems: SidebarItem[] = [
-  { key: 'url-rules', label: 'Url Rules', icon: 'terminal', to: '/url-rules' },
   { key: 'cron-schedules', label: 'Cron Schedules', icon: 'schedule', to: '/settings/cron-schedules' },
   { key: 'job-logs', label: 'Job Logs', icon: 'list_alt', to: '/settings/job-logs' },
 ];
@@ -89,74 +79,6 @@ export function AppSidebar({ activeItem, ariaLabel }: AppSidebarProps) {
             </Link>
           );
         })}
-
-        <div className="pt-2">
-          <p className="flex items-center gap-2 px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            Referrer Type Anlysis
-            <span className="rounded border border-blue-400/40 bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-normal text-blue-300">
-              Beta
-            </span>
-          </p>
-          <div className="mt-1 space-y-1">
-            {referrerTypeAnalysisItems.map((item) => {
-              const isActive = item.key === activeItem;
-
-              return (
-                <Link
-                  key={item.key}
-                  to={item.to}
-                  className={`flex items-center gap-3 py-2 pl-12 pr-6 transition-all ${
-                    isActive
-                      ? 'border-r-2 border-blue-500 bg-blue-700/20 text-white'
-                      : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                  }`}
-                >
-                  <span
-                    className={`material-symbols-outlined text-[18px] ${isActive ? 'text-blue-400' : ''}`}
-                    style={isActive ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                  >
-                    {item.icon}
-                  </span>
-                  <span className="text-sm leading-relaxed">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="pt-2">
-          <p className="flex items-center gap-2 px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            Manual Attribution
-            <span className="rounded border border-blue-400/40 bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-normal text-blue-300">
-              Beta
-            </span>
-          </p>
-          <div className="mt-1 space-y-1">
-            {manualAttributionItems.map((item) => {
-              const isActive = item.key === activeItem;
-
-              return (
-                <Link
-                  key={item.key}
-                  to={item.to}
-                  className={`flex items-center gap-3 py-2 pl-12 pr-6 transition-all ${
-                    isActive
-                      ? 'border-r-2 border-blue-500 bg-blue-700/20 text-white'
-                      : 'text-slate-300 hover:bg-slate-700/50 hover:text-white'
-                  }`}
-                >
-                  <span
-                    className={`material-symbols-outlined text-[18px] ${isActive ? 'text-blue-400' : ''}`}
-                    style={isActive ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                  >
-                    {item.icon}
-                  </span>
-                  <span className="text-sm leading-relaxed">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
 
         <div className="pt-2">
           <p className="flex items-center gap-2 px-6 text-[10px] font-bold uppercase tracking-widest text-slate-500">

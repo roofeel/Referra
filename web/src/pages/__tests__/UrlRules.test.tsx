@@ -131,7 +131,7 @@ describe('UrlRules', () => {
     expect(nav).toBeInTheDocument();
     expect(screen.getByText('Referra')).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
-    expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
+    expect(within(nav).queryByRole('link', { name: /Url Rules/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create Rule' })).toBeInTheDocument();
     expect(await screen.findByText('AstraZeneca')).toBeInTheDocument();
     expect(await screen.findByText('AstraZeneca Global')).toBeInTheDocument();

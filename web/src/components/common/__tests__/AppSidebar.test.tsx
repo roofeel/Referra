@@ -15,10 +15,11 @@ describe('AppSidebar', () => {
     expect(nav).toBeInTheDocument();
     expect(screen.getByText('Referra')).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
-    expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
-    expect(within(nav).getAllByText('Attributed')[0].closest('a')).toHaveAttribute('href', '/reports');
+    expect(within(nav).queryByRole('link', { name: /Url Rules/i })).not.toBeInTheDocument();
+    expect(within(nav).queryByText('Referrer Type Anlysis')).not.toBeInTheDocument();
+    expect(within(nav).queryByText('Manual Attribution')).not.toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: /MCP Document/i })).toHaveAttribute('href', '/documents/mcp');
-    expect(within(nav).getAllByText('Beta')).toHaveLength(3);
+    expect(within(nav).getAllByText('Beta')).toHaveLength(1);
     expect(screen.getByText('Guest User')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Logout/i })).toBeDisabled();
   });
@@ -26,14 +27,11 @@ describe('AppSidebar', () => {
   it('marks the active item with active styling', () => {
     render(
       <MemoryRouter>
-        <AppSidebar activeItem="url-rules" ariaLabel="Main Navigation" />
+        <AppSidebar activeItem="dashboard" ariaLabel="Main Navigation" />
       </MemoryRouter>,
     );
 
     const dashboardLink = screen.getByRole('link', { name: /Dashboard/i });
-    const clientLogicLink = screen.getByRole('link', { name: /Url Rules/i });
-
-    expect(clientLogicLink).toHaveClass('border-r-2');
-    expect(dashboardLink).not.toHaveClass('border-r-2');
+    expect(dashboardLink).toHaveClass('border-r-2');
   });
 });

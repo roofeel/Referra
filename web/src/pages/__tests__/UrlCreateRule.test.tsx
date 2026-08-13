@@ -59,7 +59,7 @@ describe('UrlCreateRule', () => {
     const nav = screen.getByRole('navigation', { name: 'URL Rules Navigation' });
     expect(nav).toBeInTheDocument();
     expect(within(nav).getByRole('link', { name: /Dashboard/i })).toHaveAttribute('href', '/dashboard');
-    expect(within(nav).getByRole('link', { name: /Url Rules/i })).toHaveAttribute('href', '/url-rules');
+    expect(within(nav).queryByRole('link', { name: /Url Rules/i })).not.toBeInTheDocument();
 
     expect(screen.getByText('Edit URL Rule')).toBeInTheDocument();
     expect(screen.getByText('Rule Identity')).toBeInTheDocument();
