@@ -63,11 +63,11 @@ export function parseDeliveryMetricFilters(value = process.env.DELIVERY_METRICS_
 }
 
 function getConfig() {
-  const impressionTable = identifier(process.env.ATHENA_IMPRESSION_TABLE?.trim() || 'impression_logs', 'ATHENA_IMPRESSION_TABLE');
+  const impressionTable = identifier(process.env.ATHENA_IMPRESSION_TABLE?.trim() || 'impression_logs_daily', 'ATHENA_IMPRESSION_TABLE');
   const installTable = identifier(process.env.ATHENA_INSTALL_TABLE?.trim() || 'tracking_lb_logs', 'ATHENA_INSTALL_TABLE');
   const bidTable = identifier(process.env.ATHENA_BID_TABLE?.trim() || 'fm_bidding_agent_production_bids', 'ATHENA_BID_TABLE');
   const filters = parseDeliveryMetricFilters();
-  const impressionPartition = process.env.ATHENA_IMPRESSION_PARTITION?.trim() || 'month';
+  const impressionPartition = process.env.ATHENA_IMPRESSION_PARTITION?.trim() || 'day';
   if (impressionPartition !== 'month' && impressionPartition !== 'day') {
     throw new Error('ATHENA_IMPRESSION_PARTITION must be month or day');
   }
