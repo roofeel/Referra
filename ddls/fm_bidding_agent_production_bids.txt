@@ -1,0 +1,23 @@
+CREATE EXTERNAL TABLE `fm_bidding_agent_production_bids`(
+  `raw_json` string COMMENT '')
+PARTITIONED BY ( 
+  `date` string)
+ROW FORMAT SERDE 
+  'org.apache.hadoop.hive.serde2.RegexSerDe' 
+WITH SERDEPROPERTIES ( 
+  'input.regex'='^(.*)$') 
+STORED AS INPUTFORMAT 
+  'org.apache.hadoop.mapred.TextInputFormat' 
+OUTPUTFORMAT 
+  'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'
+LOCATION
+  's3://bids/test'
+TBLPROPERTIES (
+  'projection.date.format'='yyyy-MM-dd', 
+  'projection.date.interval'='1', 
+  'projection.date.interval.unit'='DAYS', 
+  'projection.date.range'='2026-01-01,NOW', 
+  'projection.date.type'='date', 
+  'projection.enabled'='true', 
+  'storage.location.template'='s3://bids/production/date=${date}/', 
+  'transient_lastDdlTime'='1785740258')

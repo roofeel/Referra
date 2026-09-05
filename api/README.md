@@ -32,6 +32,10 @@ ATHENA_DATABASE=default
 ATHENA_WORKGROUP=primary
 ATHENA_OUTPUT_LOCATION=s3://aws-athena-query-results-246648750489-us-east-1/
 ATHENA_IMPRESSION_TABLE=impression_logs
+# Switch to day after creating impression_logs_daily (see ddls/README.md).
+ATHENA_IMPRESSION_PARTITION=month
+# In day mode, scan adjacent file dates too; event-time bounds remain one day.
+ATHENA_IMPRESSION_PARTITION_PADDING_DAYS=1
 ATHENA_INSTALL_TABLE=tracking_lb_logs
 ATHENA_BID_TABLE=fm_bidding_agent_test_bids
 # Optional ID filters. Format: id:showBid,id:showBid. Omit to disable ID filtering.

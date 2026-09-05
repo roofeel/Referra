@@ -67,11 +67,21 @@ function getConfig() {
   const installTable = identifier(process.env.ATHENA_INSTALL_TABLE?.trim() || 'tracking_lb_logs', 'ATHENA_INSTALL_TABLE');
   const bidTable = identifier(process.env.ATHENA_BID_TABLE?.trim() || 'fm_bidding_agent_production_bids', 'ATHENA_BID_TABLE');
   const filters = parseDeliveryMetricFilters();
+  const impressionPartition = process.env.ATHENA_IMPRESSION_PARTITION?.trim() || 'month';
+  if (impressionPartition !== 'month' && impressionPartition !== 'day') {
+    throw new Error('ATHENA_IMPRESSION_PARTITION must be month or day');
+  }
+  const impressionPartitionPaddingDays = Number(process.env.ATHENA_IMPRESSION_PARTITION_PADDING_DAYS?.trim() || '1');
+  if (!Number.isSafeInteger(impressionPartitionPaddingDays) || impressionPartitionPaddingDays < 0 || impressionPartitionPaddingDays > 31) {
+    throw new Error('ATHENA_IMPRESSION_PARTITION_PADDING_DAYS must be an integer between 0 and 31');
+  }
   return {
     database: requiredEnv('ATHENA_DATABASE'),
     workgroup: process.env.ATHENA_WORKGROUP?.trim() || 'primary',
     outputLocation: requiredEnv('ATHENA_OUTPUT_LOCATION'),
     impressionTable,
+    impressionPartition,
+    impressionPartitionPaddingDays,
     installTable,
     bidTable,
     filters,
@@ -108,75 +118,61 @@ export function buildAggregationSql(config: ReturnType<typeof getConfig>, date: 
   const filterIdExpression = config.filters.length
     ? `CASE ${config.filters.map(({ id }) => `WHEN url LIKE '%/v2/${id}/impression%' THEN ${id}`).join(' ')} ELSE NULL END`
     : 'CAST(NULL AS bigint)';
-  const bidEvents = config.bidMetricsEnabled ? `
-bid_events AS (
-  SELECT date_trunc('hour', from_iso8601_timestamp(json_extract_scalar(raw_json, '$.timestamp'))) AS bucket_start,
-    cardinality(coalesce(cast(json_extract(raw_json, '$.response.bids') AS array(json)), cast(array[] AS array(json)))) AS bid_count
-  FROM ${config.bidTable}
-  WHERE "date" = '${date}'
-),` : '';
+  // Partition dates describe files; retain event-time bounds below as well.
+  const padding = config.impressionPartitionPaddingDays;
+  const partitionPredicate = config.impressionPartition === 'day'
+    ? `"day" BETWEEN date_format(date_add('day', -${padding}, DATE '${date}'), '%Y/%m/%d')
+      AND date_format(date_add('day', ${padding}, DATE '${date}'), '%Y/%m/%d')`
+    : `month = date_format(DATE '${date}', '%Y/%m')`;
   return `
 WITH impression_events AS (
   SELECT
     date_trunc('hour', from_iso8601_timestamp(substr("timestamp", 1, 19))) AS bucket_start,
+    date_trunc('day', from_iso8601_timestamp(substr("timestamp", 1, 19))) AS day_start,
     ${filterIdExpression} AS filter_id,
     ${creativeExpression} AS creative,
     ${dmaExpression} AS dma
   FROM ${config.impressionTable}
-  WHERE month = date_format(DATE '${date}', '%Y/%m')
+  WHERE ${partitionPredicate}
     ${impressionFilter}
     AND from_iso8601_timestamp(substr("timestamp", 1, 19)) >= CAST(DATE '${date}' AS timestamp)
     AND from_iso8601_timestamp(substr("timestamp", 1, 19)) < CAST(date_add('day', 1, DATE '${date}') AS timestamp)
-),${bidEvents}
-hourly AS (
-  ${config.bidMetricsEnabled ? `SELECT i.bucket_start, 'hourly' AS metric_type, i.filter_id, 'ALL' AS dimension,
-    i.impressions, 0 AS installs, 0 AS bid_requests, 0 AS bids
-  FROM (
-    SELECT bucket_start, filter_id, count(*) AS impressions
-    FROM impression_events
-    GROUP BY bucket_start, filter_id
-  ) i
-  UNION ALL
-  SELECT b.bucket_start, 'hourly' AS metric_type, CAST(NULL AS bigint) AS filter_id, 'ALL' AS dimension,
-    0 AS impressions, 0 AS installs, b.bid_requests, b.bids
-  FROM (
-    SELECT bucket_start, count(*) AS bid_requests,
-      sum(CASE WHEN bid_count > 0 THEN 1 ELSE 0 END) AS bids
-    FROM bid_events GROUP BY bucket_start
-  ) b` : `SELECT bucket_start, 'hourly' AS metric_type, filter_id, 'ALL' AS dimension,
-    count(*) AS impressions, 0 AS installs, 0 AS bid_requests, 0 AS bids
+),
+impression_metrics AS (
+  SELECT
+    CASE WHEN grouping(bucket_start) = 0 THEN bucket_start ELSE day_start END AS bucket_start,
+    CASE WHEN grouping(bucket_start) = 0 THEN 'hourly'
+      WHEN grouping(dma) = 0 THEN 'dma' ELSE 'creative' END AS metric_type,
+    filter_id,
+    CASE WHEN grouping(bucket_start) = 0 THEN 'ALL'
+      WHEN grouping(dma) = 0 THEN dma ELSE creative END AS dimension,
+    count(*) AS impressions,
+    0 AS installs,
+    0 AS bid_requests,
+    0 AS bids
   FROM impression_events
-  GROUP BY bucket_start, filter_id`}
-),
-dma_daily AS (
-  SELECT
-    date_trunc('day', i.bucket_start) AS bucket_start,
-    'dma' AS metric_type,
-    i.filter_id,
-    i.dma AS dimension,
-    count(*) AS impressions,
-    0 AS installs,
-    0 AS bid_requests,
-    0 AS bids
-  FROM impression_events i
-  GROUP BY date_trunc('day', i.bucket_start), i.filter_id, i.dma
-),
-creative_daily AS (
-  SELECT
-    date_trunc('day', i.bucket_start) AS bucket_start,
-    'creative' AS metric_type,
-    i.filter_id,
-    i.creative AS dimension,
-    count(*) AS impressions,
-    0 AS installs,
-    0 AS bid_requests,
-    0 AS bids
-  FROM impression_events i
-  GROUP BY date_trunc('day', i.bucket_start), i.filter_id, i.creative
+  GROUP BY GROUPING SETS (
+    (bucket_start, filter_id),
+    (day_start, filter_id, dma),
+    (day_start, filter_id, creative)
+  )
 )
 SELECT bucket_start, metric_type, filter_id, dimension, impressions, installs, bid_requests, bids,
   round(1000.0 * installs / nullif(impressions, 0), 4) AS ipm
-FROM (SELECT * FROM hourly UNION ALL SELECT * FROM dma_daily UNION ALL SELECT * FROM creative_daily)
+FROM (
+  SELECT * FROM impression_metrics${config.bidMetricsEnabled ? `
+  UNION ALL
+  SELECT bucket_start, 'hourly' AS metric_type, CAST(NULL AS bigint) AS filter_id, 'ALL' AS dimension,
+    0 AS impressions, 0 AS installs, count(*) AS bid_requests,
+    sum(CASE WHEN bid_count > 0 THEN 1 ELSE 0 END) AS bids
+  FROM (
+    SELECT date_trunc('hour', from_iso8601_timestamp(json_extract_scalar(raw_json, '$.timestamp'))) AS bucket_start,
+      cardinality(coalesce(cast(json_extract(raw_json, '$.response.bids') AS array(json)), cast(array[] AS array(json)))) AS bid_count
+    FROM ${config.bidTable}
+    WHERE "date" = '${date}'
+  ) bid_events
+  GROUP BY bucket_start` : ''}
+)
 ORDER BY bucket_start, metric_type, dimension
 `;
 }
@@ -196,7 +192,16 @@ async function runQuery(query: string, config: ReturnType<typeof getConfig>) {
     await sleep(2_000);
     const execution = await athena.send(new GetQueryExecutionCommand({ QueryExecutionId: queryExecutionId }));
     const state = execution.QueryExecution?.Status?.State;
-    if (state === 'SUCCEEDED') break;
+    if (state === 'SUCCEEDED') {
+      const statistics = execution.QueryExecution?.Statistics;
+      console.info('[delivery-metrics] Athena query completed', {
+        queryExecutionId,
+        dataScannedInBytes: statistics?.DataScannedInBytes,
+        engineExecutionTimeInMillis: statistics?.EngineExecutionTimeInMillis,
+        totalExecutionTimeInMillis: statistics?.TotalExecutionTimeInMillis,
+      });
+      break;
+    }
     if (state === 'FAILED' || state === 'CANCELLED') {
       throw new Error(`Delivery aggregation Athena query ${state}: ${execution.QueryExecution?.Status?.StateChangeReason || 'unknown reason'}`);
     }
