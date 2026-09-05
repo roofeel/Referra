@@ -509,8 +509,15 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     current.installs += row.installs;
     result.set(row.dimension, current);
     return result;
-  }, new Map<string, { dma: string; impressions: number; installs: number }>()).values())
-    .map((row) => ({ ...row, ipm: roundToTwo(row.impressions ? (row.installs / row.impressions) * 1000 : 0) }))
+  }, new Map<string, { dma: string; impressions: number; installs: number }>()).values());
+  const totalDmaImpressions = dmaTotals.reduce((sum, row) => sum + row.impressions, 0);
+  const dmaTop = dmaTotals
+    .filter((row) => row.impressions > 0)
+    .map((row) => ({
+      ...row,
+      ipm: roundToTwo((row.installs / row.impressions) * 1000),
+      impressionShare: roundToTwo(totalDmaImpressions ? (row.impressions / totalDmaImpressions) * 100 : 0),
+    }))
     .sort((left, right) => right.ipm - left.ipm)
     .slice(0, 5);
 
@@ -545,7 +552,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     comparison: Array.from(comparisonByHour.values())
       .sort((left, right) => left.time.getTime() - right.time.getTime())
       .map((row) => ({ time: row.time.toISOString(), today: row.today, yesterday: row.yesterday })),
-    dma: dmaTotals,
+    dma: dmaTop,
     creative: creativeTotals,
   };
 }
