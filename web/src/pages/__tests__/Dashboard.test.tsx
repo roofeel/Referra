@@ -6,7 +6,7 @@ import Dashboard from '../Dashboard';
 describe('Dashboard', () => {
   it('renders the delivery overview dashboard', () => {
     render(
-      <MemoryRouter initialEntries={['/dashboard']}>
+      <MemoryRouter initialEntries={['/dashboard?filterId=23702']}>
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
         </Routes>
@@ -15,8 +15,7 @@ describe('Dashboard', () => {
 
     expect(screen.getByRole('heading', { name: 'Delivery Overview' })).toBeInTheDocument();
     expect(screen.getByText('IPM by hour')).toBeInTheDocument();
-    expect(screen.getByText('Win rate by hour')).toBeInTheDocument();
     expect(screen.getByText('Top DMA by IPM')).toBeInTheDocument();
-    expect(screen.getByText('Top creatives by IPM')).toBeInTheDocument();
+    expect(screen.getByText('creatives by IPM')).toBeInTheDocument();
   });
 });

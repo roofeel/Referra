@@ -17,6 +17,7 @@ import {
   YAxis,
 } from 'recharts';
 import { AppSidebar } from '../components/common/AppSidebar';
+import { TablePagination } from '../components/common/TablePagination';
 import { deliveryDashboardApi, type DeliveryDashboardResponse } from '../service/deliveryDashboard';
 
 const tooltipStyle = { borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 8px 24px rgba(15,23,42,.08)', fontSize: 12 };
@@ -72,6 +73,11 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }
 
+function csvEscape(value: string | number) {
+  const text = String(value);
+  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
 function formatHourlyTooltip(value: unknown, name: unknown) {
   const metric = String(name ?? '').toLowerCase();
   const displayValue = typeof value === 'string' || typeof value === 'number' ? value : '';
@@ -115,6 +121,7 @@ export default function Dashboard() {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isRefreshPickerOpen, setIsRefreshPickerOpen] = useState(false);
   const [refreshDate, setRefreshDate] = useState(startDate);
+  const [creativePage, setCreativePage] = useState(1);
   const dateRangeStartRef = useRef(false);
   const datePickerRef = useRef<HTMLDivElement | null>(null);
   const refreshPickerRef = useRef<HTMLDivElement | null>(null);
@@ -123,6 +130,9 @@ export default function Dashboard() {
   const chartData = dashboard?.hourly.map((point) => ({ ...point, time: formatUtcTime(point.time) })) ?? [];
   const liveDmaData = dashboard?.dma.map((item) => ({ ...item, delta: 0 })) ?? [];
   const liveCreativeData = dashboard?.creative || [];
+  const creativePageSize = 10;
+  const creativeTotalPages = Math.max(1, Math.ceil(liveCreativeData.length / creativePageSize));
+  const pagedCreativeData = liveCreativeData.slice((creativePage - 1) * creativePageSize, creativePage * creativePageSize);
   const liveImpressionCompare = dashboard?.comparison.map((point) => ({ ...point, time: formatUtcTime(point.time) })) ?? [];
   const liveFunnelData = dashboard ? [
     ...(dashboard.bidMetricsEnabled ? [
@@ -135,6 +145,10 @@ export default function Dashboard() {
   useEffect(() => {
     setRefreshDate(startDate);
   }, [startDate]);
+
+  useEffect(() => {
+    setCreativePage(1);
+  }, [startDate, endDate, selectedFilterId]);
 
   useEffect(() => {
     if (!isDatePickerOpen) setDraftDateRange(dateRange);
@@ -175,6 +189,19 @@ export default function Dashboard() {
       setLoadError(error instanceof Error ? error.message : 'Failed to queue Athena refresh');
       setRefreshNotice(null);
     });
+  }
+
+  function downloadCreatives() {
+    const header = ['Creative', 'IPM', 'Impressions', 'Installs'];
+    const rows = liveCreativeData.map((item) => [item.creative, item.ipm.toFixed(2), item.impressions, item.installs]);
+    const csv = [header, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `creatives-by-ipm-${startDate}${startDate === endDate ? '' : `-to-${endDate}`}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   const selectedDateValue = new Date(`${startDate}T00:00:00Z`);
@@ -288,11 +315,13 @@ export default function Dashboard() {
 
           <section className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-              <div><h3 className="text-sm font-bold text-slate-900">Top creatives by IPM</h3><p className="mt-1 text-xs text-slate-500">Creative-level delivery efficiency · installs per 1,000 impressions</p></div>
+              <div><h3 className="text-sm font-bold text-slate-900">creatives by IPM</h3><p className="mt-1 text-xs text-slate-500">Creative-level delivery efficiency · installs per 1,000 impressions</p></div>
+              <button type="button" onClick={downloadCreatives} disabled={!liveCreativeData.length} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"><span className="material-symbols-outlined text-sm">download</span>Download CSV</button>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[620px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Creative</th><th className="px-5 py-3">IPM</th><th className="px-5 py-3">Impressions</th><th className="px-5 py-3">Installs</th></tr></thead><tbody className="divide-y divide-slate-100">{liveCreativeData.length ? liveCreativeData.map((item) => <tr key={item.creative}><td className="px-5 py-4 font-semibold text-slate-800">{item.creative}</td><td className="px-5 py-4 font-black text-slate-900">{item.ipm.toFixed(2)}</td><td className="px-5 py-4 text-slate-600">{formatNumber(item.impressions)}</td><td className="px-5 py-4 text-slate-600">{formatNumber(item.installs)}</td></tr>) : <tr><td className="px-5 py-6 text-slate-500" colSpan={4}>No creative-level URL data available for this range.</td></tr>}</tbody></table>
+              <table className="w-full min-w-[620px] text-left text-xs"><thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">Creative</th><th className="px-5 py-3">IPM</th><th className="px-5 py-3">Impressions</th><th className="px-5 py-3">Installs</th></tr></thead><tbody className="divide-y divide-slate-100">{liveCreativeData.length ? pagedCreativeData.map((item) => <tr key={item.creative}><td className="px-5 py-4 font-semibold text-slate-800">{item.creative}</td><td className="px-5 py-4 font-black text-slate-900">{item.ipm.toFixed(2)}</td><td className="px-5 py-4 text-slate-600">{formatNumber(item.impressions)}</td><td className="px-5 py-4 text-slate-600">{formatNumber(item.installs)}</td></tr>) : <tr><td className="px-5 py-6 text-slate-500" colSpan={4}>No creative-level URL data available for this range.</td></tr>}</tbody></table>
             </div>
+            <TablePagination summary={liveCreativeData.length ? `Showing ${(creativePage - 1) * creativePageSize + 1}-${Math.min(creativePage * creativePageSize, liveCreativeData.length)} of ${liveCreativeData.length} creatives` : 'No creatives'} page={liveCreativeData.length && creativeTotalPages > 1 ? creativePage : undefined} totalPages={liveCreativeData.length && creativeTotalPages > 1 ? creativeTotalPages : undefined} onPageChange={setCreativePage} />
           </section>
 
           </>}

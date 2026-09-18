@@ -534,8 +534,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     return result;
   }, new Map<string, { creative: string; impressions: number; installs: number }>()).values())
     .map((row) => ({ ...row, ipm: roundToTwo(row.impressions ? (row.installs / row.impressions) * 1000 : 0) }))
-    .sort((left, right) => right.ipm - left.ipm)
-    .slice(0, 10);
+    .sort((left, right) => right.ipm - left.ipm);
 
   return {
     source: 'athena',
