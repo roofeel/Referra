@@ -315,7 +315,7 @@ export default function Dashboard() {
 
           <section className="overflow-hidden rounded-xl border border-slate-200/80 bg-white">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-              <div><h3 className="text-sm font-bold text-slate-900">creatives by IPM</h3><p className="mt-1 text-xs text-slate-500">Creative-level delivery efficiency · installs per 1,000 impressions</p></div>
+              <div><h3 className="text-sm font-bold text-slate-900">Creatives by IPM</h3><p className="mt-1 text-xs text-slate-500">Creative-level delivery efficiency · installs per 1,000 impressions</p></div>
               <button type="button" onClick={downloadCreatives} disabled={!liveCreativeData.length} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"><span className="material-symbols-outlined text-sm">download</span>Download CSV</button>
             </div>
             <div className="overflow-x-auto">

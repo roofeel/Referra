@@ -16,6 +16,6 @@ describe('Dashboard', () => {
     expect(screen.getByRole('heading', { name: 'Delivery Overview' })).toBeInTheDocument();
     expect(screen.getByText('IPM by hour')).toBeInTheDocument();
     expect(screen.getByText('Top DMA by IPM')).toBeInTheDocument();
-    expect(screen.getByText('creatives by IPM')).toBeInTheDocument();
+    expect(screen.getByText('Creatives by IPM')).toBeInTheDocument();
   });
 });
