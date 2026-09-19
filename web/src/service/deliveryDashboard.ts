@@ -2,6 +2,8 @@ import { buildApiUrl, throwApiError } from './http';
 
 export interface DeliveryDashboardResponse {
   source: 'athena';
+  dataSources: { impressions: string; installs: string; bidRequests: string };
+  queryConditions: { impressions: string; installs: string; bidRequests: string };
   filters: number[];
   filterLabels: Record<number, string>;
   selectedFilterId: number | null;

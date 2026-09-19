@@ -560,6 +560,16 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
 
   return {
     source: 'athena',
+    dataSources: {
+      impressions: config.impressionTable,
+      installs: process.env.ELASTICSEARCH_INDEX?.trim() || 'conversion_records-*',
+      bidRequests: config.bidTable,
+    },
+    queryConditions: {
+      impressions: filterId === undefined ? 'configured Click URL IDs' : `Click URL ID = ${filterId}`,
+      installs: filterId === undefined ? 'status = normal · track_type = install' : `Click URL ID = ${filterId} · status = normal · track_type = install`,
+      bidRequests: 'date partition',
+    },
     filters: config.filters.map(({ id }) => id),
     filterLabels: Object.fromEntries(config.filters.map(({ id, label }) => [id, label])),
     selectedFilterId: filterId ?? null,
