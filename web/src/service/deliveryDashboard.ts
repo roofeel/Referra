@@ -6,7 +6,9 @@ export interface DeliveryDashboardResponse {
   queryConditions: { impressions: string; installs: string; bidRequests: string };
   filters: number[];
   filterLabels: Record<number, string>;
+  lineItems: Array<{ id: string; label: string }>;
   selectedFilterId: number | null;
+  selectedLineItemId: string | null;
   bidMetricsEnabled: boolean;
   lastUpdated: string | null;
   metrics: { impressions: number; installs: number; bidRequests: number; bids: number; ipm: number };
@@ -17,9 +19,10 @@ export interface DeliveryDashboardResponse {
 }
 
 export const deliveryDashboardApi = {
-  get: async (startDate: string, endDate: string, filterId?: number): Promise<DeliveryDashboardResponse> => {
+  get: async (startDate: string, endDate: string, filterId?: number, lineItemId?: string): Promise<DeliveryDashboardResponse> => {
     const params = new URLSearchParams({ startDate, endDate });
     if (filterId !== undefined) params.set('filterId', String(filterId));
+    if (lineItemId) params.set('lineItemId', lineItemId);
     const response = await fetch(buildApiUrl(`/api/delivery-dashboard?${params.toString()}`));
     if (!response.ok) await throwApiError(response, 'Failed to fetch delivery dashboard');
     return response.json() as Promise<DeliveryDashboardResponse>;

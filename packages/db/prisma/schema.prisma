@@ -14,23 +14,23 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  avatar    String?
-  bearerToken String @unique @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String?
+  avatar      String?
+  bearerToken String   @unique @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Client {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  urlRules  UrlRule[]
-  reports   Report[]
+  id                   String                @id @default(cuid())
+  name                 String                @unique
+  urlRules             UrlRule[]
+  reports              Report[]
   nonAttributedReports NonAttributedReport[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 }
 
 model UrlRule {
@@ -51,25 +51,25 @@ model UrlRule {
 }
 
 model Report {
-  id                String   @id @default(cuid())
-  clientId          String?
-  client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  referrerRaws      ReferrerRaw[]
-  logs              Log[]
-  taskName          String
-  ruleId            String
-  source            String   @default("CSV Import")
-  sourceIcon        String   @default("description")
-  status            String   @default("Running")
-  progress          Int      @default(0)
-  progressLabel     String   @default("0% Processed")
-  attribution       String   @default("--")
-  reportType        String   @default("registration")
-  fieldMappings     Json
+  id                        String                @id @default(cuid())
+  clientId                  String?
+  client                    Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  referrerRaws              ReferrerRaw[]
+  logs                      Log[]
+  taskName                  String
+  ruleId                    String
+  source                    String                @default("CSV Import")
+  sourceIcon                String                @default("description")
+  status                    String                @default("Running")
+  progress                  Int                   @default(0)
+  progressLabel             String                @default("0% Processed")
+  attribution               String                @default("--")
+  reportType                String                @default("registration")
+  fieldMappings             Json
   relatedEventFieldMappings Json?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  nonAttributedReports NonAttributedReport[] @relation("AttributedReportToNonAttributedReports")
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @updatedAt
+  nonAttributedReports      NonAttributedReport[] @relation("AttributedReportToNonAttributedReports")
 
   @@index([clientId])
   @@index([status])
@@ -77,26 +77,26 @@ model Report {
 }
 
 model NonAttributedReport {
-  id                String   @id @default(cuid())
-  clientId          String?
-  client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  id                 String             @id @default(cuid())
+  clientId           String?
+  client             Client?            @relation(fields: [clientId], references: [id], onDelete: SetNull)
   attributedReportId String
-  attributedReport  Report   @relation("AttributedReportToNonAttributedReports", fields: [attributedReportId], references: [id], onDelete: Cascade)
-  nonAttributedRaws NonAttributedRaw[]
-  nonAttributedLogs NonAttributedLog[]
-  taskName          String
-  ruleId            String
-  source            String   @default("CSV Import")
-  sourceIcon        String   @default("description")
-  status            String   @default("Running")
-  progress          Int      @default(0)
-  progressLabel     String   @default("0% Processed")
-  attribution       String   @default("--")
-  reportType        String   @default("registration")
-  uidParamName      String   @default("uid")
-  fieldMappings     Json
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  attributedReport   Report             @relation("AttributedReportToNonAttributedReports", fields: [attributedReportId], references: [id], onDelete: Cascade)
+  nonAttributedRaws  NonAttributedRaw[]
+  nonAttributedLogs  NonAttributedLog[]
+  taskName           String
+  ruleId             String
+  source             String             @default("CSV Import")
+  sourceIcon         String             @default("description")
+  status             String             @default("Running")
+  progress           Int                @default(0)
+  progressLabel      String             @default("0% Processed")
+  attribution        String             @default("--")
+  reportType         String             @default("registration")
+  uidParamName       String             @default("uid")
+  fieldMappings      Json
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   @@index([clientId])
   @@index([attributedReportId])
@@ -105,17 +105,17 @@ model NonAttributedReport {
 }
 
 model ReferrerRaw {
-  id           String @id @default(cuid())
-  reportId     String
-  report       Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  referrerType String @map("referrer_type")
-  referrerDesc String @map("referrer_desc")
-  duration     Int
-  uid          String?
-  json         Json
-  journeyLogs  Json?  @map("journey_logs")
-  userJourneyDoc String? @map("user_journey_doc")
-  firstPageLoadDuration Int? @map("first_page_load_duration")
+  id                    String  @id @default(cuid())
+  reportId              String
+  report                Report  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  referrerType          String  @map("referrer_type")
+  referrerDesc          String  @map("referrer_desc")
+  duration              Int
+  uid                   String?
+  json                  Json
+  journeyLogs           Json?   @map("journey_logs")
+  userJourneyDoc        String? @map("user_journey_doc")
+  firstPageLoadDuration Int?    @map("first_page_load_duration")
 
   @@index([reportId])
 }
@@ -133,11 +133,11 @@ model Log {
 }
 
 model NonAttributedRaw {
-  id                    String @id @default(cuid())
+  id                    String              @id @default(cuid())
   nonAttributedReportId String
   nonAttributedReport   NonAttributedReport @relation(fields: [nonAttributedReportId], references: [id], onDelete: Cascade)
-  referrerType          String @map("referrer_type")
-  referrerDesc          String @map("referrer_desc")
+  referrerType          String              @map("referrer_type")
+  referrerDesc          String              @map("referrer_desc")
   duration              Int
   json                  Json
 
@@ -145,23 +145,23 @@ model NonAttributedRaw {
 }
 
 model NonAttributedLog {
-  id                    String   @id @default(cuid())
+  id                    String              @id @default(cuid())
   nonAttributedReportId String
   nonAttributedReport   NonAttributedReport @relation(fields: [nonAttributedReportId], references: [id], onDelete: Cascade)
   level                 String
   message               String
-  createdAt             DateTime @default(now())
+  createdAt             DateTime            @default(now())
 
   @@index([nonAttributedReportId])
   @@index([createdAt])
 }
 
 model ManualAttributedJob {
-  jobId            String   @id
+  jobId            String                      @id
   name             String
-  status           String   @default("draft")
-  startDate        String   @default("")
-  endDate          String   @default("")
+  status           String                      @default("draft")
+  startDate        String                      @default("")
+  endDate          String                      @default("")
   database         String
   workgroup        String
   resultS3         String
@@ -171,10 +171,10 @@ model ManualAttributedJob {
   downloadUrl      String?
   error            String?
   cronExpression   String?
-  cronEnabled      Boolean  @default(false)
+  cronEnabled      Boolean                     @default(false)
   cronVariables    Json?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
   executions       ManualAttributedExecution[]
 
   @@index([status])
@@ -182,62 +182,63 @@ model ManualAttributedJob {
 }
 
 model ManualAttributedExecution {
-  executionId      String   @id
+  executionId      String              @id
   jobId            String
   job              ManualAttributedJob @relation(fields: [jobId], references: [jobId], onDelete: Cascade)
-  status           String   @default("pending")
+  status           String              @default("pending")
   renderedSql      String
   queryExecutionId String?
   resultFilePath   String?
   downloadUrl      String?
   error            String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   @@index([jobId, createdAt])
   @@index([status])
 }
 
 model DeliveryMetric {
-  id           String   @id @default(cuid())
-  bucketStart  DateTime
-  metricType   String
-  filterId     Int?
-  dimension    String
-  impressions  Int      @default(0)
-  installs     Int      @default(0)
-  bidRequests  Int      @default(0)
-  bids         Int      @default(0)
-  ipm          Float    @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  bucketStart DateTime
+  metricType  String
+  filterId    Int?
+  lineItemId  String?
+  dimension   String
+  impressions Int      @default(0)
+  installs    Int      @default(0)
+  bidRequests Int      @default(0)
+  bids        Int      @default(0)
+  ipm         Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  @@unique([bucketStart, metricType, dimension, filterId])
+  @@unique([bucketStart, metricType, dimension, filterId, lineItemId])
   @@index([metricType, bucketStart])
 }
 
 model DeliveryRefreshJob {
-  jobId          String   @id @default("delivery-overview-refresh")
-  name           String   @default("Delivery Overview refresh")
-  cronExpression String   @default("0 10 * * *")
-  enabled        Boolean  @default(true)
-  timezone       String   @default("UTC")
-  updatedAt      DateTime @updatedAt
-  createdAt      DateTime @default(now())
+  jobId          String               @id @default("delivery-overview-refresh")
+  name           String               @default("Delivery Overview refresh")
+  cronExpression String               @default("0 10 * * *")
+  enabled        Boolean              @default(true)
+  timezone       String               @default("UTC")
+  updatedAt      DateTime             @updatedAt
+  createdAt      DateTime             @default(now())
   logs           DeliveryRefreshLog[]
 }
 
 model DeliveryRefreshLog {
-  id          String   @id @default(cuid())
-  jobId       String
-  job         DeliveryRefreshJob @relation(fields: [jobId], references: [jobId], onDelete: Cascade)
-  status      String
-  date        String
-  rows        Int?
-  error       String?
-  startedAt   DateTime
-  finishedAt  DateTime?
-  createdAt   DateTime @default(now())
+  id         String             @id @default(cuid())
+  jobId      String
+  job        DeliveryRefreshJob @relation(fields: [jobId], references: [jobId], onDelete: Cascade)
+  status     String
+  date       String
+  rows       Int?
+  error      String?
+  startedAt  DateTime
+  finishedAt DateTime?
+  createdAt  DateTime           @default(now())
 
   @@index([jobId, createdAt])
   @@index([status, createdAt])

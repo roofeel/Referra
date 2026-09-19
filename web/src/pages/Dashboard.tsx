@@ -121,6 +121,7 @@ export default function Dashboard() {
   const refreshPickerRef = useRef<HTMLDivElement | null>(null);
   const selectedFilterIdParam = searchParams.get('filterId');
   const selectedFilterId = selectedFilterIdParam && /^\d+$/.test(selectedFilterIdParam) ? Number(selectedFilterIdParam) : undefined;
+  const selectedLineItemIdParam = searchParams.get('lineItemId') || undefined;
   const chartData = dashboard?.hourly.map((point) => ({ ...point, time: formatUtcTime(point.time) })) ?? [];
   const liveDmaData = dashboard?.dma.map((item) => ({ ...item, delta: 0 })) ?? [];
   const liveCreativeData = dashboard?.creative || [];
@@ -152,7 +153,7 @@ export default function Dashboard() {
     let alive = true;
     const load = async () => {
       try {
-        const payload = await deliveryDashboardApi.get(startDate, endDate, selectedFilterId);
+        const payload = await deliveryDashboardApi.get(startDate, endDate, selectedFilterId, selectedLineItemIdParam);
         if (!alive) return;
         setDashboard(payload);
         setLoadError(null);
@@ -165,7 +166,7 @@ export default function Dashboard() {
     if (!autoRefresh) return () => { alive = false; };
     const timer = window.setInterval(load, 60_000);
     return () => { alive = false; window.clearInterval(timer); };
-  }, [autoRefresh, startDate, endDate, selectedFilterId]);
+  }, [autoRefresh, startDate, endDate, selectedFilterId, selectedLineItemIdParam]);
 
   const totalToday = dashboard?.metrics.impressions ?? 0;
   const liveIpm = dashboard ? dashboard.metrics.ipm.toFixed(2) : '—';
@@ -244,6 +245,7 @@ export default function Dashboard() {
             <div><p className="mt-1 text-sm text-slate-500">Aggregated from impression, install and bidding streams.</p>{loadError ? <p className="mt-2 text-xs font-semibold text-rose-600">Athena unavailable: {loadError}</p> : dashboard ? <p className="mt-2 text-xs font-semibold text-emerald-600">Live Athena data · {dashboard.lastUpdated ? `${formatUtcDateTime(dashboard.lastUpdated)} UTC` : 'waiting for first aggregation'}</p> : <p className="mt-2 text-xs font-semibold text-amber-600">Loading Athena aggregates…</p>}</div>
             <div className="flex flex-wrap items-center gap-2">
               <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Strategy</span><select value={selectedFilterIdParam ?? ''} onChange={(event) => { const next: { startDate: string; endDate: string; filterId?: string } = { startDate, endDate }; if (event.target.value) next.filterId = event.target.value; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 pr-5 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">Select a Strategy</option>{(dashboard?.filters ?? []).map((id) => <option key={id} value={id}>{dashboard?.filterLabels?.[id] ?? `Click URL ${id}`}</option>)}</select></label>
+              {selectedFilterId !== undefined ? <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Line Item</span><select value={selectedLineItemIdParam ?? ''} onChange={(event) => { const next: { startDate: string; endDate: string; filterId?: string; lineItemId?: string } = { startDate, endDate, filterId: selectedFilterIdParam || undefined }; if (event.target.value) next.lineItemId = event.target.value; setSearchParams(next, { replace: true }); }} className="max-w-52 border-0 bg-transparent p-0 pr-5 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">All Line Items</option>{(dashboard?.lineItems ?? []).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label> : null}
               <div className="relative" ref={datePickerRef}>
                 <button type="button" onClick={() => { setIsDatePickerOpen((value) => { if (!value) { setDraftDateRange(undefined); dateRangeStartRef.current = false; } return !value; }); }} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span className="material-symbols-outlined text-sm">calendar_today</span><span>Date: {selectedDateLabel}</span><span className="material-symbols-outlined text-sm">{isDatePickerOpen ? 'expand_less' : 'expand_more'}</span></button>
                 {isDatePickerOpen ? <div className="absolute right-0 top-10 z-30 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
@@ -255,8 +257,9 @@ export default function Dashboard() {
                     }
                     setDraftDateRange(range);
                     if (!range?.from || !range.to) return;
-                    const next: { startDate: string; endDate: string; filterId?: string } = { startDate: formatDateInput(range.from), endDate: formatDateInput(range.to) };
+                    const next: { startDate: string; endDate: string; filterId?: string; lineItemId?: string } = { startDate: formatDateInput(range.from), endDate: formatDateInput(range.to) };
                     if (selectedFilterIdParam) next.filterId = selectedFilterIdParam;
+                    if (selectedLineItemIdParam) next.lineItemId = selectedLineItemIdParam;
                     setSearchParams(next, { replace: true });
                     setIsDatePickerOpen(false);
                     dateRangeStartRef.current = false;

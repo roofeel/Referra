@@ -23,7 +23,7 @@ export const deliveryDashboardController = {
       const startDate = parseDate(url.searchParams.get('startDate') || legacyDate);
       const endDate = parseDate(url.searchParams.get('endDate') || startDate);
       if (endDate < startDate) throw new Error('endDate must be on or after startDate');
-      return Response.json(await getDeliveryDashboard(startDate, endDate, parseFilterId(url.searchParams.get('filterId'))));
+      return Response.json(await getDeliveryDashboard(startDate, endDate, parseFilterId(url.searchParams.get('filterId')), url.searchParams.get('lineItemId') || undefined));
     } catch (error) {
       console.error('[delivery-dashboard] read failed:', error);
       return Response.json({ error: error instanceof Error ? error.message : 'Failed to read delivery dashboard' }, { status: 503 });

@@ -12,6 +12,7 @@ type AggregatedRow = {
   bucketStart: Date;
   metricType: 'hourly' | 'dma' | 'creative';
   filterId: number | null;
+  lineItemId: string | null;
   dimension: string;
   impressions: number;
   installs: number;
@@ -23,6 +24,7 @@ type AggregatedRow = {
 type ElasticInstall = {
   eventTime: Date;
   filterId: number;
+  lineItemId: string;
   creative: string;
   dma: string;
 };
@@ -134,6 +136,7 @@ export function buildAggregationSql(config: ReturnType<typeof getConfig>, date: 
   // encoding), keeping impression dimensions identical to the ES parser below.
   const creativeExpression = "coalesce(nullif(url_extract_parameter(url, 'CREATIVE'), ''), 'Unknown')";
   const dmaExpression = "coalesce(nullif(url_extract_parameter(url, 'DMA'), ''), 'Unknown')";
+  const lineItemExpression = "coalesce(nullif(url_extract_parameter(url, 'ADSET_ID'), ''), 'Unknown')";
   const impressionFilter = config.filters.length
     ? `AND (${config.filters.map(({ id }) => `url LIKE '%/v2/${id}/impression%'`).join(' OR ')})`
     : '';
@@ -152,6 +155,7 @@ WITH impression_events AS (
     date_trunc('hour', from_iso8601_timestamp(substr("timestamp", 1, 19))) AS bucket_start,
     date_trunc('day', from_iso8601_timestamp(substr("timestamp", 1, 19))) AS day_start,
     ${filterIdExpression} AS filter_id,
+    ${lineItemExpression} AS line_item_id,
     ${creativeExpression} AS creative,
     ${dmaExpression} AS dma
   FROM ${config.impressionTable}
@@ -166,6 +170,7 @@ impression_metrics AS (
     CASE WHEN grouping(bucket_start) = 0 THEN 'hourly'
       WHEN grouping(dma) = 0 THEN 'dma' ELSE 'creative' END AS metric_type,
     filter_id,
+    line_item_id,
     CASE WHEN grouping(bucket_start) = 0 THEN 'ALL'
       WHEN grouping(dma) = 0 THEN dma ELSE creative END AS dimension,
     count(*) AS impressions,
@@ -174,17 +179,17 @@ impression_metrics AS (
     0 AS bids
   FROM impression_events
   GROUP BY GROUPING SETS (
-    (bucket_start, filter_id),
-    (day_start, filter_id, dma),
-    (day_start, filter_id, creative)
+    (bucket_start, filter_id, line_item_id),
+    (day_start, filter_id, line_item_id, dma),
+    (day_start, filter_id, line_item_id, creative)
   )
 )
-SELECT bucket_start, metric_type, filter_id, dimension, impressions, installs, bid_requests, bids,
+SELECT bucket_start, metric_type, filter_id, line_item_id, dimension, impressions, installs, bid_requests, bids,
   round(1000.0 * installs / nullif(impressions, 0), 4) AS ipm
 FROM (
   SELECT * FROM impression_metrics${config.bidMetricsEnabled ? `
   UNION ALL
-  SELECT bucket_start, 'hourly' AS metric_type, CAST(NULL AS bigint) AS filter_id, 'ALL' AS dimension,
+  SELECT bucket_start, 'hourly' AS metric_type, CAST(NULL AS bigint) AS filter_id, CAST(NULL AS varchar) AS line_item_id, 'ALL' AS dimension,
     0 AS impressions, 0 AS installs, count(*) AS bid_requests,
     sum(CASE WHEN bid_count > 0 THEN 1 ELSE 0 END) AS bids
   FROM (
@@ -320,7 +325,7 @@ async function fetchElasticInstalls(from: Date, to: Date, filters = parseDeliver
       const filterId = Number((hit._source as { click_url_id?: number | string } | undefined)?.click_url_id);
       if (!url || Number.isNaN(eventTime.getTime())) continue;
       if (!Number.isSafeInteger(filterId)) continue;
-      installs.push({ eventTime, filterId, creative: extractCreative(url), dma: extractDma(url) });
+      installs.push({ eventTime, filterId, lineItemId: extractUrlParam(url, 'ADSET_ID'), creative: extractCreative(url), dma: extractDma(url) });
     }
     if (hits.length < 1000) break;
     searchAfter = hits[hits.length - 1]?.sort;
@@ -331,48 +336,55 @@ async function fetchElasticInstalls(from: Date, to: Date, filters = parseDeliver
 
 function parseRows(rows: string[][]): AggregatedRow[] {
   return rows.flatMap((row) => {
-    if (row.length < 9) return [];
+    if (row.length < 10) return [];
     const bucketStart = new Date(row[0]!);
     if (Number.isNaN(bucketStart.getTime())) return [];
     return [{
       bucketStart,
       metricType: row[1] as 'hourly' | 'dma' | 'creative',
       filterId: row[2] ? Number(row[2]) : null,
-      dimension: row[3] || 'Unknown',
-      impressions: Number(row[4]) || 0,
-      installs: Number(row[5]) || 0,
-      bidRequests: Number(row[6]) || 0,
-      bids: Number(row[7]) || 0,
-      ipm: Number(row[8]) || 0,
+      lineItemId: row[3] || null,
+      dimension: row[4] || 'Unknown',
+      impressions: Number(row[5]) || 0,
+      installs: Number(row[6]) || 0,
+      bidRequests: Number(row[7]) || 0,
+      bids: Number(row[8]) || 0,
+      ipm: Number(row[9]) || 0,
     }];
   });
 }
 
 export function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticInstall[]) {
-  const hourly = new Map(rows.filter((row) => row.metricType === 'hourly').map((row) => [`${row.bucketStart.getTime()}\u0000${row.filterId}`, row]));
-  const dma = new Map(rows.filter((row) => row.metricType === 'dma').map((row) => [`${row.bucketStart.getTime()}\u0000${row.filterId}\u0000${row.dimension}`, row]));
-  const creative = new Map(rows.filter((row) => row.metricType === 'creative').map((row) => [`${row.bucketStart.getTime()}\u0000${row.filterId}\u0000${row.dimension}`, row]));
+  const hourly = new Map(rows.filter((row) => row.metricType === 'hourly').map((row) => [`${row.bucketStart.getTime()}\u0000${row.filterId}\u0000${row.lineItemId}`, row]));
+  const dma = new Map(rows.filter((row) => row.metricType === 'dma').map((row) => [`${row.bucketStart.getTime()}\u0000${row.filterId}\u0000${row.lineItemId}\u0000${row.dimension}`, row]));
+  const creative = new Map(rows.filter((row) => row.metricType === 'creative').map((row) => [`${row.bucketStart.getTime()}\u0000${row.filterId}\u0000${row.lineItemId}\u0000${row.dimension}`, row]));
   for (const install of installs) {
     const hour = new Date(install.eventTime);
     hour.setUTCMinutes(0, 0, 0);
-    const hourRow = hourly.get(`${hour.getTime()}\u0000${install.filterId}`);
-    if (hourRow) hourRow.installs += 1;
+    const hourlyKey = `${hour.getTime()}\u0000${install.filterId}\u0000${install.lineItemId}`;
+    let hourRow = hourly.get(hourlyKey);
+    if (!hourRow) {
+      hourRow = { bucketStart: hour, metricType: 'hourly', filterId: install.filterId, lineItemId: install.lineItemId, dimension: 'ALL', impressions: 0, installs: 0, bidRequests: 0, bids: 0, ipm: 0 };
+      rows.push(hourRow);
+      hourly.set(hourlyKey, hourRow);
+    }
+    hourRow.installs += 1;
 
     const day = new Date(install.eventTime);
     day.setUTCHours(0, 0, 0, 0);
-    const dmaKey = `${day.getTime()}\u0000${install.filterId}\u0000${install.dma}`;
+    const dmaKey = `${day.getTime()}\u0000${install.filterId}\u0000${install.lineItemId}\u0000${install.dma}`;
     let dmaRow = dma.get(dmaKey);
     if (!dmaRow) {
-      dmaRow = { bucketStart: day, metricType: 'dma', filterId: install.filterId, dimension: install.dma, impressions: 0, installs: 0, bidRequests: 0, bids: 0, ipm: 0 };
+      dmaRow = { bucketStart: day, metricType: 'dma', filterId: install.filterId, lineItemId: install.lineItemId, dimension: install.dma, impressions: 0, installs: 0, bidRequests: 0, bids: 0, ipm: 0 };
       rows.push(dmaRow);
       dma.set(dmaKey, dmaRow);
     }
     dmaRow.installs += 1;
 
-    const key = `${day.getTime()}\u0000${install.filterId}\u0000${install.creative}`;
+    const key = `${day.getTime()}\u0000${install.filterId}\u0000${install.lineItemId}\u0000${install.creative}`;
     let creativeRow = creative.get(key);
     if (!creativeRow) {
-      creativeRow = { bucketStart: day, metricType: 'creative', filterId: install.filterId, dimension: install.creative, impressions: 0, installs: 0, bidRequests: 0, bids: 0, ipm: 0 };
+      creativeRow = { bucketStart: day, metricType: 'creative', filterId: install.filterId, lineItemId: install.lineItemId, dimension: install.creative, impressions: 0, installs: 0, bidRequests: 0, bids: 0, ipm: 0 };
       rows.push(creativeRow);
       creative.set(key, creativeRow);
     }
@@ -470,11 +482,12 @@ async function syncDeliveryRefreshScheduler(job: { jobId: string; cronExpression
   });
 }
 
-export async function getDeliveryDashboard(startDate = new Date().toISOString().slice(0, 10), endDate = startDate, filterId?: number) {
+export async function getDeliveryDashboard(startDate = new Date().toISOString().slice(0, 10), endDate = startDate, filterId?: number, lineItemId?: string) {
   const config = getConfig();
   if (filterId !== undefined && !config.filters.some((filter) => filter.id === filterId)) {
     throw new Error(`Unknown delivery metrics click url id: ${filterId}`);
   }
+  const normalizedLineItemId = lineItemId?.trim() || undefined;
   const rangeSince = new Date(`${startDate}T00:00:00.000Z`);
   const rangeUntil = new Date(`${endDate}T00:00:00.000Z`);
   rangeUntil.setUTCDate(rangeUntil.getUTCDate() + 1);
@@ -484,11 +497,11 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     where: { bucketStart: { gte: comparisonStart, lt: rangeUntil } },
     orderBy: { bucketStart: 'asc' },
   }) as Array<AggregatedRow & { updatedAt: Date }>;
-  const bidMetricsEnabled = isBidMetricsEnabledForFilter(config, filterId);
+  const bidMetricsEnabled = !normalizedLineItemId && isBidMetricsEnabledForFilter(config, filterId);
   const selectedSourceRows = filterId === undefined
     ? rows
-    : rows.filter((row) => row.filterId === filterId || (
-      bidMetricsEnabled && row.filterId === null && row.metricType === 'hourly' && row.dimension === 'ALL'
+    : rows.filter((row) => (row.filterId === filterId && (!normalizedLineItemId || row.lineItemId === normalizedLineItemId)) || (
+      bidMetricsEnabled && !normalizedLineItemId && row.filterId === null && row.metricType === 'hourly' && row.dimension === 'ALL'
     ));
   const selectedRows = Array.from(selectedSourceRows.reduce((result, row) => {
     const key = `${row.bucketStart.getTime()}\u0000${row.metricType}\u0000${row.dimension}`;
@@ -566,13 +579,15 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
       bidRequests: `Athena · ${config.bidTable}`,
     },
     queryConditions: {
-      impressions: filterId === undefined ? 'configured Click URL IDs' : `Click URL ID = ${filterId}`,
-      installs: filterId === undefined ? 'status = normal · track_type = install' : `Click URL ID = ${filterId} · status = normal · track_type = install`,
+      impressions: filterId === undefined ? 'configured Click URL IDs' : `Click URL ID = ${filterId}${normalizedLineItemId ? ` · ADSET_ID = ${normalizedLineItemId}` : ''}`,
+      installs: filterId === undefined ? 'status = normal · track_type = install' : `Click URL ID = ${filterId}${normalizedLineItemId ? ` · ADSET_ID = ${normalizedLineItemId}` : ''} · status = normal · track_type = install`,
       bidRequests: 'date partition',
     },
     filters: config.filters.map(({ id }) => id),
     filterLabels: Object.fromEntries(config.filters.map(({ id, label }) => [id, label])),
+    lineItems: filterId === undefined ? [] : Array.from(new Set(rows.filter((row) => row.filterId === filterId && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil).map((row) => row.lineItemId as string))).sort().map((id) => ({ id, label: id })),
     selectedFilterId: filterId ?? null,
+    selectedLineItemId: normalizedLineItemId ?? null,
     bidMetricsEnabled,
     lastUpdated: lastUpdated?.toISOString() || null,
     metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: total('bidRequests'), bids: total('bids'), ipm: roundToTwo(total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0) },
