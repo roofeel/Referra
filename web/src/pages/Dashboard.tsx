@@ -170,12 +170,15 @@ export default function Dashboard() {
   const totalToday = dashboard?.metrics.impressions ?? 0;
   const liveIpm = dashboard ? dashboard.metrics.ipm.toFixed(2) : '—';
   const liveBidRate = dashboard && dashboard.metrics.bidRequests ? `${((dashboard.metrics.bids / dashboard.metrics.bidRequests) * 100).toFixed(2)}%` : '—';
-  const metricDetail = (metric: 'impressions' | 'installs' | 'bidRequests') => dashboard
-    ? {
-      source: `${metric === 'installs' ? 'Elasticsearch' : 'Athena'} · ${dashboard.dataSources[metric]}`,
+  const metricDetail = (metric: 'impressions' | 'installs' | 'bidRequests') => {
+    if (!dashboard) return { source: 'Loading', condition: 'Loading' };
+    const provider = metric === 'installs' ? 'Elasticsearch' : 'Athena';
+    const sourceName = dashboard.dataSources[metric].replace(/^(?:(?:Athena|Elasticsearch) · )+/, '');
+    return {
+      source: `${provider} · ${sourceName}`,
       condition: dashboard.queryConditions[metric],
-    }
-    : { source: 'Loading', condition: 'Loading' };
+    };
+  };
 
   function refresh() {
     setIsRefreshing(true);
