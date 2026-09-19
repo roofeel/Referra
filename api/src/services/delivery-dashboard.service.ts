@@ -27,7 +27,7 @@ type ElasticInstall = {
   dma: string;
 };
 
-export type DeliveryMetricFilter = { id: number; showBid: boolean };
+export type DeliveryMetricFilter = { id: number; showBid: boolean; label: string };
 
 function roundToTwo(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -53,12 +53,34 @@ function identifier(value: string, name: string) {
 }
 
 export function parseDeliveryMetricFilters(value = process.env.DELIVERY_METRICS_FILTERS || process.env.DELIVERY_METRICS_FILTER || ''): DeliveryMetricFilter[] {
+  if (!value.trim()) return [];
+
+  if (value.trim().startsWith('[')) {
+    let entries: unknown;
+    try {
+      entries = JSON.parse(value);
+    } catch {
+      throw new Error('DELIVERY_METRICS_FILTERS contains invalid JSON');
+    }
+    if (!Array.isArray(entries)) throw new Error('DELIVERY_METRICS_FILTERS JSON must be an array');
+    return entries.map((entry, index) => {
+      if (!entry || typeof entry !== 'object') throw new Error(`DELIVERY_METRICS_FILTERS entry ${index + 1} must be an object`);
+      const config = entry as { id?: unknown; clickUrlId?: unknown; showBid?: unknown; label?: unknown; clickUrlLabel?: unknown; name?: unknown };
+      const idValue = config.clickUrlId ?? config.id;
+      const id = typeof idValue === 'number' ? idValue : Number(idValue);
+      if (!Number.isSafeInteger(id) || id < 0) throw new Error(`DELIVERY_METRICS_FILTERS contains an invalid id: ${String(idValue)}`);
+      if (typeof config.showBid !== 'boolean') throw new Error(`DELIVERY_METRICS_FILTERS contains an invalid showBid value for ${id}`);
+      const label = config.clickUrlLabel ?? config.label ?? config.name;
+      return { id, showBid: config.showBid, label: typeof label === 'string' && label.trim() ? label.trim() : `Click URL ${id}` };
+    });
+  }
+
   return value.split(',').map((entry) => entry.trim()).filter(Boolean).map((entry) => {
-    const [idValue, showBidValue = 'false'] = entry.split(':').map((part) => part.trim());
+    const [idValue, showBidValue = 'false', ...labelParts] = entry.split(':').map((part) => part.trim());
     const id = Number(idValue);
     if (!Number.isSafeInteger(id) || id < 0) throw new Error(`DELIVERY_METRICS_FILTERS contains an invalid id: ${idValue}`);
     if (!/^(true|false)$/i.test(showBidValue)) throw new Error(`DELIVERY_METRICS_FILTERS contains an invalid showBid value for ${idValue}`);
-    return { id, showBid: showBidValue.toLowerCase() === 'true' };
+    return { id, showBid: showBidValue.toLowerCase() === 'true', label: labelParts.join(':') || `Click URL ${id}` };
   });
 }
 
@@ -539,6 +561,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
   return {
     source: 'athena',
     filters: config.filters.map(({ id }) => id),
+    filterLabels: Object.fromEntries(config.filters.map(({ id, label }) => [id, label])),
     selectedFilterId: filterId ?? null,
     bidMetricsEnabled,
     lastUpdated: lastUpdated?.toISOString() || null,

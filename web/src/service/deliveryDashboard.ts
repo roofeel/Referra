@@ -3,6 +3,7 @@ import { buildApiUrl, throwApiError } from './http';
 export interface DeliveryDashboardResponse {
   source: 'athena';
   filters: number[];
+  filterLabels: Record<number, string>;
   selectedFilterId: number | null;
   bidMetricsEnabled: boolean;
   lastUpdated: string | null;

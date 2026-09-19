@@ -38,8 +38,9 @@ ATHENA_IMPRESSION_PARTITION=month
 ATHENA_IMPRESSION_PARTITION_PADDING_DAYS=1
 ATHENA_INSTALL_TABLE=tracking_lb_logs
 ATHENA_BID_TABLE=fm_bidding_agent_test_bids
-# Optional ID filters. Format: id:showBid,id:showBid. Omit to disable ID filtering.
-DELIVERY_METRICS_FILTERS=23703:true,45678:false
+# Optional ID filters. JSON entries may use clickUrlId, showBid, and name (or clickUrlLabel).
+# The name/clickUrlLabel is displayed by the dashboard. Omit to disable ID filtering.
+DELIVERY_METRICS_FILTERS='[{"clickUrlId":23703,"showBid":true,"name":"Custom Bidder A"},{"clickUrlId":45678,"showBid":false,"name":"Custom Bidder B"}]'
 ELASTICSEARCH_URL=https://your-domain.us-east-1.es.amazonaws.com
 ELASTICSEARCH_INDEX=conversion_records-*
 DELIVERY_METRICS_ENABLED=true
