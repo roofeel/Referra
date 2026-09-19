@@ -83,7 +83,7 @@ function formatHourlyTooltip(value: unknown, name: unknown) {
   return [displayValue, String(name ?? '')];
 }
 
-function MetricCard({ label, value, detail, icon, tone }: { label: string; value: string; detail: string; icon: string; tone: string }) {
+function MetricCard({ label, value, source, condition, icon, tone }: { label: string; value: string; source: string; condition: string; icon: string; tone: string }) {
   return (
     <article className="rounded-xl border border-slate-200/80 bg-white p-5 shadow-[0_8px_28px_-22px_rgba(15,23,42,.28)]">
       <div className="flex items-start justify-between">
@@ -91,7 +91,7 @@ function MetricCard({ label, value, detail, icon, tone }: { label: string; value
         <span className={`material-symbols-outlined rounded-lg p-2 text-lg ${tone}`}>{icon}</span>
       </div>
       <p className="mt-3 text-2xl font-black tracking-tight text-slate-900">{value}</p>
-      <p className="mt-2 text-[11px] leading-4 text-slate-500">{detail}</p>
+      <p className="mt-2 text-[11px] leading-4 text-slate-500"><span className="block">Source: {source}</span><span className="block">Condition: {condition}</span></p>
     </article>
   );
 }
@@ -171,8 +171,11 @@ export default function Dashboard() {
   const liveIpm = dashboard ? dashboard.metrics.ipm.toFixed(2) : '—';
   const liveBidRate = dashboard && dashboard.metrics.bidRequests ? `${((dashboard.metrics.bids / dashboard.metrics.bidRequests) * 100).toFixed(2)}%` : '—';
   const metricDetail = (metric: 'impressions' | 'installs' | 'bidRequests') => dashboard
-    ? `Source: ${dashboard.dataSources[metric]} · Condition: ${dashboard.queryConditions[metric]}`
-    : 'Loading data source and query conditions';
+    ? {
+      source: `${metric === 'installs' ? 'Elasticsearch' : 'Athena'} · ${dashboard.dataSources[metric]}`,
+      condition: dashboard.queryConditions[metric],
+    }
+    : { source: 'Loading', condition: 'Loading' };
 
   function refresh() {
     setIsRefreshing(true);
@@ -262,10 +265,10 @@ export default function Dashboard() {
 
           {selectedFilterId === undefined ? <div className="flex min-h-56 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-sm font-semibold text-slate-500">Select a Click URL ID to view delivery data.</div> : <>
           <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Impressions · selected range" value={dashboard ? formatNumber(totalToday) : '—'} detail={metricDetail('impressions')} icon="visibility" tone="bg-blue-50 text-blue-600" />
-            <MetricCard label="IPM · selected range" value={liveIpm} detail={metricDetail('installs')} icon="speed" tone="bg-teal-50 text-teal-600" />
-            {dashboard?.bidMetricsEnabled ? <MetricCard label="Bid response rate" value={liveBidRate} detail="Source: Athena · Condition: bid responses ÷ bid requests" icon="gavel" tone="bg-amber-50 text-amber-600" /> : null}
-            {dashboard?.bidMetricsEnabled ? <MetricCard label="Bid requests · selected range" value={formatNumber(dashboard.metrics.bidRequests)} detail={metricDetail('bidRequests')} icon="campaign" tone="bg-violet-50 text-violet-600" /> : null}
+            <MetricCard label="Impressions · selected range" value={dashboard ? formatNumber(totalToday) : '—'} {...metricDetail('impressions')} icon="visibility" tone="bg-blue-50 text-blue-600" />
+            <MetricCard label="IPM · selected range" value={liveIpm} {...metricDetail('installs')} icon="speed" tone="bg-teal-50 text-teal-600" />
+            {dashboard?.bidMetricsEnabled ? <MetricCard label="Bid response rate" value={liveBidRate} source="Athena" condition="bid responses ÷ bid requests" icon="gavel" tone="bg-amber-50 text-amber-600" /> : null}
+            {dashboard?.bidMetricsEnabled ? <MetricCard label="Bid requests · selected range" value={formatNumber(dashboard.metrics.bidRequests)} {...metricDetail('bidRequests')} icon="campaign" tone="bg-violet-50 text-violet-600" /> : null}
           </section>
 
           <section className="grid grid-cols-1 gap-6 xl:grid-cols-5">

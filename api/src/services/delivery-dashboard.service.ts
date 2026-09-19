@@ -561,9 +561,9 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
   return {
     source: 'athena',
     dataSources: {
-      impressions: config.impressionTable,
-      installs: process.env.ELASTICSEARCH_INDEX?.trim() || 'conversion_records-*',
-      bidRequests: config.bidTable,
+      impressions: `Athena · ${config.impressionTable}`,
+      installs: `Elasticsearch · ${process.env.ELASTICSEARCH_INDEX?.trim() || 'conversion_records-*'}`,
+      bidRequests: `Athena · ${config.bidTable}`,
     },
     queryConditions: {
       impressions: filterId === undefined ? 'configured Click URL IDs' : `Click URL ID = ${filterId}`,
