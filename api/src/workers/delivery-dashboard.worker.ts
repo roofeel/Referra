@@ -13,7 +13,8 @@ function yesterdayUtcDate() {
 }
 
 const worker = new Worker(DELIVERY_REFRESH_QUEUE_NAME, async (job) => {
-  const date = (job.data as { date?: string }).date || yesterdayUtcDate();
+  const data = job.data as { date?: string; dateMode?: 'today' };
+  const date = data.date || (data.dateMode === 'today' ? new Date().toISOString().slice(0, 10) : yesterdayUtcDate());
   return runDeliveryRefreshJob(date);
 }, { connection, concurrency: 1 });
 worker.on('ready', () => console.log('[delivery-metrics] worker running'));

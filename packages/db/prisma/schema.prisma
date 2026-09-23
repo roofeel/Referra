@@ -220,7 +220,7 @@ model DeliveryMetric {
 model DeliveryRefreshJob {
   jobId          String               @id @default("delivery-overview-refresh")
   name           String               @default("Delivery Overview refresh")
-  cronExpression String               @default("0 */2 * * *")
+  cronExpression String               @default("0 10 * * *")
   enabled        Boolean              @default(true)
   timezone       String               @default("UTC")
   updatedAt      DateTime             @updatedAt

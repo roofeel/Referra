@@ -6,7 +6,7 @@ import {
 import { HttpRequest } from '@smithy/protocol-http';
 import { db } from '../../../packages/db/index.js';
 import { createAthenaClient, createElasticsearchSigner } from '../lib/aws-clients.lib.js';
-import { DELIVERY_REFRESH_SCHEDULER_ID, deliveryRefreshQueue } from '../queues/delivery-dashboard.queue.js';
+import { DELIVERY_REFRESH_SCHEDULER_ID, DELIVERY_TODAY_REFRESH_SCHEDULER_ID, deliveryRefreshQueue } from '../queues/delivery-dashboard.queue.js';
 
 type AggregatedRow = {
   bucketStart: Date;
@@ -482,6 +482,18 @@ async function syncDeliveryRefreshScheduler(job: { jobId: string; cronExpression
   });
 }
 
+async function syncDeliveryTodayRefreshScheduler(enabled: boolean) {
+  if (!enabled) {
+    await deliveryRefreshQueue.removeJobScheduler(DELIVERY_TODAY_REFRESH_SCHEDULER_ID);
+    return;
+  }
+  await deliveryRefreshQueue.upsertJobScheduler(DELIVERY_TODAY_REFRESH_SCHEDULER_ID, { pattern: '0 */2 * * *', tz: 'UTC' }, {
+    name: 'delivery-overview-refresh-today',
+    data: { dateMode: 'today' },
+    opts: { removeOnComplete: true, removeOnFail: 100 },
+  });
+}
+
 export async function getDeliveryDashboard(startDate = new Date().toISOString().slice(0, 10), endDate = startDate, filterId?: number, lineItemId?: string) {
   const config = getConfig();
   if (filterId !== undefined && !config.filters.some((filter) => filter.id === filterId)) {
@@ -613,8 +625,9 @@ export async function startDeliveryMetricScheduler() {
   const enabled = (process.env.DELIVERY_METRICS_ENABLED || 'true').toLowerCase() !== 'false';
   const job = await getDeliveryRefreshSchedule();
   await syncDeliveryRefreshScheduler({ ...job, enabled: enabled && job.enabled });
+  await syncDeliveryTodayRefreshScheduler(enabled);
   if ((process.env.DELIVERY_METRICS_RUN_ON_START || 'true').toLowerCase() === 'true') {
     void runDeliveryRefreshJob().catch((error) => console.error('[delivery-metrics] initial refresh failed:', error));
   }
-  console.log(`[delivery-metrics] cron scheduler started, expression=${job.cronExpression}`);
+  console.log(`[delivery-metrics] cron schedulers started, yesterday=${job.cronExpression} ${job.timezone}, today=0 */2 * * * UTC`);
 }
