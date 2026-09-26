@@ -191,17 +191,6 @@ SELECT bucket_start, metric_type, filter_id, line_item_id, dimension, impression
 FROM (
   SELECT * FROM impression_metrics${config.bidMetricsEnabled ? `
   UNION ALL
-  SELECT bucket_start, 'hourly' AS metric_type, CAST(NULL AS bigint) AS filter_id, CAST(NULL AS varchar) AS line_item_id, 'ALL' AS dimension,
-    0 AS impressions, 0 AS installs, count(*) AS bid_requests,
-    sum(CASE WHEN bid_count > 0 THEN 1 ELSE 0 END) AS bids, 0.0 AS bid_price_usd
-  FROM (
-    SELECT date_trunc('hour', from_iso8601_timestamp(json_extract_scalar(raw_json, '$.timestamp'))) AS bucket_start,
-      cardinality(coalesce(cast(json_extract(raw_json, '$.response.bids') AS array(json)), cast(array[] AS array(json)))) AS bid_count
-    FROM ${config.bidTable}
-    WHERE "date" = '${date}'
-  ) bid_events
-  GROUP BY bucket_start
-  UNION ALL
   SELECT bucket_start, 'bid' AS metric_type, CAST(NULL AS bigint) AS filter_id, line_item_id, 'ALL' AS dimension,
     0 AS impressions, 0 AS installs, count(*) AS bid_requests, count(*) AS bids, avg(price_usd) AS bid_price_usd
   FROM (
@@ -521,11 +510,14 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
   rangeUntil.setUTCDate(rangeUntil.getUTCDate() + 1);
   const rangeLengthMs = rangeUntil.getTime() - rangeSince.getTime();
   const comparisonStart = new Date(rangeSince.getTime() - rangeLengthMs);
-  const rows = await (db as any).deliveryMetric.findMany({
+  const storedRows = await (db as any).deliveryMetric.findMany({
     where: { bucketStart: { gte: comparisonStart, lt: rangeUntil } },
     orderBy: { bucketStart: 'asc' },
   }) as Array<AggregatedRow & { updatedAt: Date }>;
-  const bidMetricsEnabled = !normalizedLineItemId && isBidMetricsEnabledForFilter(config, filterId);
+  // Ignore legacy global bid rows created before bid requests were kept separate from Click URL metrics.
+  const rows = storedRows.filter((row) => !(row.metricType === 'hourly' && row.filterId === null && row.lineItemId === null && row.dimension === 'ALL' && (row.bidRequests > 0 || row.bids > 0)));
+  // Bidding requests have no reliable Click URL association, so don't mix their global totals into Click URL metrics.
+  const bidMetricsEnabled = false;
   const bidPricesEnabled = isBidMetricsEnabledForFilter(config, filterId);
   const selectedSourceRows = filterId === undefined
     ? rows
@@ -600,6 +592,9 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
   }, new Map<string, { creative: string; impressions: number; installs: number }>()).values())
     .map((row) => ({ ...row, ipm: roundToTwo(row.impressions ? (row.installs / row.impressions) * 1000 : 0) }))
     .sort((left, right) => right.ipm - left.ipm);
+  const matchedLineItemIds = new Set(rows
+    .filter((row) => row.filterId === filterId && row.metricType !== 'bid' && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil)
+    .map((row) => row.lineItemId as string));
 
   return {
     source: 'athena',
@@ -615,7 +610,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     },
     filters: config.filters.map(({ id }) => id),
     filterLabels: Object.fromEntries(config.filters.map(({ id, label }) => [id, label])),
-    lineItems: filterId === undefined ? [] : Array.from(new Set(rows.filter((row) => (row.filterId === filterId || row.metricType === 'bid') && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil).map((row) => row.lineItemId as string))).sort().map((id) => ({ id, label: id })),
+    lineItems: filterId === undefined ? [] : Array.from(matchedLineItemIds).sort().map((id) => ({ id, label: id })),
     selectedFilterId: filterId ?? null,
     selectedLineItemId: normalizedLineItemId ?? null,
     bidMetricsEnabled,
@@ -632,7 +627,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
       bidRate: row.bidRequests ? (row.bids / row.bidRequests) * 100 : 0,
       winRate: row.bids ? (row.impressions / row.bids) * 100 : 0,
     })),
-    bidPrices: rows.filter((row) => row.metricType === 'bid' && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil && (!normalizedLineItemId || row.lineItemId === normalizedLineItemId))
+    bidPrices: rows.filter((row) => row.metricType === 'bid' && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil && (!normalizedLineItemId || row.lineItemId === normalizedLineItemId) && (filterId === undefined || matchedLineItemIds.has(row.lineItemId)))
       .map((row) => ({ time: row.bucketStart.toISOString(), lineItemId: row.lineItemId as string, priceUSD: roundToTwo(row.bidPriceUSD) }))
       .sort((left, right) => left.time.localeCompare(right.time) || left.lineItemId.localeCompare(right.lineItemId)),
     comparison: Array.from(comparisonByHour.values())
