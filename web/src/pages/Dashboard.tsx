@@ -9,6 +9,7 @@ import {
   Cell,
   ComposedChart,
   Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -123,6 +124,13 @@ export default function Dashboard() {
   const selectedFilterId = selectedFilterIdParam && /^\d+$/.test(selectedFilterIdParam) ? Number(selectedFilterIdParam) : undefined;
   const selectedLineItemIdParam = searchParams.get('lineItemId') || undefined;
   const chartData = dashboard?.hourly.map((point) => ({ ...point, time: formatUtcTime(point.time) })) ?? [];
+  const bidPriceLineItems = Array.from(new Set(dashboard?.bidPrices.map((point) => point.lineItemId) ?? []));
+  const bidPriceChartData = Array.from((dashboard?.bidPrices ?? []).reduce((byTime, point) => {
+    const row = byTime.get(point.time) ?? { time: formatUtcTime(point.time) };
+    row[point.lineItemId] = point.priceUSD;
+    byTime.set(point.time, row);
+    return byTime;
+  }, new Map<string, Record<string, string | number>>()).values());
   const liveDmaData = dashboard?.dma.map((item) => ({ ...item, delta: 0 })) ?? [];
   const liveCreativeData = dashboard?.creative || [];
   const creativePageSize = 10;
@@ -309,6 +317,11 @@ export default function Dashboard() {
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
+            </article> : null}
+
+            {dashboard?.bidPricesEnabled ? <article className="rounded-xl border border-slate-200/80 bg-white p-5 xl:col-span-2">
+              <div><h3 className="text-sm font-bold text-slate-900">Bid price by line item</h3><p className="mt-1 text-xs text-slate-500">Hourly average PriceUSD from bidding results</p></div>
+              {bidPriceChartData.length ? <div className="mt-5 h-[270px] w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={bidPriceChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}><CartesianGrid stroke="#eef2f6" vertical={false} /><XAxis dataKey="time" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} /><YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value).toFixed(2)}`} /><Tooltip contentStyle={tooltipStyle} formatter={(value, name) => [`$${Number(value).toFixed(2)}`, `Line item ${String(name)}`]} />{bidPriceLineItems.map((lineItemId, index) => <Line key={lineItemId} type="monotone" dataKey={lineItemId} name={lineItemId} stroke={['#2563eb', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444'][index % 5]} strokeWidth={2} dot={false} connectNulls />)}</LineChart></ResponsiveContainer></div> : <div className="flex h-[270px] items-center justify-center text-xs text-slate-500">No line item bid prices available for this range.</div>}
             </article> : null}
 
             <article className="rounded-xl border border-slate-200/80 bg-white p-5 xl:col-span-2"><div><h3 className="text-sm font-bold text-slate-900">Delivery funnel</h3><p className="mt-1 text-xs text-slate-500">Selected date stream health</p></div>{liveFunnelData.length ? <><div className="relative mt-3 h-[205px]"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={liveFunnelData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={82} paddingAngle={3} stroke="none">{liveFunnelData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}</Pie><Tooltip contentStyle={tooltipStyle} formatter={(value) => formatNumber(Number(value))} /></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><span className="text-2xl font-black text-slate-900">{formatNumber(liveFunnelData.find((item) => item.name === 'Impressions')?.value ?? 0)}</span><span className="text-[10px] uppercase tracking-wider text-slate-400">impressions</span></div></div><div className="space-y-2">{liveFunnelData.map((item) => <div key={item.name} className="flex items-center justify-between text-xs"><span className="flex items-center gap-2 text-slate-600"><i className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />{item.name}</span><span className="font-bold text-slate-800">{formatNumber(item.value)}</span></div>)}</div></> : <div className="flex h-[245px] items-center justify-center text-xs text-slate-500">No delivery data available.</div>}</article>

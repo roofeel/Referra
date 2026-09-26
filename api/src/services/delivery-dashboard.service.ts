@@ -10,7 +10,7 @@ import { DELIVERY_REFRESH_SCHEDULER_ID, DELIVERY_TODAY_REFRESH_SCHEDULER_ID, del
 
 type AggregatedRow = {
   bucketStart: Date;
-  metricType: 'hourly' | 'dma' | 'creative';
+  metricType: 'hourly' | 'dma' | 'creative' | 'bid';
   filterId: number | null;
   lineItemId: string | null;
   dimension: string;
@@ -18,6 +18,7 @@ type AggregatedRow = {
   installs: number;
   bidRequests: number;
   bids: number;
+  bidPriceUSD: number;
   ipm: number;
 };
 
@@ -176,7 +177,8 @@ impression_metrics AS (
     count(*) AS impressions,
     0 AS installs,
     0 AS bid_requests,
-    0 AS bids
+    0 AS bids,
+    0.0 AS bid_price_usd
   FROM impression_events
   GROUP BY GROUPING SETS (
     (bucket_start, filter_id, line_item_id),
@@ -184,21 +186,34 @@ impression_metrics AS (
     (day_start, filter_id, line_item_id, creative)
   )
 )
-SELECT bucket_start, metric_type, filter_id, line_item_id, dimension, impressions, installs, bid_requests, bids,
+SELECT bucket_start, metric_type, filter_id, line_item_id, dimension, impressions, installs, bid_requests, bids, bid_price_usd,
   round(1000.0 * installs / nullif(impressions, 0), 4) AS ipm
 FROM (
   SELECT * FROM impression_metrics${config.bidMetricsEnabled ? `
   UNION ALL
   SELECT bucket_start, 'hourly' AS metric_type, CAST(NULL AS bigint) AS filter_id, CAST(NULL AS varchar) AS line_item_id, 'ALL' AS dimension,
     0 AS impressions, 0 AS installs, count(*) AS bid_requests,
-    sum(CASE WHEN bid_count > 0 THEN 1 ELSE 0 END) AS bids
+    sum(CASE WHEN bid_count > 0 THEN 1 ELSE 0 END) AS bids, 0.0 AS bid_price_usd
   FROM (
     SELECT date_trunc('hour', from_iso8601_timestamp(json_extract_scalar(raw_json, '$.timestamp'))) AS bucket_start,
       cardinality(coalesce(cast(json_extract(raw_json, '$.response.bids') AS array(json)), cast(array[] AS array(json)))) AS bid_count
     FROM ${config.bidTable}
     WHERE "date" = '${date}'
   ) bid_events
-  GROUP BY bucket_start` : ''}
+  GROUP BY bucket_start
+  UNION ALL
+  SELECT bucket_start, 'bid' AS metric_type, CAST(NULL AS bigint) AS filter_id, line_item_id, 'ALL' AS dimension,
+    0 AS impressions, 0 AS installs, count(*) AS bid_requests, count(*) AS bids, avg(price_usd) AS bid_price_usd
+  FROM (
+    SELECT date_trunc('hour', from_iso8601_timestamp(json_extract_scalar(raw_json, '$.timestamp'))) AS bucket_start,
+      json_extract_scalar(raw_json, '$.result.LineItemID') AS line_item_id,
+      try_cast(json_extract_scalar(raw_json, '$.result.PriceUSD') AS double) AS price_usd
+    FROM ${config.bidTable}
+    WHERE "date" = '${date}'
+      AND json_extract_scalar(raw_json, '$.result.LineItemID') IS NOT NULL
+      AND try_cast(json_extract_scalar(raw_json, '$.result.PriceUSD') AS double) IS NOT NULL
+  ) line_item_bid_events
+  GROUP BY bucket_start, line_item_id` : ''}
 )
 ORDER BY bucket_start, metric_type, dimension
 `;
@@ -336,7 +351,7 @@ async function fetchElasticInstalls(from: Date, to: Date, filters = parseDeliver
 
 function parseRows(rows: string[][]): AggregatedRow[] {
   return rows.flatMap((row) => {
-    if (row.length < 10) return [];
+    if (row.length < 11) return [];
     const bucketStart = new Date(row[0]!);
     if (Number.isNaN(bucketStart.getTime())) return [];
     return [{
@@ -349,7 +364,8 @@ function parseRows(rows: string[][]): AggregatedRow[] {
       installs: Number(row[6]) || 0,
       bidRequests: Number(row[7]) || 0,
       bids: Number(row[8]) || 0,
-      ipm: Number(row[9]) || 0,
+      bidPriceUSD: Number(row[9]) || 0,
+      ipm: Number(row[10]) || 0,
     }];
   });
 }
@@ -364,7 +380,7 @@ export function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticIns
     const hourlyKey = `${hour.getTime()}\u0000${install.filterId}\u0000${install.lineItemId}`;
     let hourRow = hourly.get(hourlyKey);
     if (!hourRow) {
-      hourRow = { bucketStart: hour, metricType: 'hourly', filterId: install.filterId, lineItemId: install.lineItemId, dimension: 'ALL', impressions: 0, installs: 0, bidRequests: 0, bids: 0, ipm: 0 };
+      hourRow = { bucketStart: hour, metricType: 'hourly', filterId: install.filterId, lineItemId: install.lineItemId, dimension: 'ALL', impressions: 0, installs: 0, bidRequests: 0, bids: 0, bidPriceUSD: 0, ipm: 0 };
       rows.push(hourRow);
       hourly.set(hourlyKey, hourRow);
     }
@@ -375,7 +391,7 @@ export function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticIns
     const dmaKey = `${day.getTime()}\u0000${install.filterId}\u0000${install.lineItemId}\u0000${install.dma}`;
     let dmaRow = dma.get(dmaKey);
     if (!dmaRow) {
-      dmaRow = { bucketStart: day, metricType: 'dma', filterId: install.filterId, lineItemId: install.lineItemId, dimension: install.dma, impressions: 0, installs: 0, bidRequests: 0, bids: 0, ipm: 0 };
+      dmaRow = { bucketStart: day, metricType: 'dma', filterId: install.filterId, lineItemId: install.lineItemId, dimension: install.dma, impressions: 0, installs: 0, bidRequests: 0, bids: 0, bidPriceUSD: 0, ipm: 0 };
       rows.push(dmaRow);
       dma.set(dmaKey, dmaRow);
     }
@@ -384,7 +400,7 @@ export function mergeElasticInstalls(rows: AggregatedRow[], installs: ElasticIns
     const key = `${day.getTime()}\u0000${install.filterId}\u0000${install.lineItemId}\u0000${install.creative}`;
     let creativeRow = creative.get(key);
     if (!creativeRow) {
-      creativeRow = { bucketStart: day, metricType: 'creative', filterId: install.filterId, lineItemId: install.lineItemId, dimension: install.creative, impressions: 0, installs: 0, bidRequests: 0, bids: 0, ipm: 0 };
+      creativeRow = { bucketStart: day, metricType: 'creative', filterId: install.filterId, lineItemId: install.lineItemId, dimension: install.creative, impressions: 0, installs: 0, bidRequests: 0, bids: 0, bidPriceUSD: 0, ipm: 0 };
       rows.push(creativeRow);
       creative.set(key, creativeRow);
     }
@@ -510,6 +526,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     orderBy: { bucketStart: 'asc' },
   }) as Array<AggregatedRow & { updatedAt: Date }>;
   const bidMetricsEnabled = !normalizedLineItemId && isBidMetricsEnabledForFilter(config, filterId);
+  const bidPricesEnabled = isBidMetricsEnabledForFilter(config, filterId);
   const selectedSourceRows = filterId === undefined
     ? rows
     : rows.filter((row) => (row.filterId === filterId && (!normalizedLineItemId || row.lineItemId === normalizedLineItemId)) || (
@@ -523,6 +540,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
       current.installs += row.installs;
       current.bidRequests += row.bidRequests;
       current.bids += row.bids;
+      current.bidPriceUSD += row.bidPriceUSD;
       current.ipm = current.impressions ? (current.installs / current.impressions) * 1000 : 0;
     } else {
       result.set(key, { ...row, filterId: filterId ?? null });
@@ -597,10 +615,11 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     },
     filters: config.filters.map(({ id }) => id),
     filterLabels: Object.fromEntries(config.filters.map(({ id, label }) => [id, label])),
-    lineItems: filterId === undefined ? [] : Array.from(new Set(rows.filter((row) => row.filterId === filterId && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil).map((row) => row.lineItemId as string))).sort().map((id) => ({ id, label: id })),
+    lineItems: filterId === undefined ? [] : Array.from(new Set(rows.filter((row) => (row.filterId === filterId || row.metricType === 'bid') && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil).map((row) => row.lineItemId as string))).sort().map((id) => ({ id, label: id })),
     selectedFilterId: filterId ?? null,
     selectedLineItemId: normalizedLineItemId ?? null,
     bidMetricsEnabled,
+    bidPricesEnabled,
     lastUpdated: lastUpdated?.toISOString() || null,
     metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: total('bidRequests'), bids: total('bids'), ipm: roundToTwo(total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0) },
     hourly: hourly.map((row) => ({
@@ -613,6 +632,9 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
       bidRate: row.bidRequests ? (row.bids / row.bidRequests) * 100 : 0,
       winRate: row.bids ? (row.impressions / row.bids) * 100 : 0,
     })),
+    bidPrices: rows.filter((row) => row.metricType === 'bid' && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil && (!normalizedLineItemId || row.lineItemId === normalizedLineItemId))
+      .map((row) => ({ time: row.bucketStart.toISOString(), lineItemId: row.lineItemId as string, priceUSD: roundToTwo(row.bidPriceUSD) }))
+      .sort((left, right) => left.time.localeCompare(right.time) || left.lineItemId.localeCompare(right.lineItemId)),
     comparison: Array.from(comparisonByHour.values())
       .sort((left, right) => left.time.getTime() - right.time.getTime())
       .map((row) => ({ time: row.time.toISOString(), today: row.today, yesterday: row.yesterday })),
