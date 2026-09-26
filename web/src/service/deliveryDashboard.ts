@@ -11,6 +11,7 @@ export interface DeliveryDashboardResponse {
   selectedLineItemId: string | null;
   bidMetricsEnabled: boolean;
   bidPricesEnabled: boolean;
+  winRateEnabled: boolean;
   lastUpdated: string | null;
   metrics: { impressions: number; installs: number; bidRequests: number; bids: number; ipm: number };
   hourly: Array<{ time: string; ipm: number; previousIpm: number; impressions: number; installs: number; bidResponses: number; bidRate: number; winRate: number }>;

@@ -165,6 +165,11 @@ WITH impression_events AS (
     AND from_iso8601_timestamp(substr("timestamp", 1, 19)) >= CAST(DATE '${date}' AS timestamp)
     AND from_iso8601_timestamp(substr("timestamp", 1, 19)) < CAST(date_add('day', 1, DATE '${date}') AS timestamp)
 ),
+matched_line_items AS (
+  SELECT DISTINCT filter_id, line_item_id
+  FROM impression_events
+  WHERE filter_id IS NOT NULL AND line_item_id IS NOT NULL
+),
 impression_metrics AS (
   SELECT
     CASE WHEN grouping(bucket_start) = 0 THEN bucket_start ELSE day_start END AS bucket_start,
@@ -191,18 +196,22 @@ SELECT bucket_start, metric_type, filter_id, line_item_id, dimension, impression
 FROM (
   SELECT * FROM impression_metrics${config.bidMetricsEnabled ? `
   UNION ALL
-  SELECT bucket_start, 'bid' AS metric_type, CAST(NULL AS bigint) AS filter_id, line_item_id, 'ALL' AS dimension,
-    0 AS impressions, 0 AS installs, count(*) AS bid_requests, count(*) AS bids, avg(price_usd) AS bid_price_usd
+  SELECT bucket_start, 'bid' AS metric_type, filter_id, line_item_id, 'ALL' AS dimension,
+    0 AS impressions, 0 AS installs, 0 AS bid_requests, count(*) AS bids, avg(price_usd) AS bid_price_usd
   FROM (
-    SELECT date_trunc('hour', from_iso8601_timestamp(json_extract_scalar(raw_json, '$.timestamp'))) AS bucket_start,
-      json_extract_scalar(raw_json, '$.result.LineItemID') AS line_item_id,
-      try_cast(json_extract_scalar(raw_json, '$.result.PriceUSD') AS double) AS price_usd
+    SELECT date_trunc('hour', from_iso8601_timestamp(json_extract_scalar(bids.raw_json, '$.timestamp'))) AS bucket_start,
+      matched.filter_id,
+      json_extract_scalar(bids.raw_json, '$.result.LineItemID') AS line_item_id,
+      try_cast(json_extract_scalar(bids.raw_json, '$.result.PriceUSD') AS double) AS price_usd
     FROM ${config.bidTable}
-    WHERE "date" = '${date}'
-      AND json_extract_scalar(raw_json, '$.result.LineItemID') IS NOT NULL
-      AND try_cast(json_extract_scalar(raw_json, '$.result.PriceUSD') AS double) IS NOT NULL
+      bids
+    JOIN matched_line_items matched
+      ON json_extract_scalar(bids.raw_json, '$.result.LineItemID') = matched.line_item_id
+    WHERE bids."date" = '${date}'
+      AND json_extract_scalar(bids.raw_json, '$.result.LineItemID') IS NOT NULL
+      AND try_cast(json_extract_scalar(bids.raw_json, '$.result.PriceUSD') AS double) IS NOT NULL
   ) line_item_bid_events
-  GROUP BY bucket_start, line_item_id` : ''}
+  GROUP BY bucket_start, filter_id, line_item_id` : ''}
 )
 ORDER BY bucket_start, metric_type, dimension
 `;
@@ -519,6 +528,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
   // Bidding requests have no reliable Click URL association, so don't mix their global totals into Click URL metrics.
   const bidMetricsEnabled = false;
   const bidPricesEnabled = isBidMetricsEnabledForFilter(config, filterId);
+  const winRateEnabled = bidPricesEnabled;
   const selectedSourceRows = filterId === undefined
     ? rows
     : rows.filter((row) => (row.filterId === filterId && (!normalizedLineItemId || row.lineItemId === normalizedLineItemId)) || (
@@ -541,6 +551,10 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
   }, new Map<string, AggregatedRow & { updatedAt: Date }>()).values());
   const allHourly = selectedRows.filter((row) => row.metricType === 'hourly');
   const hourly = allHourly.filter((row) => row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);
+  const matchedBidsByHour = selectedRows
+    .filter((row) => row.metricType === 'bid' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil)
+    .reduce((result, row) => result.set(row.bucketStart.getTime(), (result.get(row.bucketStart.getTime()) || 0) + row.bids), new Map<number, number>());
+  const totalMatchedBids = Array.from(matchedBidsByHour.values()).reduce((sum, bids) => sum + bids, 0);
   const dma = selectedRows.filter((row) => row.metricType === 'dma' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);
   const creative = selectedRows.filter((row) => row.metricType === 'creative' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);
   const today = hourly;
@@ -615,19 +629,20 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     selectedLineItemId: normalizedLineItemId ?? null,
     bidMetricsEnabled,
     bidPricesEnabled,
+    winRateEnabled,
     lastUpdated: lastUpdated?.toISOString() || null,
-    metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: total('bidRequests'), bids: total('bids'), ipm: roundToTwo(total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0) },
+    metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: 0, bids: totalMatchedBids, ipm: roundToTwo(total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0) },
     hourly: hourly.map((row) => ({
       time: row.bucketStart.toISOString(),
       ipm: roundToTwo(row.ipm),
       previousIpm: roundToTwo(previousHourlyByHour.get(row.bucketStart.getTime())?.ipm || 0),
       impressions: row.impressions,
       installs: row.installs,
-      bidResponses: row.bids,
+      bidResponses: matchedBidsByHour.get(row.bucketStart.getTime()) || 0,
       bidRate: row.bidRequests ? (row.bids / row.bidRequests) * 100 : 0,
-      winRate: row.bids ? (row.impressions / row.bids) * 100 : 0,
+      winRate: matchedBidsByHour.get(row.bucketStart.getTime()) ? (row.impressions / matchedBidsByHour.get(row.bucketStart.getTime())!) * 100 : 0,
     })),
-    bidPrices: rows.filter((row) => row.metricType === 'bid' && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil && (!normalizedLineItemId || row.lineItemId === normalizedLineItemId) && (filterId === undefined || matchedLineItemIds.has(row.lineItemId)))
+    bidPrices: rows.filter((row) => row.metricType === 'bid' && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil && normalizedLineItemId && row.lineItemId === normalizedLineItemId && (filterId === undefined || matchedLineItemIds.has(row.lineItemId)))
       .map((row) => ({ time: row.bucketStart.toISOString(), lineItemId: row.lineItemId as string, priceUSD: roundToTwo(row.bidPriceUSD) }))
       .sort((left, right) => left.time.localeCompare(right.time) || left.lineItemId.localeCompare(right.lineItemId)),
     comparison: Array.from(comparisonByHour.values())
