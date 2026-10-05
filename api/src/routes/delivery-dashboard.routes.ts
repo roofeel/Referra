@@ -4,6 +4,10 @@ export const deliveryDashboardRoutes = {
   '/api/delivery-dashboard': {
     GET: deliveryDashboardController.get,
   },
+  '/api/delivery-dashboard/settings': {
+    GET: deliveryDashboardController.getSettings,
+    PUT: deliveryDashboardController.updateSettings,
+  },
   '/api/delivery-dashboard/refresh': {
     POST: deliveryDashboardController.refresh,
   },

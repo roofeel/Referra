@@ -1,3 +1,5 @@
+import { getDeliveryMetricFilterSettings, saveDeliveryMetricFilterSettings } from '../services/delivery-metric-settings.service.js';
+import { parseDeliveryMetricFilters } from '../lib/delivery-metric-filters.lib.js';
 import { getDeliveryDashboard, getDeliveryRefreshSchedule, listDeliveryRefreshLogs, refreshDeliveryMetrics, runDeliveryRefreshJob, updateDeliveryRefreshSchedule } from '../services/delivery-dashboard.service.js';
 
 function parseDate(value: string | null) {
@@ -35,6 +37,21 @@ export const deliveryDashboardController = {
     const date = parseDate(url.searchParams.get('date'));
     const result = await runDeliveryRefreshJob(date);
     return Response.json({ status: 'completed', date, ...result });
+  },
+
+  async getSettings() {
+    return Response.json(await getDeliveryMetricFilterSettings());
+  },
+  async updateSettings(request: Request) {
+    let filters;
+    try {
+      const body = await request.json() as unknown;
+      if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('Settings must be a JSON object');
+      filters = parseDeliveryMetricFilters((body as Record<string, unknown>).filters);
+    } catch (error) {
+      return Response.json({ error: error instanceof Error ? error.message : 'Invalid filters JSON' }, { status: 400 });
+    }
+    return Response.json(await saveDeliveryMetricFilterSettings(filters));
   },
 
   async getSchedule() { return Response.json(await getDeliveryRefreshSchedule()); },

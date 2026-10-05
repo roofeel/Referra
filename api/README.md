@@ -38,9 +38,6 @@ ATHENA_IMPRESSION_PARTITION=month
 ATHENA_IMPRESSION_PARTITION_PADDING_DAYS=1
 ATHENA_INSTALL_TABLE=tracking_lb_logs
 ATHENA_BID_TABLE=fm_bidding_agent_test_bids
-# Optional ID filters. JSON entries may use clickUrlId, showBid, and name (or clickUrlLabel).
-# The name/clickUrlLabel is displayed by the dashboard. Omit to disable ID filtering.
-DELIVERY_METRICS_FILTERS='[{"clickUrlId":23703,"showBid":true,"name":"Custom Bidder A"},{"clickUrlId":45678,"showBid":false,"name":"Custom Bidder B"}]'
 ELASTICSEARCH_URL=https://your-domain.us-east-1.es.amazonaws.com
 ELASTICSEARCH_INDEX=conversion_records-*
 DELIVERY_METRICS_ENABLED=true
@@ -59,6 +56,17 @@ You can also copy from `api/.env.example`:
 ```bash
 cp api/.env.example api/.env
 ```
+
+Configure delivery filters in **Settings → Delivery Metrics** using a JSON array, then save:
+
+```json
+[
+  { "clickUrlId": 23703, "showBid": true, "name": "Custom Bidder A" },
+  { "clickUrlId": 45678, "showBid": false, "name": "Custom Bidder B" }
+]
+```
+
+The configuration is stored in PostgreSQL and read by both the dashboard and refresh worker. An empty array disables ID filtering and bid metrics. Saved changes apply without a restart; refresh the relevant dates to rebuild existing metrics with changed IDs or bid settings. Existing environment-based filters must be copied into this page. Run `bun run db:migrate` before starting the updated API and worker.
 
 Run API:
 

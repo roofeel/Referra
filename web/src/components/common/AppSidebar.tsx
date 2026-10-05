@@ -8,6 +8,7 @@ type SidebarItemKey =
   | 'manual-attributed'
   | 'cron-schedules'
   | 'job-logs'
+  | 'delivery-metrics'
   | 'non-attributed-reports'
   | 'mcp-docs';
 
@@ -23,6 +24,7 @@ const primarySidebarItems: SidebarItem[] = [
 ];
 
 const settingSidebarItems: SidebarItem[] = [
+  { key: 'delivery-metrics', label: 'Delivery Metrics', icon: 'tune', to: '/settings/delivery-metrics' },
   { key: 'cron-schedules', label: 'Cron Schedules', icon: 'schedule', to: '/settings/cron-schedules' },
   { key: 'job-logs', label: 'Job Logs', icon: 'list_alt', to: '/settings/job-logs' },
 ];

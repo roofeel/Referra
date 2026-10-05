@@ -244,3 +244,9 @@ model DeliveryRefreshLog {
   @@index([jobId, createdAt])
   @@index([status, createdAt])
 }
+
+model DeliveryDashboardSettings {
+  id        String   @id @default("delivery-dashboard")
+  filters   Json     @default("[]")
+  updatedAt DateTime @updatedAt
+}

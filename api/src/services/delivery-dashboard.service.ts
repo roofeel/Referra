@@ -7,6 +7,8 @@ import { HttpRequest } from '@smithy/protocol-http';
 import { db } from '../../../packages/db/index.js';
 import { createAthenaClient, createElasticsearchSigner } from '../lib/aws-clients.lib.js';
 import { DELIVERY_REFRESH_SCHEDULER_ID, DELIVERY_TODAY_REFRESH_SCHEDULER_ID, deliveryRefreshQueue } from '../queues/delivery-dashboard.queue.js';
+import { getDeliveryMetricFilters } from './delivery-metric-settings.service.js';
+import type { DeliveryMetricFilter } from '../lib/delivery-metric-filters.lib.js';
 
 type AggregatedRow = {
   bucketStart: Date;
@@ -29,8 +31,6 @@ type ElasticInstall = {
   creative: string;
   dma: string;
 };
-
-export type DeliveryMetricFilter = { id: number; showBid: boolean; label: string };
 
 function roundToTwo(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -55,43 +55,11 @@ function identifier(value: string, name: string) {
   return value;
 }
 
-export function parseDeliveryMetricFilters(value = process.env.DELIVERY_METRICS_FILTERS || process.env.DELIVERY_METRICS_FILTER || ''): DeliveryMetricFilter[] {
-  if (!value.trim()) return [];
-
-  if (value.trim().startsWith('[')) {
-    let entries: unknown;
-    try {
-      entries = JSON.parse(value);
-    } catch {
-      throw new Error('DELIVERY_METRICS_FILTERS contains invalid JSON');
-    }
-    if (!Array.isArray(entries)) throw new Error('DELIVERY_METRICS_FILTERS JSON must be an array');
-    return entries.map((entry, index) => {
-      if (!entry || typeof entry !== 'object') throw new Error(`DELIVERY_METRICS_FILTERS entry ${index + 1} must be an object`);
-      const config = entry as { id?: unknown; clickUrlId?: unknown; showBid?: unknown; label?: unknown; clickUrlLabel?: unknown; name?: unknown };
-      const idValue = config.clickUrlId ?? config.id;
-      const id = typeof idValue === 'number' ? idValue : Number(idValue);
-      if (!Number.isSafeInteger(id) || id < 0) throw new Error(`DELIVERY_METRICS_FILTERS contains an invalid id: ${String(idValue)}`);
-      if (typeof config.showBid !== 'boolean') throw new Error(`DELIVERY_METRICS_FILTERS contains an invalid showBid value for ${id}`);
-      const label = config.clickUrlLabel ?? config.label ?? config.name;
-      return { id, showBid: config.showBid, label: typeof label === 'string' && label.trim() ? label.trim() : `Click URL ${id}` };
-    });
-  }
-
-  return value.split(',').map((entry) => entry.trim()).filter(Boolean).map((entry) => {
-    const [idValue, showBidValue = 'false', ...labelParts] = entry.split(':').map((part) => part.trim());
-    const id = Number(idValue);
-    if (!Number.isSafeInteger(id) || id < 0) throw new Error(`DELIVERY_METRICS_FILTERS contains an invalid id: ${idValue}`);
-    if (!/^(true|false)$/i.test(showBidValue)) throw new Error(`DELIVERY_METRICS_FILTERS contains an invalid showBid value for ${idValue}`);
-    return { id, showBid: showBidValue.toLowerCase() === 'true', label: labelParts.join(':') || `Click URL ${id}` };
-  });
-}
-
-function getConfig() {
+async function getConfig() {
   const impressionTable = identifier(process.env.ATHENA_IMPRESSION_TABLE?.trim() || 'impression_logs_daily', 'ATHENA_IMPRESSION_TABLE');
   const installTable = identifier(process.env.ATHENA_INSTALL_TABLE?.trim() || 'tracking_lb_logs', 'ATHENA_INSTALL_TABLE');
   const bidTable = identifier(process.env.ATHENA_BID_TABLE?.trim() || 'fm_bidding_agent_production_bids', 'ATHENA_BID_TABLE');
-  const filters = parseDeliveryMetricFilters();
+  const filters = await getDeliveryMetricFilters();
   const impressionPartition = process.env.ATHENA_IMPRESSION_PARTITION?.trim() || 'day';
   if (impressionPartition !== 'month' && impressionPartition !== 'day') {
     throw new Error('ATHENA_IMPRESSION_PARTITION must be month or day');
@@ -114,7 +82,7 @@ function getConfig() {
   };
 }
 
-function isBidMetricsEnabledForFilter(config: ReturnType<typeof getConfig>, filterId?: number) {
+function isBidMetricsEnabledForFilter(config: Awaited<ReturnType<typeof getConfig>>, filterId?: number) {
   if (filterId === undefined) return config.bidMetricsEnabled;
   return config.filters.some((filter) => filter.id === filterId && filter.showBid);
 }
@@ -132,7 +100,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function buildAggregationSql(config: ReturnType<typeof getConfig>, date: string) {
+export function buildAggregationSql(config: Awaited<ReturnType<typeof getConfig>>, date: string) {
   // Athena's URL helper decodes query parameters (including '+' and percent
   // encoding), keeping impression dimensions identical to the ES parser below.
   const creativeExpression = "coalesce(nullif(url_extract_parameter(url, 'CREATIVE'), ''), 'Unknown')";
@@ -217,7 +185,7 @@ ORDER BY bucket_start, metric_type, dimension
 `;
 }
 
-async function runQuery(query: string, config: ReturnType<typeof getConfig>) {
+async function runQuery(query: string, config: Awaited<ReturnType<typeof getConfig>>) {
   const athena = createAthenaClient();
   const started = await athena.send(new StartQueryExecutionCommand({
     QueryString: query,
@@ -285,7 +253,7 @@ function extractDma(url: string) {
   return extractUrlParam(url, 'DMA');
 }
 
-async function fetchElasticInstalls(from: Date, to: Date, filters = parseDeliveryMetricFilters()): Promise<ElasticInstall[]> {
+async function fetchElasticInstalls(from: Date, to: Date, filters: DeliveryMetricFilter[]): Promise<ElasticInstall[]> {
   const config = getElasticConfig();
   const installs: ElasticInstall[] = [];
   let searchAfter: unknown[] | undefined;
@@ -415,7 +383,7 @@ export async function refreshDeliveryMetrics(date = new Date().toISOString().sli
   const running = refreshPromises.get(date);
   if (running) return running;
   const refreshPromise = (async () => {
-    const config = getConfig();
+    const config = await getConfig();
     const rows = parseRows(await runQuery(buildAggregationSql(config, date), config));
     const from = new Date(`${date}T00:00:00.000Z`);
     const to = new Date(from);
@@ -509,7 +477,7 @@ async function syncDeliveryTodayRefreshScheduler(enabled: boolean) {
 }
 
 export async function getDeliveryDashboard(startDate = new Date().toISOString().slice(0, 10), endDate = startDate, filterId?: number, lineItemId?: string) {
-  const config = getConfig();
+  const config = await getConfig();
   if (filterId !== undefined && !config.filters.some((filter) => filter.id === filterId)) {
     throw new Error(`Unknown delivery metrics click url id: ${filterId}`);
   }
