@@ -20,6 +20,7 @@ import {
 import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
 import { deliveryDashboardApi, type DeliveryDashboardResponse } from '../service/deliveryDashboard';
+import { buildDailyCsvRows, downloadCsv } from '../components/dashboard/dashboardCsv';
 
 const tooltipStyle = { borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 8px 24px rgba(15,23,42,.08)', fontSize: 12 };
 
@@ -66,11 +67,6 @@ function formatDateLabel(start: string, end: string) {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
-}
-
-function csvEscape(value: string | number) {
-  const text = String(value);
-  return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
 function formatHourlyTooltip(value: unknown, name: unknown) {
@@ -123,6 +119,9 @@ export default function Dashboard() {
   const selectedFilterIdParam = searchParams.get('filterId');
   const selectedFilterId = selectedFilterIdParam && /^\d+$/.test(selectedFilterIdParam) ? Number(selectedFilterIdParam) : undefined;
   const selectedLineItemIdParam = searchParams.get('lineItemId') || undefined;
+  const requestKey = JSON.stringify([startDate, endDate, selectedFilterId, selectedLineItemIdParam]);
+  const [loadedRequestKey, setLoadedRequestKey] = useState<string | null>(null);
+  const canDownloadDaily = selectedFilterId !== undefined && loadedRequestKey === requestKey && !loadError && !!dashboard?.hourly.length;
   const chartData = dashboard?.hourly.map((point) => ({ ...point, time: formatUtcTime(point.time) })) ?? [];
   const bidPriceLineItems = Array.from(new Set(dashboard?.bidPrices.map((point) => point.lineItemId) ?? []));
   const bidPriceChartData = Array.from((dashboard?.bidPrices ?? []).reduce((byTime, point) => {
@@ -163,6 +162,7 @@ export default function Dashboard() {
         const payload = await deliveryDashboardApi.get(startDate, endDate, selectedFilterId, selectedLineItemIdParam);
         if (!alive) return;
         setDashboard(payload);
+        setLoadedRequestKey(requestKey);
         setLoadError(null);
         if (payload.lastUpdated) setLastUpdated(new Date(payload.lastUpdated));
       } catch (error) {
@@ -173,7 +173,7 @@ export default function Dashboard() {
     if (!autoRefresh) return () => { alive = false; };
     const timer = window.setInterval(load, 60_000);
     return () => { alive = false; window.clearInterval(timer); };
-  }, [autoRefresh, startDate, endDate, selectedFilterId, selectedLineItemIdParam]);
+  }, [autoRefresh, startDate, endDate, selectedFilterId, selectedLineItemIdParam, requestKey]);
 
   const totalToday = dashboard?.metrics.impressions ?? 0;
   const liveIpm = dashboard ? dashboard.metrics.ipm.toFixed(2) : '—';
@@ -205,14 +205,13 @@ export default function Dashboard() {
   function downloadCreatives() {
     const header = ['Creative', 'IPM', 'Impressions', 'Installs'];
     const rows = liveCreativeData.map((item) => [item.creative, item.ipm.toFixed(2), item.impressions, item.installs]);
-    const csv = [header, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n');
-    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `creatives-by-ipm-${startDate}${startDate === endDate ? '' : `-to-${endDate}`}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadCsv([header, ...rows], `creatives-by-ipm-${startDate}${startDate === endDate ? '' : `-to-${endDate}`}.csv`);
+  }
+
+  function downloadDaily() {
+    if (!dashboard || !canDownloadDaily) return;
+    const lineItemSuffix = dashboard.selectedLineItemId ? `-line-item-${encodeURIComponent(dashboard.selectedLineItemId)}` : '';
+    downloadCsv(buildDailyCsvRows(dashboard), `delivery-daily-${startDate}${startDate === endDate ? '' : `-to-${endDate}`}-strategy-${dashboard.selectedFilterId}${lineItemSuffix}.csv`);
   }
 
   const selectedDateValue = new Date(`${startDate}T00:00:00Z`);
@@ -251,6 +250,7 @@ export default function Dashboard() {
           <section className="flex flex-wrap items-end justify-between gap-4">
             <div><p className="mt-1 text-sm text-slate-500">Aggregated from impression, install and bidding streams.</p>{loadError ? <p className="mt-2 text-xs font-semibold text-rose-600">Athena unavailable: {loadError}</p> : dashboard ? <p className="mt-2 text-xs font-semibold text-emerald-600">Live Athena data · {dashboard.lastUpdated ? `${formatUtcDateTime(dashboard.lastUpdated)} UTC` : 'waiting for first aggregation'}</p> : <p className="mt-2 text-xs font-semibold text-amber-600">Loading Athena aggregates…</p>}</div>
             <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={downloadDaily} disabled={!canDownloadDaily} title="Download daily totals for the selected filters (UTC)" className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"><span className="material-symbols-outlined text-sm" aria-hidden="true">download</span>Download daily CSV</button>
               <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Strategy</span><select value={selectedFilterIdParam ?? ''} onChange={(event) => { const next: { startDate: string; endDate: string; filterId?: string } = { startDate, endDate }; if (event.target.value) next.filterId = event.target.value; setSearchParams(next, { replace: true }); }} className="border-0 bg-transparent p-0 pr-5 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">Select a Strategy</option>{(dashboard?.filters ?? []).map((id) => <option key={id} value={id}>{dashboard?.filterLabels?.[id] ?? `Click URL ${id}`}</option>)}</select></label>
               {selectedFilterId !== undefined ? <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm"><span>Line Item</span><select value={selectedLineItemIdParam ?? ''} onChange={(event) => { const next: { startDate: string; endDate: string; filterId?: string; lineItemId?: string } = { startDate, endDate, filterId: selectedFilterIdParam || undefined }; if (event.target.value) next.lineItemId = event.target.value; setSearchParams(next, { replace: true }); }} className="max-w-52 border-0 bg-transparent p-0 pr-5 text-xs font-semibold text-slate-800 outline-none focus:ring-0"><option value="">All Line Items</option>{(dashboard?.lineItems ?? []).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label> : null}
               <div className="relative" ref={datePickerRef}>
