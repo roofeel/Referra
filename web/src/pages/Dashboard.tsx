@@ -130,7 +130,7 @@ export default function Dashboard() {
     byTime.set(point.time, row);
     return byTime;
   }, new Map<string, Record<string, string | number>>()).values());
-  const bidReasonChartData = dashboard?.bidReasonCounts.map((point) => ({ ...point, time: formatUtcTime(point.time) })) ?? [];
+  const bidReasonChartData = dashboard?.bidReasonCounts?.map((point) => ({ ...point, time: formatUtcTime(point.time) })) ?? [];
   const liveCreativeData = dashboard?.creative || [];
   const creativePageSize = 10;
   const creativeTotalPages = Math.max(1, Math.ceil(liveCreativeData.length / creativePageSize));
