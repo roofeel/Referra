@@ -494,7 +494,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
   // Ignore legacy global bid rows created before bid requests were kept separate from Click URL metrics.
   const rows = storedRows.filter((row) => !(row.metricType === 'hourly' && row.filterId === null && row.lineItemId === null && row.dimension === 'ALL' && (row.bidRequests > 0 || row.bids > 0)));
   // Bidding requests have no reliable Click URL association, so don't mix their global totals into Click URL metrics.
-  const bidMetricsEnabled = false;
+  const bidMetricsEnabled = isBidMetricsEnabledForFilter(config, filterId);
   const bidPricesEnabled = isBidMetricsEnabledForFilter(config, filterId);
   const winRateEnabled = bidPricesEnabled;
   const selectedSourceRows = filterId === undefined
