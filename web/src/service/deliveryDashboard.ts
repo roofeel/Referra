@@ -16,6 +16,7 @@ export interface DeliveryDashboardResponse {
   metrics: { impressions: number; installs: number; bidRequests: number; bids: number; ipm: number };
   hourly: Array<{ time: string; ipm: number; previousIpm: number; impressions: number; installs: number; bidResponses: number; bidRate: number; winRate: number }>;
   bidPrices: Array<{ time: string; lineItemId: string; priceUSD: number }>;
+  bidReasonCounts: Array<{ time: string; bid: number; noBid: number }>;
   comparison: Array<{ time: string; today: number; yesterday: number }>;
   dma: Array<{ dma: string; ipm: number; impressions: number; installs: number; impressionShare: number }>;
   creative: Array<{ creative: string; ipm: number; impressions: number; installs: number }>;

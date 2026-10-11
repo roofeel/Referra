@@ -130,6 +130,7 @@ export default function Dashboard() {
     byTime.set(point.time, row);
     return byTime;
   }, new Map<string, Record<string, string | number>>()).values());
+  const bidReasonChartData = dashboard?.bidReasonCounts.map((point) => ({ ...point, time: formatUtcTime(point.time) })) ?? [];
   const liveCreativeData = dashboard?.creative || [];
   const creativePageSize = 10;
   const creativeTotalPages = Math.max(1, Math.ceil(liveCreativeData.length / creativePageSize));
@@ -321,6 +322,11 @@ export default function Dashboard() {
             {dashboard?.bidPricesEnabled ? <article className="rounded-xl border border-slate-200/80 bg-white p-5 xl:col-span-2">
               <div><h3 className="text-sm font-bold text-slate-900">Bid price by line item</h3><p className="mt-1 text-xs text-slate-500">Hourly average PriceUSD from bidding results</p></div>
               {bidPriceChartData.length ? <div className="mt-5 h-[270px] w-full"><ResponsiveContainer width="100%" height="100%"><LineChart data={bidPriceChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}><CartesianGrid stroke="#eef2f6" vertical={false} /><XAxis dataKey="time" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} /><YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(value) => `$${Number(value).toFixed(2)}`} /><Tooltip contentStyle={tooltipStyle} formatter={(value, name) => [`$${Number(value).toFixed(2)}`, `Line item ${String(name)}`]} />{bidPriceLineItems.map((lineItemId, index) => <Line key={lineItemId} type="monotone" dataKey={lineItemId} name={lineItemId} stroke={['#2563eb', '#14b8a6', '#f59e0b', '#8b5cf6', '#ef4444'][index % 5]} strokeWidth={2} dot={false} connectNulls />)}</LineChart></ResponsiveContainer></div> : <div className="flex h-[270px] items-center justify-center text-xs text-slate-500">{dashboard?.selectedLineItemId ? 'No bid prices for this line item and date range.' : 'Select a line item to view its bid prices.'}</div>}
+            </article> : null}
+
+            {dashboard?.bidPricesEnabled ? <article className="rounded-xl border border-slate-200/80 bg-white p-5 xl:col-span-3">
+              <div><h3 className="text-sm font-bold text-slate-900">Bid offered by hour</h3><p className="mt-1 text-xs text-slate-500">Bidding records with “Bid” in reason vs records without it</p></div>
+              {bidReasonChartData.length ? <div className="mt-5 h-[270px] w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={bidReasonChartData} barGap={3} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}><CartesianGrid stroke="#eef2f6" vertical={false} /><XAxis dataKey="time" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} /><YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(value) => formatNumber(Number(value))} /><Tooltip contentStyle={tooltipStyle} formatter={(value, name) => [formatNumber(Number(value)), String(name)]} /><Bar dataKey="bid" name="Reason contains Bid" fill="#2563eb" radius={[3, 3, 0, 0]} /><Bar dataKey="noBid" name="Reason has no Bid" fill="#f59e0b" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer></div> : <div className="flex h-[270px] items-center justify-center text-xs text-slate-500">No bid reason counts for this date range.</div>}
             </article> : null}
 
           </section>
