@@ -21,6 +21,7 @@ import { AppSidebar } from '../components/common/AppSidebar';
 import { TablePagination } from '../components/common/TablePagination';
 import { deliveryDashboardApi, type DeliveryDashboardResponse } from '../service/deliveryDashboard';
 import { buildDailyCsvRows, downloadCsv } from '../components/dashboard/dashboardCsv';
+import { ReasonCountChart } from '../components/dashboard/ReasonCountChart';
 
 const tooltipStyle = { borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 8px 24px rgba(15,23,42,.08)', fontSize: 12 };
 
@@ -336,6 +337,8 @@ export default function Dashboard() {
               <div><h3 className="text-sm font-bold text-slate-900">Bid offered by hour</h3><p className="mt-1 text-xs text-slate-500">Bidding Percentage</p></div>
               {bidReasonChartData.length ? <div className="mt-5 h-[270px] w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={bidReasonChartData} barGap={3} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}><CartesianGrid stroke="#eef2f6" vertical={false} /><XAxis dataKey="time" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} /><YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} /><Tooltip contentStyle={tooltipStyle} formatter={(value, name) => [`${Number(value).toFixed(1)}%`, String(name)]} /><Bar dataKey="bidPercentage" name="Reason contains Bid" fill="#2563eb" radius={[3, 3, 0, 0]} /><Bar dataKey="noBidPercentage" name="Reason has no Bid" fill="#f59e0b" radius={[3, 3, 0, 0]} /></BarChart></ResponsiveContainer></div> : <div className="flex h-[270px] items-center justify-center text-xs text-slate-500">No bid reason counts for this date range.</div>}
             </article> : null}
+
+            {dashboard?.bidMetricsEnabled && dashboard.selectedLineItemId ? <ReasonCountChart data={dashboard.reasonCounts ?? []} /> : null}
 
           </section>
 
