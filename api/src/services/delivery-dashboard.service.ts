@@ -554,7 +554,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
       return result;
     }, new Map<number, { time: Date; bid: number; noBid: number }>());
   const reasonCounts = selectedRows
-    .filter((row) => row.metricType === 'bid_reason' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil)
+    .filter((row) => row.metricType === 'bid_reason' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil && !['bid', 'no bid'].includes(row.dimension.trim().toLowerCase()))
     .reduce((result, row) => result.set(row.dimension, (result.get(row.dimension) || 0) + row.bids), new Map<string, number>());
   const totalMatchedBids = Array.from(matchedBidsByHour.values()).reduce((sum, bids) => sum + bids, 0);
   const dma = selectedRows.filter((row) => row.metricType === 'dma' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);

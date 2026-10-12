@@ -4,10 +4,10 @@ const tooltipStyle = { borderRadius: 10, border: '1px solid #e2e8f0', boxShadow:
 
 export function ReasonCountChart({ data }: { data: Array<{ reason: string; count: number }> }) {
   return (
-    <article className="rounded-xl border border-slate-200/80 bg-white p-5 xl:col-span-3">
+    <article className="rounded-xl border border-slate-200/80 bg-white p-5 xl:col-start-4 xl:col-span-2">
       <div>
         <h3 className="text-sm font-bold text-slate-900">Reason count by category</h3>
-        <p className="mt-1 text-xs text-slate-500">Bid responses grouped by Reason · selected line item</p>
+        <p className="mt-1 text-xs text-slate-500">Bid responses grouped by extracted Reason · selected line item</p>
       </div>
       {data.length ? (
         <div className="mt-5 h-[270px] w-full">
