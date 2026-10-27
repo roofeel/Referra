@@ -178,6 +178,12 @@ FROM (
     WHERE bids."date" = '${date}'
       AND json_extract_scalar(bids.raw_json, '$.result.LineItemID') IS NOT NULL
       AND try_cast(json_extract_scalar(bids.raw_json, '$.result.PriceUSD') AS double) IS NOT NULL
+      AND lower(coalesce(
+        json_extract_scalar(bids.raw_json, '$.reason'),
+        json_extract_scalar(bids.raw_json, '$.result.reason'),
+        json_extract_scalar(bids.raw_json, '$.result.Reason'),
+        ''
+      )) NOT LIKE '%no bid%'
   ) line_item_bid_events
   GROUP BY bucket_start, filter_id, line_item_id` : ''}
   ${config.bidMetricsEnabled ? `
