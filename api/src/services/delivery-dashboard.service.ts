@@ -183,7 +183,7 @@ FROM (
   ${config.bidMetricsEnabled ? `
   UNION ALL
   SELECT bucket_start, 'bid_reason' AS metric_type, filter_id, line_item_id, reason_category AS dimension,
-    0 AS impressions, 0 AS installs, 0 AS bid_requests, count(*) AS bids, 0.0 AS bid_price_usd
+    0 AS impressions, 0 AS installs, count(*) AS bid_requests, count(*) AS bids, 0.0 AS bid_price_usd
   FROM (
     SELECT date_trunc('hour', from_iso8601_timestamp(json_extract_scalar(bids.raw_json, '$.timestamp'))) AS bucket_start,
       matched.filter_id,
@@ -556,7 +556,12 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
   const reasonCounts = selectedRows
     .filter((row) => row.metricType === 'bid_reason' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil && !['bid', 'no bid'].includes(row.dimension.trim().toLowerCase()))
     .reduce((result, row) => result.set(row.dimension, (result.get(row.dimension) || 0) + row.bids), new Map<string, number>());
+  // Every bid record for a matched LineItemID counts as a request, whatever its reason.
+  const bidRequestsByHour = selectedRows
+    .filter((row) => row.metricType === 'bid_reason' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil)
+    .reduce((result, row) => result.set(row.bucketStart.getTime(), (result.get(row.bucketStart.getTime()) || 0) + row.bidRequests), new Map<number, number>());
   const totalMatchedBids = Array.from(matchedBidsByHour.values()).reduce((sum, bids) => sum + bids, 0);
+  const totalBidRequests = Array.from(bidRequestsByHour.values()).reduce((sum, requests) => sum + requests, 0);
   const dma = selectedRows.filter((row) => row.metricType === 'dma' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);
   const creative = selectedRows.filter((row) => row.metricType === 'creative' && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil);
   const today = hourly;
@@ -633,7 +638,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
     bidPricesEnabled,
     winRateEnabled,
     lastUpdated: lastUpdated?.toISOString() || null,
-    metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: 0, bids: totalMatchedBids, ipm: roundToTwo(total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0) },
+    metrics: { impressions: total('impressions'), installs: total('installs'), bidRequests: totalBidRequests, bids: totalMatchedBids, ipm: roundToTwo(total('impressions') ? (total('installs') / total('impressions')) * 1000 : 0) },
     hourly: hourly.map((row) => ({
       time: row.bucketStart.toISOString(),
       ipm: roundToTwo(row.ipm),
@@ -641,7 +646,7 @@ export async function getDeliveryDashboard(startDate = new Date().toISOString().
       impressions: row.impressions,
       installs: row.installs,
       bidResponses: matchedBidsByHour.get(row.bucketStart.getTime()) || 0,
-      bidRate: row.bidRequests ? (row.bids / row.bidRequests) * 100 : 0,
+      bidRate: bidRequestsByHour.get(row.bucketStart.getTime()) ? ((matchedBidsByHour.get(row.bucketStart.getTime()) || 0) / bidRequestsByHour.get(row.bucketStart.getTime())!) * 100 : 0,
       winRate: matchedBidsByHour.get(row.bucketStart.getTime()) ? (row.impressions / matchedBidsByHour.get(row.bucketStart.getTime())!) * 100 : 0,
     })),
     bidPrices: rows.filter((row) => row.metricType === 'bid' && row.lineItemId && row.bucketStart >= rangeSince && row.bucketStart < rangeUntil && normalizedLineItemId && row.lineItemId === normalizedLineItemId && (filterId === undefined || matchedLineItemIds.has(row.lineItemId)))
